@@ -85,17 +85,23 @@ class _SpikeScreenState extends State<SpikeScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                const Text('不透明度'),
+                const ExcludeSemantics(child: Text('不透明度')),
                 Expanded(
-                  child: Slider(
-                    key: const ValueKey('opacity-slider'),
-                    value: _opacity,
-                    label: '${(_opacity * 100).round()}%',
-                    onChanged: (value) => setState(() => _opacity = value),
-                    onChangeEnd: (_) => _refresh(),
+                  child: MergeSemantics(
+                    child: Semantics(
+                      label: '不透明度',
+                      child: Slider(
+                        key: const ValueKey('opacity-slider'),
+                        value: _opacity,
+                        semanticFormatterCallback: (value) =>
+                            '${(value * 100).round()}%',
+                        onChanged: (value) => setState(() => _opacity = value),
+                        onChangeEnd: (_) => _refresh(),
+                      ),
+                    ),
                   ),
                 ),
-                Text('${(_opacity * 100).round()}%'),
+                ExcludeSemantics(child: Text('${(_opacity * 100).round()}%')),
               ],
             ),
             const SizedBox(height: 12),
@@ -145,7 +151,10 @@ class DisplayListPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const logicalSize = Size(640, 360);
     canvas.save();
-    canvas.scale(size.width / logicalSize.width, size.height / logicalSize.height);
+    canvas.scale(
+      size.width / logicalSize.width,
+      size.height / logicalSize.height,
+    );
     for (final command in commands) {
       final paint = Paint()
         ..color = Color.fromRGBO(
