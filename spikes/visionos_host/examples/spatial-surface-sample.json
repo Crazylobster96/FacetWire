@@ -1,0 +1,23 @@
+{
+  "schema": "org.facetwire.spatial-surface",
+  "version": "0.1",
+  "id": "placeholder-volume",
+  "contentRef": "#placeholder-page",
+  "presentation": "volume",
+  "physicalSizeMeters": [1.0, 0.5625],
+  "depthMeters": 0.08,
+  "transform": {
+    "positionMeters": [0.0, 1.25, -1.2],
+    "rotationDegrees": [0.0, 0.0, 0.0],
+    "scale": [1.0, 1.0, 1.0]
+  },
+  "interaction": {
+    "focus": true,
+    "indirectPinch": true,
+    "directTouch": false
+  },
+  "fallback": {
+    "presentation": "window",
+    "fit": "contain"
+  }
+}
