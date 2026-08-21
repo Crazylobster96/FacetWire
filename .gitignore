@@ -1,0 +1,34 @@
+# Build outputs
+/build/
+/out/
+/dist/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# Tooling and editors
+.cache/
+.idea/
+.vscode/
+*.user
+*.suo
+*.swp
+
+# Platform artefacts
+.DS_Store
+Thumbs.db
+*.dll
+*.dylib
+*.so
+*.a
+*.lib
+*.pdb
+*.exe
+
+# Local environment
+.env
+.env.*
+!.env.example

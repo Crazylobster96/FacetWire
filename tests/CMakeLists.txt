@@ -1,0 +1,5 @@
+add_executable(facetwire_runtime_test runtime_test.c)
+target_compile_features(facetwire_runtime_test PRIVATE c_std_11)
+target_link_libraries(facetwire_runtime_test PRIVATE FacetWire::facetwire)
+
+add_test(NAME facetwire.runtime.contract COMMAND facetwire_runtime_test)
