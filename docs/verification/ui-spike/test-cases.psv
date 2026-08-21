@@ -1,0 +1,53 @@
+ID|Gate|分类|平台|构建模式|前置条件|测试步骤|预期结果|优先级|自动化方式|负责人|执行日期|状态|证据链接|实际结果|缺陷ID|备注
+NAT-001|G2|构建|Windows x64|Release|VS 2022、CMake、Ninja|配置并构建 native Spike|零警告且 DLL、测试程序生成|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|MSVC /W4 /WX 构建成功||
+NAT-002|G2|C ABI|Windows x64|Release|Native 库已构建|创建并销毁上下文|返回 OK；句柄有效；销毁无崩溃|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|生命周期断言通过||
+NAT-003|G2|运行时快照|Windows x64|Release|有效上下文|读取 UTF-8 JSON 快照并释放缓冲区|包含 ABI 版本、renderer、ready 状态|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|快照内容断言通过||
+NAT-004|G2|错误处理|Windows x64|Release|测试程序可运行|传入 NULL、NaN、越界透明度|返回 INVALID_ARGUMENT；输出清零|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|负向断言通过||
+NAT-005|G4|DisplayList|Windows x64|Release|有效上下文|渲染 200×100 占位符并解析头部|FWDL、v1、12 字节头、3 条命令、总长 132|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|格式断言通过||
+NAT-006|G4|透明度语义|Windows x64|Release|有效上下文|分别以 opacity=0 与 1 渲染|0 完全透明；1 完全不透明；编码值准确|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|边界 alpha 断言通过||
+NAT-007|G4|确定性|Windows x64|Release|参数完全相同|连续渲染两次并逐字节比较|DisplayList 与语义 JSON 完全一致|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|逐字节比较通过||
+NAT-008|G5|无障碍语义|Windows x64|Release|有效上下文|读取语义 JSON|存在 role=image 和可读 label|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|语义字段断言通过||
+NAT-009|G2|内存所有权|Windows x64|Release|已返回 Native 缓冲区|连续调用两次 buffer_release|指针和长度归零；无崩溃|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|幂等释放断言通过||
+NAT-010|G2|稳定性|Windows x64|Release|有效上下文|循环渲染并释放 1,000 次|全部成功且无崩溃|P0|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|1,000 次循环通过||后续补 ASan/Dr.Memory 证据
+NAT-011|G4|极小画布|Windows x64|Release|有效上下文|渲染 1×1 极小尺寸|所有宽高/圆角非负且可解码|P1|CTest||2026-08-21|通过|docs/verification/ui-spike/summary.md|1×1 尺寸断言通过||非整数尺寸仍待补充
+NAT-012|G2|并发|Desktop|Release|线程安全策略已确定|多线程分别创建上下文并持续渲染|无数据竞争、死锁或跨上下文污染|P0|自动化|||未执行||||
+DART-001|G2|FFI 绑定|Windows x64|Debug|Flutter 3.47.1 / Dart 3.13.1|运行 ffigen 并比较导出符号|生成代码无漂移且 analyze 通过|P0|flutter/ffigen|||阻塞||||本机尚未安装锁定 Flutter SDK
+DART-002|G4|严格解码|All|Debug|Dart SDK 可用|解码有效一命令批次|字段和浮点值准确|P0|flutter test|||阻塞||||本机尚未安装锁定 Flutter SDK
+DART-003|G4|拒绝未知版本|All|Debug|Dart SDK 可用|输入 v2 批次|抛出 FormatException，不尝试渲染|P0|flutter test|||阻塞||||本机尚未安装锁定 Flutter SDK
+DART-004|G4|拒绝未知指令|All|Debug|Dart SDK 可用|输入未定义 opcode|抛出 FormatException|P0|flutter test|||阻塞||||本机尚未安装锁定 Flutter SDK
+DART-005|G4|边界与上限|All|Debug|Dart SDK 可用|输入截断、超长、NaN、非法颜色批次|全部 fail closed；不越界读取|P0|flutter test|||阻塞||||本机尚未安装锁定 Flutter SDK
+DART-006|G2|Worker isolate|Desktop|Profile|Native 集成可运行|worker 连续渲染，UI 同时执行动画|UI 无阻塞；缓冲区转移所有权明确|P0|integration_test|||未执行||||
+DART-007|G2|关闭生命周期|All|Debug|FFI Client 已打开|close 两次后再调用 render|close 幂等；后续调用稳定报错|P0|flutter test|||阻塞||||本机尚未安装锁定 Flutter SDK
+UI-001|G4|Widget|All|Debug|Flutter SDK 可用|使用 Fake Client pump 主界面|显示快照、透明度滑块、画布和语义节点|P0|flutter test|||阻塞||||本机尚未安装锁定 Flutter SDK
+UI-002|G4|透明度控件|All|Debug|主界面已打开|拖动不透明度到 0%、50%、100%|视觉与数值一致；0 透明、100 不透明|P0|Widget/手工|||未执行||||
+UI-003|G4|高 DPI|Desktop|Profile|高 DPI 显示器|在 100%、150%、200% 系统缩放下展示|比例、描边、圆角清晰且不裁切|P0|Golden/手工|||未执行||||
+UI-004|G4|文本缩放|All|Profile|系统字体缩放可调|设置字体 100%、150%、200%|控件可达且无溢出；画布布局稳定|P0|Golden/手工|||未执行||||
+UI-005|G4|窗口调整|Desktop|Profile|应用已运行|连续缩放窗口至最小、最大和超宽|布局无异常；画布保持逻辑比例|P1|手工|||未执行||||
+UI-006|G4|方向变化|Mobile|Profile|真机/模拟器|横竖屏切换并恢复|状态保留；无闪烁或越界|P1|integration_test|||未执行||||
+UI-007|G4|RTL|All|Profile|切换阿拉伯语/RTL|检查布局、滑块和语义顺序|阅读顺序和控件方向符合平台约定|P1|Golden/手工|||未执行||||
+UI-008|G4|主题|All|Profile|浅色与深色主题|切换主题并检查占位符|文本对比度达标；Native 画布含义不变|P1|Golden/手工|||未执行||||
+UI-009|G4|错误呈现|All|Debug|Fake Client 返回错误|触发 snapshot/render 错误|错误可见、可重试、不泄漏底层路径|P0|flutter test|||阻塞||||本机尚未安装锁定 Flutter SDK
+UI-010|G4|Golden|Windows/macOS/Linux|Profile|字体和后端固定|生成同一占位符 Golden|差异处于批准阈值且有基线元数据|P1|Golden|||未执行||||
+PERF-001|G4|性能|Windows x64|Profile|Native+Flutter 集成|预热后渲染 1,000 帧并采样|Native render p95 ≤ 12 ms|P0|benchmark|||未执行||||
+PERF-002|G4|大批次|Desktop|Profile|10,000 条合法命令|连续解码与绘制并记录帧耗时|无崩溃；交互帧率满足 Gate|P0|benchmark|||未执行||||
+PERF-003|G2|内存|Desktop|Profile|内存分析工具可用|运行 30 分钟并反复打开/关闭|无持续增长；Native/Dart 均无泄漏|P0|Profiler/手工|||未执行||||
+PERF-004|G4|批处理|All|Profile|DisplayList 可生成|比较单缓冲批次与逐命令调用|生产路径仅使用单缓冲批次|P0|代码审查/benchmark|||未执行||||
+A11Y-001|G5|屏幕阅读器|Windows|Profile|NVDA 已安装|Tab 浏览并读取占位符和滑块|名称、角色、值、顺序准确|P0|NVDA 手工|||未执行||||
+A11Y-002|G5|屏幕阅读器|macOS/iOS|Profile|VoiceOver 可用|浏览全部交互与画布语义|名称、角色、值、顺序准确|P0|VoiceOver 手工|||未执行||||
+A11Y-003|G5|屏幕阅读器|Linux|Profile|Orca 可用|浏览全部交互与画布语义|名称、角色、值、顺序准确|P0|Orca 手工|||未执行||||
+A11Y-004|G5|屏幕阅读器|Android|Profile|TalkBack 可用|触摸探索与滑动浏览|名称、角色、值、顺序准确|P0|TalkBack 手工|||未执行||||
+A11Y-005|G5|键盘|Desktop|Profile|仅使用键盘|Tab/Shift+Tab/方向键/Enter/Esc 操作|焦点可见、顺序合理、无焦点陷阱|P0|手工|||未执行||||
+A11Y-006|G5|语义同步|All|Profile|语义和画面 revision 可控|制造 revision 不一致|不发布错误语义；下一帧恢复一致|P0|integration_test|||未执行||||
+PKG-001|G1/G3|打包|Windows x64|Release|签名配置可用|构建并在干净 VM 安装运行|无开发机绝对路径；DLL 可定位|P0|CI/手工|||未执行||||
+PKG-002|G1/G3|打包|macOS arm64|Release|签名/公证配置|Archive、签名、公证并运行|Framework/rpath 正确；Gatekeeper 通过|P0|CI/手工|||未执行||||
+PKG-003|G1/G3|打包|Linux x64|Release|目标发行版容器|构建 AppImage/包并在干净环境运行|SO 可定位；依赖清单完整|P0|CI/手工|||未执行||||
+PKG-004|G1/G3|静态注册|iOS arm64|Release|Xcode/真机/签名|静态链接 Framework 并上架前检查|无任意动态加载；符号保留且审核规则兼容|P0|CI/真机|||未执行||||
+PKG-005|G1/G3|插件接入|Android arm64|Release|NDK/真机|按 ABI 打包 SO 并安装|FFI 加载成功；ABI split 完整|P0|CI/真机|||未执行||||
+ARCH-001|G8|架构边界|All|N/A|源码可扫描|扫描 public C 头文件|无 Dart/Flutter 类型、平台句柄或 Widget|P0|静态扫描|||未执行||||
+ARCH-002|G8|插件边界|All|N/A|示例插件可用|尝试通过插件注入 Flutter UI 类型|契约拒绝；仅允许 Schema/DisplayList|P0|负向测试|||未执行||||
+ARCH-003|G8|可替换性|All|Debug|Fake Client 可用|不加载 Native 库运行 Widget 测试|UI 关键状态可测试|P0|flutter test|||阻塞||||本机尚未安装锁定 Flutter SDK
+SEC-001|G7|许可证|All|Release|发布清单已生成|扫描源码 SPDX 与依赖许可证|原创文件 MPL-2.0；第三方声明完整|P0|license scan|||未执行||||
+SEC-002|G7|SBOM|All|Release|依赖锁定|生成并审查 SPDX/CycloneDX SBOM|版本、许可证、来源可追溯|P0|CI|||未执行||||
+SEC-003|G7|供应链|All|Release|toolchains.lock.json|校验 Flutter 压缩包 SHA-256|哈希与锁文件一致；失败即停止|P0|CI|||未执行||||
+SEC-004|G2|恶意输入|All|Debug|Fuzz harness 可用|对头部、计数、浮点和长度做 fuzz|无崩溃、越界、超额分配或挂起|P0|Fuzzer|||未执行||||
+SEC-005|G2|路径安全|Desktop|Release|打包产物|从含空格/Unicode 的目录启动|库解析限定于可信目录；不发生 DLL 劫持|P0|手工/安全测试|||未执行||||

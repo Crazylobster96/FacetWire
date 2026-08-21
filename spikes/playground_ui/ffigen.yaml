@@ -1,0 +1,17 @@
+name: FacetWireUiSpikeBindings
+description: Generated bindings for the disposable UI spike C ABI.
+output: lib/src/generated/facetwire_ui_spike_bindings.dart
+headers:
+  entry-points:
+    - native/include/facetwire_ui_spike.h
+  include-directives:
+    - native/include/facetwire_ui_spike.h
+functions:
+  include:
+    - 'fwui_.*'
+structs:
+  include:
+    - fwui_buffer
+enums:
+  include:
+    - fwui_status

@@ -1,0 +1,96 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+#include "facetwire_ui_spike.h"
+
+#include <assert.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+static uint32_t read_u32_le(const uint8_t *src) {
+    return (uint32_t)src[0] |
+        ((uint32_t)src[1] << 8u) |
+        ((uint32_t)src[2] << 16u) |
+        ((uint32_t)src[3] << 24u);
+}
+
+static float read_f32_le(const uint8_t *src) {
+    const uint32_t bits = read_u32_le(src);
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+int main(void) {
+    fwui_context *context = NULL;
+    fwui_buffer display = {0};
+    fwui_buffer semantics = {0};
+    fwui_buffer snapshot = {0};
+    fwui_buffer second_display = {0};
+    fwui_buffer second_semantics = {0};
+    unsigned int iteration = 0u;
+
+    assert(fwui_context_create(NULL) == FWUI_STATUS_INVALID_ARGUMENT);
+    assert(fwui_context_create(&context) == FWUI_STATUS_OK);
+    assert(context != NULL);
+    assert(fwui_runtime_snapshot(context, &snapshot) == FWUI_STATUS_OK);
+    assert(snapshot.length > 0u);
+    assert(strstr((const char *)snapshot.data, "placeholder") != NULL);
+    fwui_buffer_release(&snapshot);
+
+    assert(fwui_render_placeholder(context, NAN, 100.0f, 1.0f,
+        &display, &semantics) == FWUI_STATUS_INVALID_ARGUMENT);
+    assert(display.data == NULL && display.length == 0u);
+    assert(fwui_render_placeholder(context, 200.0f, 100.0f, -0.1f,
+        &display, &semantics) == FWUI_STATUS_INVALID_ARGUMENT);
+    assert(fwui_render_placeholder(context, 200.0f, 100.0f, 0.5f,
+        &display, &display) == FWUI_STATUS_INVALID_ARGUMENT);
+    assert(display.data == NULL && display.length == 0u);
+
+    assert(fwui_render_placeholder(context, 200.0f, 100.0f, 0.0f,
+        &display, &semantics) == FWUI_STATUS_OK);
+    assert(display.length == 132u);
+    assert(memcmp(display.data, "FWDL", 4u) == 0);
+    assert(display.data[4] == 1u && display.data[5] == 0u);
+    assert(read_u32_le(display.data + 8u) == 3u);
+    assert(fabsf(read_f32_le(display.data + 12u + 36u)) < 0.0001f);
+    assert(strstr((const char *)semantics.data, "\"role\":\"image\"") != NULL);
+
+    assert(fwui_render_placeholder(context, 200.0f, 100.0f, 0.0f,
+        &second_display, &second_semantics) == FWUI_STATUS_OK);
+    assert(second_display.length == display.length);
+    assert(memcmp(second_display.data, display.data, (size_t)display.length) == 0);
+    assert(second_semantics.length == semantics.length);
+    assert(memcmp(second_semantics.data, semantics.data,
+        (size_t)semantics.length) == 0);
+    fwui_buffer_release(&display);
+    fwui_buffer_release(&semantics);
+    fwui_buffer_release(&second_display);
+    fwui_buffer_release(&second_semantics);
+
+    assert(fwui_render_placeholder(context, 200.0f, 100.0f, 1.0f,
+        &display, &semantics) == FWUI_STATUS_OK);
+    assert(fabsf(read_f32_le(display.data + 12u + 36u) - 1.0f) < 0.0001f);
+    fwui_buffer_release(&display);
+    fwui_buffer_release(&display);
+    fwui_buffer_release(&semantics);
+
+    assert(fwui_render_placeholder(context, 1.0f, 1.0f, 0.5f,
+        &display, &semantics) == FWUI_STATUS_OK);
+    assert(read_f32_le(display.data + 52u + 12u) >= 0.0f);
+    assert(read_f32_le(display.data + 52u + 16u) >= 0.0f);
+    assert(read_f32_le(display.data + 52u + 20u) >= 0.0f);
+    fwui_buffer_release(&display);
+    fwui_buffer_release(&semantics);
+
+    for (iteration = 0u; iteration < 1000u; ++iteration) {
+        assert(fwui_render_placeholder(context, 640.0f, 360.0f, 0.75f,
+            &display, &semantics) == FWUI_STATUS_OK);
+        fwui_buffer_release(&display);
+        fwui_buffer_release(&semantics);
+    }
+
+    fwui_context_destroy(context);
+    puts("FacetWire UI spike bridge tests passed.");
+    return 0;
+}

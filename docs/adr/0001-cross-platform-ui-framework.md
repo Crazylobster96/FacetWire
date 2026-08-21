@@ -153,7 +153,7 @@ FacetWire Playground 不是普通表单应用。它同时是：
 0.1 Playground 有条件选择：
 
 ```text
-Flutter stable（评估基线 3.44.7）
+Flutter stable（评估基线 3.47.1）
 └── Dart（版本由所固定的 Flutter SDK 决定）
     ├── Domain/Application：纯 Dart、不可变模型、Ports
     ├── Presentation：Flutter Widget + CustomPainter + Semantics

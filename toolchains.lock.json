@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "flutter": {
+    "channel": "stable",
+    "version": "3.47.1",
+    "frameworkCommit": "6655482ec06e547f90abf8ae7590466f4415978d",
+    "dartVersion": "3.13.1",
+    "windowsArchive": "stable/windows/flutter_windows_3.47.1-stable.zip",
+    "windowsArchiveSha256": "4cbf94fde1f5f8d6b9fc50b2483b57cf2077f61712282c2f4cf92560168f442b"
+  },
+  "dartPackages": {
+    "ffi": "2.2.0",
+    "ffigen": "21.0.0"
+  },
+  "native": {
+    "cmakeMinimum": "3.21",
+    "cStandard": "C11"
+  }
+}
