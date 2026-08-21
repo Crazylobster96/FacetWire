@@ -4,9 +4,25 @@
     "channel": "stable",
     "version": "3.47.1",
     "frameworkCommit": "6655482ec06e547f90abf8ae7590466f4415978d",
+    "engineCommit": "5d531788691ec3404cac0cee66ead4007b177363",
     "dartVersion": "3.13.1",
     "windowsArchive": "stable/windows/flutter_windows_3.47.1-stable.zip",
     "windowsArchiveSha256": "4cbf94fde1f5f8d6b9fc50b2483b57cf2077f61712282c2f4cf92560168f442b"
+  },
+  "android": {
+    "applicationId": "org.facetwire.facetwire_playground_ui_spike",
+    "minSdk": 24,
+    "compileSdk": 36,
+    "targetSdk": 36,
+    "ndkVersion": "28.2.13676358",
+    "commandLineToolsRevision": "15859902",
+    "windowsCommandLineToolsArchive": "commandlinetools-win-15859902_latest.zip",
+    "windowsCommandLineToolsSha256": "90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a"
+  },
+  "gradle": {
+    "version": "9.3.1",
+    "distribution": "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip",
+    "distributionSha256": "b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06"
   },
   "dartPackages": {
     "ffi": "2.2.0",
@@ -14,6 +30,7 @@
   },
   "native": {
     "cmakeMinimum": "3.21",
-    "cStandard": "C11"
+    "cStandard": "C11",
+    "recommendedJdk": "21"
   }
 }
