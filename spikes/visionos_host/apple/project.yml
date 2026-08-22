@@ -12,14 +12,22 @@ targets:
   FacetWireVisionOSSpike:
     type: application
     platform: visionOS
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: FacetWire visionOS Spike
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UIApplicationPreferredDefaultSceneSessionRole: UIWindowSceneSessionRoleApplication
+          UISceneConfigurations: {}
     sources:
       - path: Sources
       - path: ../../playground_ui/native/src/facetwire_ui_spike.c
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.facetwire.visionos-spike
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: FacetWire visionOS Spike
         HEADER_SEARCH_PATHS:
           - $(inherited)
           - $(PROJECT_DIR)/../../playground_ui/native/include
@@ -38,6 +46,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.facetwire.visionos-spike.tests
         GENERATE_INFOPLIST_FILE: YES
+        HEADER_SEARCH_PATHS:
+          - $(inherited)
+          - $(PROJECT_DIR)/../../playground_ui/native/include
 schemes:
   FacetWireVisionOSSpike:
     build:

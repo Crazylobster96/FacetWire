@@ -20,6 +20,8 @@ Testing/
 # Platform artefacts
 .DS_Store
 Thumbs.db
+spikes/visionos_host/apple/FacetWireVisionOSSpike.xcodeproj/
+spikes/visionos_host/apple/Sources/Info.plist
 *.dll
 *.dylib
 *.so
