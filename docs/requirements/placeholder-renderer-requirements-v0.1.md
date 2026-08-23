@@ -137,6 +137,13 @@ flowchart TB
 服务端导出 PDF 时无法使用某视频插件。导出策略可以保留带有替代文字的静态
 占位，也可以只保留空白占位区域。
 
+### 4.7 分层 AI 应用与按需展示
+
+随身设备创建目标 Zone，远端服务器或 PC 准备重型结果。宿主把脱敏、版本化的可用性
+快照注入 Presentation Session；Placeholder Renderer 只显示排队、执行、传输或等待兼容
+设备等通用状态。结果可用后，宿主在用户选择的设备上用主 Renderer 原位替换占位
+输出。任务、通知、设备发现和传输协议不进入 FacetWire 文档或 Renderer 插件。
+
 ### 本章检查
 
 - 场景覆盖缺能力、未知类型、暂时状态、永久失败和策略拒绝。
@@ -163,6 +170,8 @@ flowchart TB
 | 未指定 | `unknown` | 未知 | 内容当前无法显示 |
 
 状态转换由宿主控制。Placeholder Renderer 不得自行轮询资源或重新启动插件。
+远程任务阶段与占位原因必须正交建模；完整投影规则见
+`spec/presentation-session-projection-v0.1.md` 和 ADR-0003。
 
 ```mermaid
 stateDiagram-v2
@@ -300,6 +309,10 @@ PlaceholderRequest
 ├── accessibility_metadata
 ├── permitted_action_kinds
 ├── diagnostic_metadata (已脱敏)
+├── presentation_revision?
+├── availability_phase?
+├── progress?
+├── stale?
 └── render_target_profile
 ```
 
@@ -320,7 +333,8 @@ PlaceholderRequest
 - 安全的替代文字和标题；
 - 当前分页片段；
 - 允许声明的操作种类；
-- 已脱敏错误编号和关联追踪 ID。
+- 已脱敏错误编号和关联追踪 ID；
+- Presentation Session 注入的 revision、通用可用性阶段、进度和陈旧标记。
 
 未知字段必须忽略；未知枚举必须映射为安全的 `unknown`，不得导致崩溃。
 

@@ -1,6 +1,11 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 #include <facetwire/runtime.h>
 
+/* Contract assertions must remain active in Release configurations. */
+#if defined(NDEBUG)
+#undef NDEBUG
+#endif
+
 #include <assert.h>
 #include <string.h>
 
@@ -68,6 +73,8 @@ int main(void) {
     fw_runtime *runtime = NULL;
 
     assert(strcmp(fw_status_name(FW_STATUS_OK), "ok") == 0);
+    assert(strcmp(fw_status_name(FW_STATUS_SINK_REJECTED),
+        "sink_rejected") == 0);
     assert(fw_runtime_create(&config, &runtime) == FW_STATUS_OK);
     assert(runtime != NULL);
     assert(fw_runtime_plugin_count(runtime) == 0u);

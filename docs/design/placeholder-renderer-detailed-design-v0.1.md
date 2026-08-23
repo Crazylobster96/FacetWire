@@ -273,6 +273,7 @@ typedef uint32_t fw_placeholder_normalization_flags;
 #define FW_PH_NORMALIZED_STYLE         (1u << 4)
 #define FW_PH_NORMALIZED_TEXT          (1u << 5)
 #define FW_PH_NORMALIZED_ACTIONS       (1u << 6)
+#define FW_PH_NORMALIZED_AVAILABILITY  (1u << 7)
 ```
 
 未知 reason 映射为 `UNKNOWN`；未知 mode 映射为 `STANDARD`。未知 action 位必须清零。
@@ -361,6 +362,10 @@ typedef struct fw_placeholder_request_v1 {
     fw_render_target_profile_v1 target;
     uint32_t fragment_index;
     uint32_t fragment_count;
+    uint64_t presentation_revision;
+    fw_placeholder_phase phase;
+    fw_placeholder_progress_v1 progress;
+    uint32_t stale;
     uint32_t flags;
 } fw_placeholder_request_v1;
 
@@ -403,6 +408,9 @@ typedef struct fw_placeholder_render_result_v1 {
 
 `zone_id` 可以为空但不得无效。`diagnostic_code` 只允许宿主传入已经脱敏的稳定代码。
 `fragment_count == 0` 归一化为 1；`fragment_index >= fragment_count` 是结构错误。
+`presentation_revision`、`phase`、`progress` 和 `stale` 是 Presentation Session 注入的
+运行态展示投影，不属于持久文档或远程任务协议；其类型、归一化和缓存规则见
+`spec/presentation-session-projection-v0.1.md` 与 ADR-0003。
 
 ### 本章检查
 
@@ -533,6 +541,8 @@ typedef struct fw_placeholder_semantics_v1 {
     fw_placeholder_action_mask available_actions;
     fw_rect_f32 bounds;
     uint32_t hidden_visually;
+    uint32_t stale;
+    fw_placeholder_phase phase;
     uint32_t flags;
 } fw_placeholder_semantics_v1;
 
@@ -1337,6 +1347,7 @@ flowchart LR
 - 新 reason/action 使用未知值安全回退；
 - 新绘制能力通过 DisplayList 接口升级；
 - IPC/Wasm 可以序列化 request/result，而不序列化函数指针；
+- Presentation Session 投影通过版本化尾部字段扩展，并与文档 revision、任务协议分离；
 - 相同 Renderer、Text、DisplayList 合同可供后续基础插件复用。
 
 ### 28.4 完成定义

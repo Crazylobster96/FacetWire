@@ -214,6 +214,18 @@ const char *FW_CALL fw_status_name(fw_status status) {
         return "not_found";
     case FW_STATUS_PLUGIN_ERROR:
         return "plugin_error";
+    case FW_STATUS_BUFFER_TOO_SMALL:
+        return "buffer_too_small";
+    case FW_STATUS_CANCELLED:
+        return "cancelled";
+    case FW_STATUS_UNSUPPORTED:
+        return "unsupported";
+    case FW_STATUS_INVALID_STATE:
+        return "invalid_state";
+    case FW_STATUS_RESOURCE_LIMIT:
+        return "resource_limit";
+    case FW_STATUS_SINK_REJECTED:
+        return "sink_rejected";
     default:
         return "unknown";
     }

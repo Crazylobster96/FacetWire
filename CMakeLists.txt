@@ -13,10 +13,11 @@ include(CTest)
 option(FACETWIRE_BUILD_SHARED "Build FacetWire as a shared library" OFF)
 option(FACETWIRE_BUILD_EXAMPLES "Build example plugins and hosts" ON)
 option(FACETWIRE_BUILD_TESTS "Build the conformance tests" ON)
+option(FACETWIRE_BUILD_PLACEHOLDER_RENDERER
+    "Build the reference placeholder renderer" ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-
 
 set(FACETWIRE_LIBRARY_TYPE STATIC)
 if(FACETWIRE_BUILD_SHARED)
@@ -51,6 +52,10 @@ set_target_properties(facetwire PROPERTIES
     C_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN YES
 )
+
+if(FACETWIRE_BUILD_PLACEHOLDER_RENDERER)
+    add_subdirectory(plugins/placeholder_renderer)
+endif()
 
 if(FACETWIRE_BUILD_EXAMPLES)
     add_subdirectory(examples/hello_plugin)
