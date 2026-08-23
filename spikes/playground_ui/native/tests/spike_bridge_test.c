@@ -1,6 +1,15 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 #include "facetwire_ui_spike.h"
 
+/*
+ * This executable is a contract test, including in Release configurations.
+ * CMake defines NDEBUG for Release, which would otherwise compile out every
+ * assertion and turn the test into a false positive.
+ */
+#if defined(NDEBUG)
+#  undef NDEBUG
+#endif
+
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
