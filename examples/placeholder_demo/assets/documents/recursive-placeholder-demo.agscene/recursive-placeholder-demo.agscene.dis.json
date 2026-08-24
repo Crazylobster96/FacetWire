@@ -1,0 +1,48 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:placeholder-demo:level-1",
+  "title": "Placeholder Demo / Level 1",
+  "canvas": {
+    "id": "canvas:level-1",
+    "size": {"width": 1900, "height": 1200},
+    "pages": [{
+      "id": "page:level-1",
+      "size": {"width": 1900, "height": 1200},
+      "layers": [{
+        "id": "layer:content:level-1",
+        "z": 0,
+        "zones": [
+          {
+            "id": "zone:hero-image",
+            "bounds": {"x": 56, "y": 70, "width": 650, "height": 366},
+            "semantics": {"role": "image", "label": "Remote hero image"},
+            "content": {
+              "type": "placeholder",
+              "kind": "image",
+              "reason": "resource_unavailable",
+              "mode": "standard",
+              "label": "Remote hero image is being transferred",
+              "requiredCapability": "facetwire.renderer.image",
+              "permittedActions": ["retry", "show_details", "alternative"]
+            }
+          },
+          {
+            "id": "zone:nested-level-2",
+            "bounds": {"x": 746, "y": 70, "width": 1100, "height": 1080},
+            "semantics": {"role": "document", "label": "Nested level 2 document"},
+            "content": {
+              "type": "document",
+              "source": "documents/level-2.agscene/level-2.agscene.dis.json"
+            }
+          }
+        ]
+      }]
+    }]
+  },
+  "resources": [{
+    "id": "resource:level-1-note",
+    "source": "resources/level-1.txt",
+    "mediaType": "text/plain; charset=utf-8"
+  }]
+}

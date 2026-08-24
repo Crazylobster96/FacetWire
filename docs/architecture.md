@@ -2,8 +2,10 @@
 
 ## 1. Scope
 
-FacetWire is the plugin boundary beneath an Agent Scene Package renderer. It
-does not define the complete scene document, layout engine, or graphics API.
+FacetWire Core is the plugin boundary beneath an Agent Scene Package renderer. The
+Core ABI does not depend on a complete scene document, layout engine, or graphics API.
+The repository separately defines an experimental ASP Directory Profile so hosts and
+renderers can share deterministic fixtures without coupling that format to the ABI.
 It defines how a host discovers capabilities, negotiates a compatible contract,
 provides constrained services, and manages plugin lifetime across platforms.
 

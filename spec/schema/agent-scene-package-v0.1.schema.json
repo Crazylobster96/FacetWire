@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://facetwire.org/schema/agent-scene-package-v0.1.schema.json",
+  "title": "FacetWire Agent Scene Package descriptor 0.1",
+  "type": "object",
+  "required": ["format", "version", "id", "title", "canvas", "resources"],
+  "properties": {
+    "format": {"const": "facetwire.agent-scene-package"},
+    "version": {"const": "0.1"},
+    "id": {"$ref": "#/$defs/id"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 1024},
+    "canvas": {"$ref": "#/$defs/canvas"},
+    "resources": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/resource"},
+      "maxItems": 100000
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "portablePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*\\\\)[^\\u0000]+$"
+    },
+    "size": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "number", "minimum": 0},
+        "height": {"type": "number", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "bounds": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": {"type": "number"},
+        "y": {"type": "number"},
+        "width": {"type": "number", "minimum": 0},
+        "height": {"type": "number", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "normalizedAlignment": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": {"type": "number", "minimum": 0, "maximum": 1},
+        "y": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "documentPlacement": {
+      "type": "object",
+      "properties": {
+        "fit": {
+          "enum": ["none", "contain", "cover", "fill"],
+          "default": "none"
+        },
+        "alignment": {
+          "$ref": "#/$defs/normalizedAlignment",
+          "default": {"x": 0, "y": 0}
+        },
+        "clip": {"type": "boolean", "default": false}
+      },
+      "additionalProperties": false
+    },
+    "placeholderContent": {
+      "type": "object",
+      "required": ["type", "kind", "reason", "mode"],
+      "properties": {
+        "type": {"const": "placeholder"},
+        "kind": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "mode": {"enum": ["hidden", "minimal", "standard", "diagnostic"]},
+        "label": {"type": "string", "maxLength": 8192},
+        "requiredCapability": {"type": "string", "maxLength": 512},
+        "permittedActions": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true,
+          "maxItems": 64
+        }
+      },
+      "additionalProperties": true
+    },
+    "documentContent": {
+      "type": "object",
+      "required": ["type", "source"],
+      "properties": {
+        "type": {"const": "document"},
+        "source": {"$ref": "#/$defs/portablePath"},
+        "placement": {"$ref": "#/$defs/documentPlacement"}
+      },
+      "additionalProperties": true
+    },
+    "extensionContent": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "not": {"enum": ["placeholder", "document"]}
+        }
+      },
+      "additionalProperties": true
+    },
+    "zone": {
+      "type": "object",
+      "required": ["id", "bounds", "content"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "bounds": {"$ref": "#/$defs/bounds"},
+        "semantics": {"type": "object"},
+        "content": {
+          "oneOf": [
+            {"$ref": "#/$defs/placeholderContent"},
+            {"$ref": "#/$defs/documentContent"},
+            {"$ref": "#/$defs/extensionContent"}
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "layer": {
+      "type": "object",
+      "required": ["id", "z", "zones"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "z": {"type": "integer"},
+        "zones": {"type": "array", "items": {"$ref": "#/$defs/zone"}}
+      },
+      "additionalProperties": true
+    },
+    "page": {
+      "type": "object",
+      "required": ["id", "size", "layers"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "size": {"$ref": "#/$defs/size"},
+        "layers": {"type": "array", "items": {"$ref": "#/$defs/layer"}}
+      },
+      "additionalProperties": true
+    },
+    "canvas": {
+      "type": "object",
+      "required": ["id", "size", "pages"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "size": {"$ref": "#/$defs/size"},
+        "pages": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/page"}}
+      },
+      "additionalProperties": true
+    },
+    "resource": {
+      "type": "object",
+      "required": ["id", "source", "mediaType"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "source": {"$ref": "#/$defs/portablePath"},
+        "mediaType": {"type": "string", "minLength": 1, "maxLength": 255}
+      },
+      "additionalProperties": true
+    }
+  }
+}

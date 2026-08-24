@@ -1,5 +1,8 @@
 # Build outputs
 /build/
+**/build/
+**/.dart_tool/
+**/flutter/ephemeral/
 /out/
 /dist/
 CMakeFiles/

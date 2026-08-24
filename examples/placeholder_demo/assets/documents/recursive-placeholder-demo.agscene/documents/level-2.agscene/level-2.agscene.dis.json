@@ -1,0 +1,48 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:placeholder-demo:level-2",
+  "title": "Nested Document / Level 2",
+  "canvas": {
+    "id": "canvas:level-2",
+    "size": {"width": 1100, "height": 1080},
+    "pages": [{
+      "id": "page:level-2",
+      "size": {"width": 1100, "height": 1080},
+      "layers": [{
+        "id": "layer:content:level-2",
+        "z": 0,
+        "zones": [
+          {
+            "id": "zone:chart",
+            "bounds": {"x": 36, "y": 44, "width": 648, "height": 360},
+            "semantics": {"role": "chart", "label": "Unsupported chart"},
+            "content": {
+              "type": "placeholder",
+              "kind": "chart",
+              "reason": "renderer_missing",
+              "mode": "diagnostic",
+              "label": "Chart renderer is not installed",
+              "requiredCapability": "facetwire.renderer.chart",
+              "permittedActions": ["find_plugin", "show_details"]
+            }
+          },
+          {
+            "id": "zone:nested-level-3",
+            "bounds": {"x": 36, "y": 448, "width": 1024, "height": 576},
+            "semantics": {"role": "document", "label": "Nested level 3 document"},
+            "content": {
+              "type": "document",
+              "source": "documents/level-3.agscene/level-3.agscene.dis.json"
+            }
+          }
+        ]
+      }]
+    }]
+  },
+  "resources": [{
+    "id": "resource:level-2-note",
+    "source": "resources/level-2.txt",
+    "mediaType": "text/plain; charset=utf-8"
+  }]
+}

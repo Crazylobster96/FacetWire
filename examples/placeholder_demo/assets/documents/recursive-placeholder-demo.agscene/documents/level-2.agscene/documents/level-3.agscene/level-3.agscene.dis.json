@@ -1,0 +1,37 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:placeholder-demo:level-3",
+  "title": "Nested Document / Level 3",
+  "canvas": {
+    "id": "canvas:level-3",
+    "size": {"width": 1024, "height": 576},
+    "pages": [{
+      "id": "page:level-3",
+      "size": {"width": 1024, "height": 576},
+      "layers": [{
+        "id": "layer:content:level-3",
+        "z": 0,
+        "zones": [{
+          "id": "zone:video",
+          "bounds": {"x": 48, "y": 48, "width": 928, "height": 480},
+          "semantics": {"role": "media", "label": "Remote video result"},
+          "content": {
+            "type": "placeholder",
+            "kind": "video",
+            "reason": "loading",
+            "mode": "standard",
+            "label": "Remote video is rendering",
+            "requiredCapability": "facetwire.renderer.video",
+            "permittedActions": ["show_details", "alternative"]
+          }
+        }]
+      }]
+    }]
+  },
+  "resources": [{
+    "id": "resource:level-3-note",
+    "source": "resources/level-3.txt",
+    "mediaType": "text/plain; charset=utf-8"
+  }]
+}

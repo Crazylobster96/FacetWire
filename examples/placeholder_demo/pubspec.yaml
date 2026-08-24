@@ -1,0 +1,28 @@
+name: facetwire_placeholder_demo
+description: Windows and macOS demo for the FacetWire placeholder renderer.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: 2.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/documents/recursive-placeholder-demo.agscene/
+    - assets/documents/recursive-placeholder-demo.agscene/resources/
+    - assets/documents/recursive-placeholder-demo.agscene/documents/level-2.agscene/
+    - assets/documents/recursive-placeholder-demo.agscene/documents/level-2.agscene/resources/
+    - assets/documents/recursive-placeholder-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/
+    - assets/documents/recursive-placeholder-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/resources/
+

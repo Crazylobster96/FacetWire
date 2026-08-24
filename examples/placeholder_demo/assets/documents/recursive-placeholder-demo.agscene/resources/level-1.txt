@@ -1,0 +1,1 @@
+Level 1 resource: the root scene owns its Canvas and embeds level 2 in a Zone.

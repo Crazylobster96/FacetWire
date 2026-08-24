@@ -1,0 +1,1 @@
+Level 2 resource: this scene demonstrates a missing chart renderer.

@@ -7,8 +7,9 @@ cross-platform rich-media rendering. It defines a stable C ABI between a host
 and independently developed capabilities such as text layout, images, video,
 subtitles, charts, controls, document pagination, and format parsers.
 
-> Project status: **0.1 bootstrap / experimental**. The ABI is intentionally
-> small, but it is not stable until the 1.0 conformance suite is published.
+> Project status: **0.1 bootstrap / experimental**. The ABI and the Agent Scene
+> Package Directory Profile are intentionally small and are not stable until
+> their 1.0 conformance suites are published.
 
 ## Design goals
 
@@ -24,12 +25,15 @@ subtitles, charts, controls, document pagination, and format parsers.
 ## Repository map
 
 ```text
-include/facetwire/       Public C ABI and runtime API
-src/                     Portable runtime implementation
-spec/                    Normative plugin contract
-docs/                    Architecture and project policy
-examples/hello_plugin/   Minimal statically registered plugin
-tests/                   ABI and conformance smoke tests
+include/facetwire/                 Public C ABI and runtime API
+src/                               Portable runtime implementation
+spec/                              Normative and experimental contracts
+docs/                              Architecture and project policy
+examples/hello_plugin/             Minimal statically registered plugin
+examples/placeholder_demo/         Windows/macOS real-renderer demo
+examples/documents/                Conforming uncompressed .agscene fixtures
+plugins/placeholder_renderer/      Reference fallback renderer
+tests/                             ABI and conformance smoke tests
 ```
 
 ## Build
@@ -50,6 +54,9 @@ cmake --build --preset default
 ctest --preset default
 ```
 
+To build and run the Windows/macOS demonstration, see
+[`examples/placeholder_demo/README.md`](examples/placeholder_demo/README.md).
+
 ## ABI model
 
 The host obtains a `fw_plugin_api_v1` table, validates its size and ABI
@@ -61,7 +68,8 @@ No allocation may be freed on the opposite side of the ABI. Strings are UTF-8
 byte spans and are not assumed to be NUL-terminated. Every extensible structure
 starts with `struct_size` and an ABI version.
 
-See [the 0.1 contract](spec/plugin-contract-v0.1.md) and
+See [the 0.1 plugin contract](spec/plugin-contract-v0.1.md), the experimental
+[ASP Directory Profile](spec/agent-scene-package-directory-v0.1.md), and the
 [architecture overview](docs/architecture.md).
 
 ## Licensing

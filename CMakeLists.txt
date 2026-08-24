@@ -15,6 +15,8 @@ option(FACETWIRE_BUILD_EXAMPLES "Build example plugins and hosts" ON)
 option(FACETWIRE_BUILD_TESTS "Build the conformance tests" ON)
 option(FACETWIRE_BUILD_PLACEHOLDER_RENDERER
     "Build the reference placeholder renderer" ON)
+option(FACETWIRE_BUILD_PLACEHOLDER_DEMO
+    "Build the Windows/macOS placeholder demo native bridge" OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
@@ -59,6 +61,15 @@ endif()
 
 if(FACETWIRE_BUILD_EXAMPLES)
     add_subdirectory(examples/hello_plugin)
+endif()
+
+if(FACETWIRE_BUILD_PLACEHOLDER_DEMO)
+    if(NOT FACETWIRE_BUILD_PLACEHOLDER_RENDERER)
+        message(FATAL_ERROR
+            "FACETWIRE_BUILD_PLACEHOLDER_DEMO requires "
+            "FACETWIRE_BUILD_PLACEHOLDER_RENDERER")
+    endif()
+    add_subdirectory(examples/placeholder_demo/native)
 endif()
 
 if(BUILD_TESTING AND FACETWIRE_BUILD_TESTS)
