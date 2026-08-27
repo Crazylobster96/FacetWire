@@ -1,0 +1,16 @@
+{
+  "type": "animated-image",
+  "resource": "animation.loading",
+  "alt": "同步进度动画",
+  "placement": {
+    "fit": "contain",
+    "alignment": {"x": 0.5, "y": 0.5},
+    "clip": true
+  },
+  "playback": {
+    "autoplay": true,
+    "loop": true,
+    "playbackRate": 1,
+    "controls": "hidden"
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:core-content-demo:level-1",
+  "title": "Core Content Demo / Level 1",
+  "canvas": {
+    "id": "canvas:core-level-1",
+    "size": {"width": 960, "height": 640},
+    "pages": [{
+      "id": "page:core-level-1",
+      "size": {"width": 960, "height": 640},
+      "layers": [
+        {
+          "id": "layer:image:level-1",
+          "z": 0,
+          "zones": [{
+            "id": "zone:image:level-1",
+            "bounds": {"x": 40, "y": 40, "width": 640, "height": 420},
+            "semantics": {"role": "image", "label": "Level 1 blue geometry"},
+            "content": {
+              "type": "image",
+              "resource": "image:level-1",
+              "alt": "Level 1 blue geometry",
+              "opacity": 0.76,
+              "placement": {"fit": "cover", "alignment": {"x": 0.5, "y": 0.5}, "clip": true}
+            }
+          }]
+        },
+        {
+          "id": "layer:text:level-1",
+          "z": 10,
+          "zones": [{
+            "id": "zone:text:level-1",
+            "bounds": {"x": 72, "y": 72, "width": 430, "height": 176},
+            "semantics": {"role": "text", "label": "Level 1 text"},
+            "content": {
+              "type": "text",
+              "format": "plain",
+              "text": "Text Renderer 0.1\n根画布文字层覆盖在图片层之上。\n不透明度可以连续使用 0.1、0.75、0.99 等值。",
+              "language": "zh-CN",
+              "selectable": true,
+              "opacity": 0.92,
+              "style": {
+                "fontSize": 24,
+                "fontWeight": 650,
+                "lineHeightMultiplier": 1.2,
+                "color": {"red": 0.04, "green": 0.08, "blue": 0.16, "alpha": 1},
+                "backgroundColor": {"red": 0.96, "green": 0.98, "blue": 1, "alpha": 0.78}
+              },
+              "layout": {
+                "overflow": "clip",
+                "padding": {"top": 14, "right": 16, "bottom": 14, "left": 16}
+              }
+            }
+          }]
+        },
+        {
+          "id": "layer:animated-image:level-1",
+          "z": 15,
+          "zones": [{
+            "id": "zone:animated-image:level-1",
+            "bounds": {"x": 64, "y": 438, "width": 268, "height": 166},
+            "semantics": {"role": "image", "label": "Level 1 animated opacity marker"},
+            "content": {
+              "type": "animated-image",
+              "resource": "gif:level-1",
+              "alt": "Level 1 animated opacity marker",
+              "opacity": 0.84,
+              "placement": {"fit": "contain", "alignment": {"x": 0.5, "y": 0.5}, "clip": true},
+              "playback": {"autoplay": true, "loop": true, "playbackRate": 1, "controls": "hidden"}
+            }
+          }]
+        },
+        {
+          "id": "layer:document:level-2",
+          "z": 20,
+          "zones": [{
+            "id": "zone:document:level-2",
+            "bounds": {"x": 430, "y": 250, "width": 500, "height": 350},
+            "semantics": {"role": "document", "label": "Nested level 2 at native size"},
+            "content": {
+              "type": "document",
+              "source": "documents/level-2.agscene/level-2.agscene.dis.json",
+              "placement": {"fit": "none", "alignment": {"x": 0, "y": 0}, "clip": true}
+            }
+          }]
+        }
+      ]
+    }]
+  },
+  "resources": [
+    {"id": "image:level-1", "source": "resources/level-1.png", "mediaType": "image/png"},
+    {"id": "gif:level-1", "source": "resources/level-1.gif", "mediaType": "image/gif"}
+  ]
+}

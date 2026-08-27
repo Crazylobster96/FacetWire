@@ -1,0 +1,34 @@
+{
+  "$schema": "../../spec/schema/plugin-manifest-v0.1.schema.json",
+  "format": "facetwire.plugin-manifest",
+  "formatVersion": "0.1",
+  "plugin": {
+    "id": "org.facetwire.example.hello",
+    "version": "0.1.0",
+    "name": "FacetWire Hello Plugin",
+    "vendor": "FacetWire contributors",
+    "licenseSpdx": "MPL-2.0"
+  },
+  "abi": {
+    "major": 1,
+    "minimumMinor": 0,
+    "maximumMinor": 0
+  },
+  "capabilities": [
+    {
+      "id": "org.facetwire.example.hello.message",
+      "kind": "facetwire.capability.diagnostic",
+      "interfaces": []
+    }
+  ],
+  "artifacts": [
+    {
+      "target": "any",
+      "profile": "static",
+      "registration": "facetwire_hello_plugin_query"
+    }
+  ],
+  "permissions": [],
+  "dependencies": [],
+  "extensions": {}
+}

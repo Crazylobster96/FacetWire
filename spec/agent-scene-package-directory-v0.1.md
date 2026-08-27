@@ -78,12 +78,21 @@ one `content` object.
 MUST be non-negative. A Zone retains these bounds even when its content cannot
 be rendered. Layer order is ascending `z`, then descriptor order.
 
-This profile defines two content types:
+This base profile defines two infrastructure content types:
 
 - `placeholder`: declares `kind`, `reason`, `mode`, optional `label`, optional
   `requiredCapability`, and optional `permittedActions`;
 - `document`: declares `source`, pointing to another `.agscene` directory's
   same-name descriptor, plus optional `placement`.
+
+The [Core Content Profile 0.1](core-content-profile-v0.1.zh-CN.md) adds five
+standard content types: `text`, `image`, `animated-image`, `video`, and
+`audio`. They remain Zone content and therefore do not change Canvas, Page,
+Layer, or Zone geometry.
+The [Flow Content Profile 0.1](flow-content-profile-v0.1.zh-CN.md) adds the
+`flow` container type. Its Virtual Pages and Fragments are derived Layout Plan
+objects inside the referring Zone; they do not become persisted Canvas pages
+or sibling Zones.
 
 Unknown content types MUST reserve the Zone bounds and route to the placeholder
 capability when available.
@@ -153,6 +162,9 @@ Each entry in `resources` contains `id`, `source`, and `mediaType`. `integrity`
 MAY contain a future digest object and is omitted by the 0.1 demo fixture.
 Resource paths follow Section 2. The descriptor MUST NOT contain credentials,
 private absolute paths, presentation-session progress, or remote task IDs.
+Core media content references a Resource by its stable `id`, never by copying
+`source` into the Content object. Validators MUST check those cross-object
+references and media-type compatibility procedurally.
 
 ### Section check
 
@@ -169,9 +181,17 @@ a subset of content types, but it MUST preserve valid geometry and use a safe
 fallback for unsupported content.
 
 The normative JSON Schema is
-`spec/schema/agent-scene-package-v0.1.schema.json`. Cross-file path, naming,
-cycle, and existence checks are procedural and are not expressible by that
-schema alone.
+`spec/schema/agent-scene-package-v0.1.schema.json`. It recognizes Core Content
+and Flow discriminators without an external network reference. A conforming
+validator MUST additionally apply the applicable profile schema:
+
+- Core Content: `spec/schema/core-content-profile-v0.1.schema.json`;
+- Flow Content: `spec/schema/flow-content-profile-v0.1.schema.json`.
+
+A validator MUST recursively validate each Flow Object Item's `content` against
+its registered Content Profile. Cross-file path, naming, cycle, Resource-ID
+resolution, media-type compatibility, and existence checks are procedural and
+are not expressible by those schemas alone.
 
 ### Section check
 

@@ -14,6 +14,10 @@ target_include_directories(facetwire_placeholder_renderer PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
+if(FACETWIRE_LIBRARY_TYPE STREQUAL "SHARED")
+    target_compile_definitions(facetwire_placeholder_renderer PRIVATE
+        FACETWIRE_PLACEHOLDER_RENDERER_DYNAMIC_ENTRY=1)
+endif()
 if(MSVC)
     target_compile_options(facetwire_placeholder_renderer PRIVATE
         /W4 /WX /permissive-

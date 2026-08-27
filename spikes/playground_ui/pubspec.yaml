@@ -10,6 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
   ffi: 2.2.0
+  media_kit: 1.2.6
+  media_kit_video: 2.0.1
+  media_kit_libs_video: 1.0.7
+  path_provider: 2.1.6
 
 dev_dependencies:
   flutter_test:
@@ -19,3 +23,18 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/documents/core-content-overlap-demo.agscene/core-content-overlap-demo.agscene.dis.json
+    - assets/documents/core-content-overlap-demo.agscene/resources/level-1.png
+    - assets/documents/core-content-overlap-demo.agscene/resources/level-1.gif
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/level-2.agscene.dis.json
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/resources/level-2.png
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/resources/level-2.gif
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/level-3.agscene.dis.json
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/resources/level-3.png
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/resources/level-3.gif
+    - assets/documents/media-renderer-demo.agscene/media-renderer-demo.agscene.dis.json
+    - assets/documents/media-renderer-demo.agscene/resources/facetwire-demo.mp4
+    - assets/documents/media-renderer-demo.agscene/resources/facetwire-demo.wav
+    - assets/documents/media-renderer-demo.agscene/resources/video-poster.png
+    - assets/documents/media-renderer-demo.agscene/resources/audio-artwork.png

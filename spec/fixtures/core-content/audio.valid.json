@@ -1,0 +1,15 @@
+{
+  "type": "audio",
+  "resource": "audio.theme",
+  "label": "FacetWire 主题音乐",
+  "title": "FacetWire Theme",
+  "artworkResource": "image.album-cover",
+  "playback": {
+    "autoplay": false,
+    "loop": false,
+    "muted": false,
+    "volume": 0.8,
+    "playbackRate": 1,
+    "controls": "visible"
+  }
+}

@@ -51,6 +51,9 @@ typedef struct fwdemo_request_v1 {
 
 typedef struct fwdemo_context fwdemo_context;
 
+/* Output buffers must be zero-initialized. Release a successful output with
+ * fwdemo_buffer_release before reusing the same buffer. */
+
 FWDEMO_API int32_t FWDEMO_CALL fwdemo_context_create(
     fwdemo_context **out_context);
 FWDEMO_API void FWDEMO_CALL fwdemo_context_destroy(fwdemo_context *context);

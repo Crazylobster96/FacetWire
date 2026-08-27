@@ -60,11 +60,8 @@ struct fwdemo_context {
     fw_plugin_handle plugin;
 };
 
-static void fwdemo_clear_buffer(fwdemo_buffer *buffer) {
-    if (buffer != NULL) {
-        buffer->data = NULL;
-        buffer->length = 0u;
-    }
+static int fwdemo_buffer_available(const fwdemo_buffer *buffer) {
+    return buffer != NULL && buffer->data == NULL && buffer->length == 0u;
 }
 
 static int fwdemo_context_valid(const fwdemo_context *context) {
@@ -587,7 +584,7 @@ int32_t FWDEMO_CALL fwdemo_context_create(fwdemo_context **out_context) {
         return (int32_t)FW_STATUS_INVALID_ARGUMENT;
     }
     *out_context = NULL;
-    plugin_api = facetwire_plugin_query(FW_ABI_VERSION_CURRENT);
+    plugin_api = facetwire_placeholder_renderer_plugin_query(FW_ABI_VERSION_CURRENT);
     if (plugin_api == NULL || plugin_api->get_descriptor == NULL ||
         plugin_api->load == NULL || plugin_api->unload == NULL ||
         plugin_api->query_interface == NULL) {
@@ -638,8 +635,7 @@ int32_t FWDEMO_CALL fwdemo_runtime_snapshot(
     fwdemo_buffer *out_utf8_json) {
     fwdemo_writer writer = {0};
     const fw_capability_descriptor_v1 *capability;
-    fwdemo_clear_buffer(out_utf8_json);
-    if (!fwdemo_context_valid(context) || out_utf8_json == NULL ||
+    if (!fwdemo_context_valid(context) || !fwdemo_buffer_available(out_utf8_json) ||
         context->descriptor->capability_count == 0u) {
         return (int32_t)FW_STATUS_INVALID_ARGUMENT;
     }
@@ -668,8 +664,7 @@ int32_t FWDEMO_CALL fwdemo_parameter_schema(
     fwdemo_buffer *out_utf8_json) {
     fw_string_view schema = {0};
     fw_status status;
-    fwdemo_clear_buffer(out_utf8_json);
-    if (!fwdemo_context_valid(context) || out_utf8_json == NULL) {
+    if (!fwdemo_context_valid(context) || !fwdemo_buffer_available(out_utf8_json)) {
         return (int32_t)FW_STATUS_INVALID_ARGUMENT;
     }
     status = context->renderer->get_parameter_schema(context->plugin, &schema);
@@ -705,8 +700,7 @@ int32_t FWDEMO_CALL fwdemo_render(
     fw_status status;
     fwdemo_writer writer = {0};
     uint32_t index;
-    fwdemo_clear_buffer(out_utf8_json);
-    if (!fwdemo_context_valid(context) || out_utf8_json == NULL) {
+    if (!fwdemo_context_valid(context) || !fwdemo_buffer_available(out_utf8_json)) {
         return (int32_t)FW_STATUS_INVALID_ARGUMENT;
     }
     status = fwdemo_make_placeholder_request(input, &request);

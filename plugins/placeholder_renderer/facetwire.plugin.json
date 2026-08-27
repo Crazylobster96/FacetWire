@@ -1,0 +1,31 @@
+{
+  "$schema": "../../spec/schema/plugin-manifest-v0.1.schema.json",
+  "format": "facetwire.plugin-manifest",
+  "formatVersion": "0.1",
+  "plugin": {
+    "id": "org.facetwire.reference.placeholder-renderer",
+    "version": "0.1.0",
+    "name": "FacetWire Placeholder Renderer",
+    "vendor": "FacetWire contributors",
+    "licenseSpdx": "MPL-2.0"
+  },
+  "abi": {"major": 1, "minimumMinor": 0, "maximumMinor": 0},
+  "capabilities": [
+    {
+      "id": "facetwire.renderer.placeholder",
+      "kind": "facetwire.capability.renderer",
+      "flags": 15,
+      "interfaces": [
+        {"id": "facetwire.renderer.placeholder.v1", "version": 1}
+      ]
+    }
+  ],
+  "artifacts": [{
+    "target": "any",
+    "profile": "static",
+    "registration": "facetwire_placeholder_renderer_plugin_query"
+  }],
+  "permissions": [],
+  "dependencies": [],
+  "extensions": {}
+}

@@ -7,6 +7,8 @@ ADR 记录对实现有长期影响、但不应隐式写入 FacetWire C ABI 或�
 | [0001](0001-cross-platform-ui-framework.md) | Playground 跨平台 UI 技术选型 | 有条件接受 Flutter | 生产性能与完整无障碍验证 |
 | [0002](0002-visionos-host-strategy.md) | visionOS 原生宿主与空间展示降级 | 接受 | 生产宿主与签名发布流程 |
 | [0003](0003-presentation-session-boundary.md) | Document、Presentation Session 与 Renderer Runtime 边界 | 接受 | Placeholder Renderer 合同与跨平台测试 |
+| [0004](0004-image-capability-tiering.md) | 基础图像渲染与专业图像合成分级 | 接受 | Core Image Renderer 与 Composition Spike |
+| [0005](0005-flow-layout-pagination-boundary.md) | 流式排版、虚拟页与内容 Renderer 边界 | 接受 | Flow ABI 与 block-layout 实现 |
 
 状态含义：
 

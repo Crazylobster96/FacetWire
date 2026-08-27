@@ -1,0 +1,81 @@
+# FacetWire
+
+[English](README.md) | **简体中文**
+
+**一次编写渲染插件，连接所有平台。**
+
+FacetWire 是一套面向 AI 智能体、支持跨平台富媒体渲染的可移植插件协议与运行时。它在宿主和独立开发的能力之间定义稳定的 C ABI；这些能力包括文本排版、图片、视频、字幕、图表、控制组件、文档分页和格式解析器。
+
+> 项目状态：**0.1 启动阶段 / 实验性**。当前 ABI 和智能体场景包（Agent Scene Package，ASP）目录规范刻意保持较小范围；在 1.0 一致性测试套件发布前，接口尚不稳定。
+
+## 设计目标
+
+- 一套源代码覆盖 Windows、Linux、macOS、iOS 和 Android。
+- 动态注册、静态注册、进程隔离、远程调用以及未来的 WebAssembly 传输共用相同的逻辑插件协议。
+- 内存和渲染资源由宿主持有，不允许平台对象穿过 ABI 边界。
+- 保持开放核心，同时允许采用独立许可证的专有格式和编解码器插件。
+- 确定性的能力发现、版本协商和诊断机制。
+
+## 仓库结构
+
+```text
+include/facetwire/                 公共 C ABI 与运行时 API
+src/                               可移植运行时实现
+spec/                              规范性与实验性协议
+spec/schema/                       可机器读取的清单与场景 Schema
+docs/                              架构与项目政策文档
+examples/hello_plugin/             最小静态注册插件示例
+examples/placeholder_demo/         Windows/macOS 真实渲染器演示
+examples/documents/                合规的未压缩 .agscene 测试夹具
+plugins/text_renderer/             Text Renderer 0.1 参考实现
+plugins/core_image_renderer/       图片与动态图片 Renderer 参考实现
+plugins/core_media_renderer/       音频与视频 Renderer 参考实现
+spikes/playground_ui/              Windows/macOS/iOS/Android 共用演示宿主
+plugins/placeholder_renderer/      Placeholder 后备 Renderer 参考实现
+tests/                             ABI 与一致性冒烟测试
+```
+
+## 构建
+
+FacetWire 要求支持 C11 的编译器和 CMake 3.21 或更高版本。
+
+```sh
+cmake -S . -B build -DFACETWIRE_BUILD_TESTS=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+如果已安装 Ninja，可以使用仓库提供的预设：
+
+```sh
+cmake --preset default
+cmake --build --preset default
+ctest --preset default
+```
+
+构建并运行 Windows/macOS 演示请参阅 [`examples/placeholder_demo/README.md`](examples/placeholder_demo/README.md)。Text/Image/GIF 三层递归演示及其四平台验证矩阵记录在[核心内容 Renderer 演示验证指南](docs/guides/core-content-renderers-demo-validation.zh-CN.md)中。
+
+## ABI 模型
+
+宿主取得 `fw_plugin_api_v1` 函数表，验证其结构大小和 ABI 版本，然后将插件注册到运行时。动态加载插件导出 `facetwire_plugin_query` 符号；受限平台可以将同一查询函数直接传给 `fw_runtime_register_static`。
+
+桌面平台和受控 Android 宿主也可以把已经授权的绝对库路径传给 `fw_runtime_load_dynamic`。Core 不扫描插件目录，也不负责信任决策。宿主可以确定性地枚举和选择能力提供者，再查询带版本的接口。
+
+内存不得由 ABI 另一侧释放。字符串使用 UTF-8 字节区间，不假定以 NUL 结尾。每个可扩展结构都以 `struct_size` 和 ABI 版本开头。
+
+进一步阅读：[0.1 插件协议](spec/plugin-contract-v0.1.md)、实验性的[插件清单规范](spec/plugin-manifest-v0.1.zh-CN.md)、[ASP 目录规范](spec/agent-scene-package-directory-v0.1.md)、[核心内容规范](spec/core-content-profile-v0.1.zh-CN.md)、[流式内容规范](spec/flow-content-profile-v0.1.zh-CN.md)和[架构概览中文版](docs/architecture.zh-CN.md)。
+
+内容插件和布局能力的设计文档包括：
+
+- [Text Renderer 需求](docs/requirements/text-renderer-requirements-v0.1.md)与[函数级详细设计](docs/design/text-renderer-detailed-design-v0.1.md)
+- [Flow Layout 需求](docs/requirements/flow-layout-renderer-requirements-v0.1.md)与[函数级详细设计](docs/design/flow-layout-renderer-detailed-design-v0.1.md)
+- [Media Renderer 需求](docs/requirements/media-renderers-requirements-v0.1.md)与[函数级详细设计](docs/design/media-renderers-detailed-design-v0.1.md)
+- [架构决策记录索引](docs/adr/README.md)
+
+## 许可证
+
+FacetWire 采用 [Mozilla Public License 2.0](LICENSE)。MPL-2.0 要求对受其覆盖的源文件所做修改保持公开，同时允许独立的开源或专有插件。第三方格式、编解码器、SDK、字体和测试素材保留各自许可证，并可能需要额外的专利或厂商授权。详情参阅 [LICENSE_POLICY.md](LICENSE_POLICY.md)。
+
+## 参与贡献
+
+提交贡献或报告安全问题前，请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)、[行为准则](CODE_OF_CONDUCT.md)和 [SECURITY.md](SECURITY.md)。

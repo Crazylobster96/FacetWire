@@ -3,6 +3,9 @@
 
 #include <stdio.h>
 
+const fw_plugin_api_v1 *FW_CALL
+facetwire_hello_plugin_query(fw_abi_version requested_abi);
+
 static void FW_CALL print_log(void *user_data,
                               fw_log_level level,
                               fw_string_view target,
@@ -39,7 +42,7 @@ int main(void) {
     }
 
     status = fw_runtime_register_static(
-        runtime, facetwire_plugin_query, &descriptor);
+        runtime, facetwire_hello_plugin_query, &descriptor);
     if (status != FW_STATUS_OK) {
         fprintf(stderr, "plugin registration failed: %s\n",
                 fw_status_name(status));

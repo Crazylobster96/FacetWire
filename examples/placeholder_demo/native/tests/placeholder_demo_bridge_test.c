@@ -63,6 +63,9 @@ int main(void) {
     CHECK(fwdemo_runtime_snapshot(context, &output) == 0);
     CHECK(contains(&output, "org.facetwire.reference.placeholder-renderer"));
     CHECK(contains(&output, "facetwire.renderer.placeholder"));
+    CHECK(fwdemo_runtime_snapshot(context, &output) == 1);
+    CHECK(output.data != NULL && output.length != 0u);
+    CHECK(contains(&output, "facetwire.renderer.placeholder"));
     fwdemo_buffer_release(&output);
 
     CHECK(fwdemo_parameter_schema(context, &output) == 0);

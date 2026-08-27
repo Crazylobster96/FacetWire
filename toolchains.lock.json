@@ -26,7 +26,11 @@
   },
   "dartPackages": {
     "ffi": "2.2.0",
-    "ffigen": "21.0.0"
+    "ffigen": "21.0.0",
+    "mediaKit": "1.2.6",
+    "mediaKitVideo": "2.0.1",
+    "mediaKitLibsVideo": "1.0.7",
+    "pathProvider": "2.1.6"
   },
   "native": {
     "cmakeMinimum": "3.21",

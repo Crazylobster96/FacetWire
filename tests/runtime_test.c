@@ -7,10 +7,12 @@
 #endif
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
 static int load_count;
 static int unload_count;
+static int failed_unload_count;
 
 static const fw_capability_descriptor_v1 capabilities[] = {
     {
@@ -63,6 +65,48 @@ static const fw_plugin_api_v1 *FW_CALL query_plugin(
     fw_abi_version requested_abi) {
     return requested_abi.major == FW_ABI_VERSION_MAJOR ? &api : NULL;
 }
+static const fw_plugin_descriptor_v1 failed_descriptor = {
+    sizeof(fw_plugin_descriptor_v1),
+    FW_ABI_VERSION_INIT,
+    FW_STRING_VIEW_LITERAL("org.facetwire.test.failed-load"),
+    FW_STRING_VIEW_LITERAL("Failed load test plugin"),
+    FW_STRING_VIEW_LITERAL("FacetWire"),
+    FW_STRING_VIEW_LITERAL("0.1.0"),
+    capabilities,
+    1u,
+};
+
+static const fw_plugin_descriptor_v1 *FW_CALL get_failed_descriptor(void) {
+    return &failed_descriptor;
+}
+
+static fw_status FW_CALL load_failed_plugin(const fw_host_api_v1 *host,
+                                             fw_plugin_handle *out_handle) {
+    (void)host;
+    *out_handle = malloc(1u);
+    return *out_handle == NULL ? FW_STATUS_OUT_OF_MEMORY :
+        FW_STATUS_PLUGIN_ERROR;
+}
+
+static void FW_CALL unload_failed_plugin(fw_plugin_handle handle) {
+    free(handle);
+    ++failed_unload_count;
+}
+
+static const fw_plugin_api_v1 failed_api = {
+    sizeof(fw_plugin_api_v1),
+    FW_ABI_VERSION_INIT,
+    get_failed_descriptor,
+    load_failed_plugin,
+    unload_failed_plugin,
+    NULL,
+};
+
+static const fw_plugin_api_v1 *FW_CALL query_failed_plugin(
+    fw_abi_version requested_abi) {
+    return requested_abi.major == FW_ABI_VERSION_MAJOR ? &failed_api : NULL;
+}
+
 
 int main(void) {
     const fw_host_api_v1 host = {
@@ -78,6 +122,9 @@ int main(void) {
     assert(fw_runtime_create(&config, &runtime) == FW_STATUS_OK);
     assert(runtime != NULL);
     assert(fw_runtime_plugin_count(runtime) == 0u);
+    assert(fw_runtime_register_static(runtime, query_failed_plugin, NULL) ==
+           FW_STATUS_PLUGIN_ERROR);
+    assert(failed_unload_count == 1);
     assert(fw_runtime_register_static(runtime, query_plugin, &registered) ==
            FW_STATUS_OK);
     assert(registered == &descriptor);

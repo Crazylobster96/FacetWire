@@ -10,6 +10,8 @@ void main() {
     final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(SpikeApp(client: DemoRuntimeClient()));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('open-placeholder-demo')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('"renderer":"demo"'), findsOneWidget);

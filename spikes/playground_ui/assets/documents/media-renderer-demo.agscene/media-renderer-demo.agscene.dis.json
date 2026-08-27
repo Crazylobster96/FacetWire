@@ -1,0 +1,174 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:media-renderer-demo",
+  "title": "Audio/Video Renderer 0.1 Demo",
+  "canvas": {
+    "id": "canvas:media-demo",
+    "size": {
+      "width": 1280,
+      "height": 820
+    },
+    "pages": [
+      {
+        "id": "page:media-demo",
+        "size": {
+          "width": 1280,
+          "height": 820
+        },
+        "layers": [
+          {
+            "id": "layer:video",
+            "z": 0,
+            "zones": [
+              {
+                "id": "zone:video",
+                "bounds": {
+                  "x": 40,
+                  "y": 40,
+                  "width": 820,
+                  "height": 460
+                },
+                "semantics": {
+                  "role": "media",
+                  "label": "FacetWire generated video"
+                },
+                "content": {
+                  "type": "video",
+                  "resource": "video:demo",
+                  "posterResource": "image:video-poster",
+                  "label": "FacetWire generated video",
+                  "opacity": 0.92,
+                  "placement": {
+                    "fit": "contain",
+                    "alignment": {
+                      "x": 0.5,
+                      "y": 0.5
+                    },
+                    "clip": true
+                  },
+                  "playback": {
+                    "autoplay": false,
+                    "loop": true,
+                    "muted": false,
+                    "volume": 0.8,
+                    "playbackRate": 1,
+                    "controls": "hidden"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "layer:subtitle",
+            "z": 10,
+            "zones": [
+              {
+                "id": "zone:subtitle",
+                "bounds": {
+                  "x": 120,
+                  "y": 420,
+                  "width": 660,
+                  "height": 64
+                },
+                "semantics": {
+                  "role": "text",
+                  "label": "Automatic translated subtitle layer"
+                },
+                "content": {
+                  "type": "text",
+                  "format": "plain",
+                  "text": "自动翻译字幕层 · 与视频层独立定位和调节",
+                  "language": "zh-CN",
+                  "opacity": 0.96
+                }
+              }
+            ]
+          },
+          {
+            "id": "layer:controls",
+            "z": 20,
+            "zones": [
+              {
+                "id": "zone:controls",
+                "bounds": {
+                  "x": 150,
+                  "y": 505,
+                  "width": 600,
+                  "height": 72
+                },
+                "semantics": {
+                  "role": "controls",
+                  "label": "Independent media controls"
+                },
+                "content": {
+                  "type": "controls",
+                  "target": "zone:video",
+                  "opacity": 0.88,
+                  "autoHide": true
+                }
+              }
+            ]
+          },
+          {
+            "id": "layer:audio",
+            "z": 30,
+            "zones": [
+              {
+                "id": "zone:audio",
+                "bounds": {
+                  "x": 900,
+                  "y": 90,
+                  "width": 320,
+                  "height": 410
+                },
+                "semantics": {
+                  "role": "media",
+                  "label": "FacetWire generated audio"
+                },
+                "content": {
+                  "type": "audio",
+                  "resource": "audio:demo",
+                  "artworkResource": "image:audio-artwork",
+                  "label": "FacetWire generated audio",
+                  "title": "FacetWire Theme",
+                  "opacity": 0.9,
+                  "playback": {
+                    "autoplay": false,
+                    "loop": true,
+                    "muted": false,
+                    "volume": 0.8,
+                    "playbackRate": 1,
+                    "controls": "visible"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "video:demo",
+      "source": "resources/facetwire-demo.mp4",
+      "mediaType": "video/mp4"
+    },
+    {
+      "id": "audio:demo",
+      "source": "resources/facetwire-demo.wav",
+      "mediaType": "audio/wav"
+    },
+    {
+      "id": "image:video-poster",
+      "source": "resources/video-poster.png",
+      "mediaType": "image/png"
+    },
+    {
+      "id": "image:audio-artwork",
+      "source": "resources/audio-artwork.png",
+      "mediaType": "image/png"
+    }
+  ]
+}

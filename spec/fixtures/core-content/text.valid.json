@@ -1,0 +1,23 @@
+{
+  "type": "text",
+  "format": "plain",
+  "text": "FacetWire 基础文本示例。",
+  "language": "zh-CN",
+  "direction": "auto",
+  "selectable": true,
+  "opacity": 1,
+  "style": {
+    "fontFamilies": ["Noto Sans CJK SC", "sans-serif"],
+    "fontSize": 18,
+    "fontWeight": 400,
+    "lineHeightMultiplier": 1.4,
+    "color": {"red": 0.1, "green": 0.1, "blue": 0.12, "alpha": 1}
+  },
+  "layout": {
+    "horizontalAlign": "start",
+    "verticalAlign": "top",
+    "wrap": "wrap",
+    "overflow": "scroll",
+    "padding": {"top": 8, "right": 8, "bottom": 8, "left": 8}
+  }
+}

@@ -34,9 +34,11 @@ static fw_status FW_CALL hello_load(const fw_host_api_v1 *host,
     static const fw_string_view message =
         FW_STRING_VIEW_LITERAL("hello plugin loaded");
 
-    if (host == NULL || out_handle == NULL) {
+    if (out_handle == NULL) {
         return FW_STATUS_INVALID_ARGUMENT;
     }
+    *out_handle = NULL;
+    if (host == NULL) return FW_STATUS_INVALID_ARGUMENT;
     hello_host = host;
     *out_handle = (fw_plugin_handle)&hello_descriptor;
     if (hello_host->log != NULL) {
@@ -73,7 +75,7 @@ static const fw_plugin_api_v1 hello_api = {
 };
 
 FW_PLUGIN_EXPORT const fw_plugin_api_v1 *FW_CALL
-facetwire_plugin_query(fw_abi_version requested_abi) {
+facetwire_hello_plugin_query(fw_abi_version requested_abi) {
     if (requested_abi.major != FW_ABI_VERSION_MAJOR ||
         requested_abi.minor < FW_ABI_VERSION_MINOR) {
         return NULL;

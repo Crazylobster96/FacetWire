@@ -4,6 +4,7 @@
 
 #include <facetwire/display_list.h>
 #include <facetwire/renderer.h>
+#include <facetwire/semantics.h>
 #include <facetwire/text_service.h>
 
 #ifdef __cplusplus
@@ -158,13 +159,6 @@ typedef struct fw_placeholder_render_result_v1 {
     uint32_t flags;
 } fw_placeholder_render_result_v1;
 
-typedef uint32_t fw_semantics_role;
-#define FW_SEMANTICS_ROLE_CONTENT_UNAVAILABLE 1u
-#define FW_SEMANTICS_ROLE_IMAGE               2u
-#define FW_SEMANTICS_ROLE_MEDIA               3u
-#define FW_SEMANTICS_ROLE_DOCUMENT            4u
-#define FW_SEMANTICS_ROLE_CHART               5u
-
 typedef struct fw_placeholder_semantics_v1 {
     uint32_t struct_size;
     fw_semantics_role role;
@@ -239,6 +233,13 @@ typedef struct fw_placeholder_renderer_api_v1 {
         fw_plugin_handle plugin,
         fw_string_view *out_schema_json);
 } fw_placeholder_renderer_api_v1;
+
+#if defined(FACETWIRE_PLACEHOLDER_RENDERER_DYNAMIC_ENTRY)
+FW_PLUGIN_EXPORT
+#endif
+const fw_plugin_api_v1 *FW_CALL
+facetwire_placeholder_renderer_plugin_query(
+    fw_abi_version requested_abi);
 
 #ifdef __cplusplus
 }

@@ -45,6 +45,9 @@ int main(void) {
     assert(fwui_runtime_snapshot(context, &snapshot) == FWUI_STATUS_OK);
     assert(snapshot.length > 0u);
     assert(strstr((const char *)snapshot.data, "placeholder") != NULL);
+    assert(fwui_runtime_snapshot(context, &snapshot) ==
+        FWUI_STATUS_INVALID_ARGUMENT);
+    assert(snapshot.data != NULL && snapshot.length != 0u);
     fwui_buffer_release(&snapshot);
 
     assert(fwui_render_placeholder(context, NAN, 100.0f, 1.0f,
@@ -64,6 +67,11 @@ int main(void) {
     assert(read_u32_le(display.data + 8u) == 3u);
     assert(fabsf(read_f32_le(display.data + 12u + 36u)) < 0.0001f);
     assert(strstr((const char *)semantics.data, "\"role\":\"image\"") != NULL);
+
+    assert(fwui_render_placeholder(context, 200.0f, 100.0f, 0.0f,
+        &display, &second_semantics) == FWUI_STATUS_INVALID_ARGUMENT);
+    assert(display.data != NULL && display.length == 132u);
+    assert(second_semantics.data == NULL && second_semantics.length == 0u);
 
     assert(fwui_render_placeholder(context, 200.0f, 100.0f, 0.0f,
         &second_display, &second_semantics) == FWUI_STATUS_OK);

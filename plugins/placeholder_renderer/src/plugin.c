@@ -1156,11 +1156,21 @@ static const fw_plugin_api_v1 ph_plugin_api = {
     ph_query_interface,
 };
 
-FW_PLUGIN_EXPORT const fw_plugin_api_v1 *FW_CALL
-facetwire_plugin_query(fw_abi_version requested_abi) {
+#if defined(FACETWIRE_PLACEHOLDER_RENDERER_DYNAMIC_ENTRY)
+FW_PLUGIN_EXPORT
+#endif
+const fw_plugin_api_v1 *FW_CALL
+facetwire_placeholder_renderer_plugin_query(fw_abi_version requested_abi) {
     if (requested_abi.major != FW_ABI_VERSION_MAJOR ||
         requested_abi.minor < FW_ABI_VERSION_MINOR) {
         return NULL;
     }
     return &ph_plugin_api;
 }
+
+#if defined(FACETWIRE_PLACEHOLDER_RENDERER_DYNAMIC_ENTRY)
+FW_PLUGIN_EXPORT const fw_plugin_api_v1 *FW_CALL
+facetwire_plugin_query(fw_abi_version requested_abi) {
+    return facetwire_placeholder_renderer_plugin_query(requested_abi);
+}
+#endif

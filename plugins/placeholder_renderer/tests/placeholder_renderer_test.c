@@ -236,9 +236,11 @@ int main(void) {
     semantics.struct_size = sizeof(semantics);
     hit_result.struct_size = sizeof(hit_result);
 
-    plugin_api = facetwire_plugin_query(FW_ABI_VERSION_CURRENT);
+    plugin_api = facetwire_placeholder_renderer_plugin_query(
+        FW_ABI_VERSION_CURRENT);
     CHECK(plugin_api != NULL);
-    CHECK(facetwire_plugin_query((fw_abi_version){2u, 0u}) == NULL);
+    CHECK(facetwire_placeholder_renderer_plugin_query(
+        (fw_abi_version){2u, 0u}) == NULL);
     descriptor = plugin_api->get_descriptor();
     CHECK(descriptor != NULL);
     CHECK(descriptor->capability_count == 1u);

@@ -141,7 +141,7 @@ static fw_display_list_sink_v1 make_sink(recording_sink *state) {
 
 int main(void) {
     const fw_plugin_api_v1 *plugin_api =
-        facetwire_plugin_query(FW_ABI_VERSION_CURRENT);
+        facetwire_placeholder_renderer_plugin_query(FW_ABI_VERSION_CURRENT);
     const fw_placeholder_renderer_api_v1 *renderer;
     const fw_host_api_v1 host = {
         sizeof(fw_host_api_v1), FW_ABI_VERSION_INIT, NULL, NULL};

@@ -5,22 +5,47 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import 'core_content_demo.dart';
 import 'display_list.dart';
+import 'media_renderer_demo.dart';
 import 'models.dart';
 
 class SpikeApp extends StatelessWidget {
-  const SpikeApp({required this.client, super.key});
+  const SpikeApp({required this.client, this.initialDemoPath, super.key});
 
   final NativeRuntimeClient client;
+  final String? initialDemoPath;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'FacetWire Playground Spike',
       theme: ThemeData(colorSchemeSeed: const Color(0xff4f7ef7)),
-      home: SpikeScreen(client: client),
+      home: CoreContentDemoScreen(initialPath: initialDemoPath),
+      routes: {
+        '/placeholder': (context) => SpikeScreen(client: client),
+        '/media': (context) => const MediaRendererDemoScreen(),
+      },
     );
   }
+}
+
+String? parseDemoPathArguments(List<String> arguments) {
+  for (var index = 0; index < arguments.length; index += 1) {
+    final argument = arguments[index];
+    if (argument.startsWith('--demo=')) {
+      final value = argument.substring('--demo='.length).trim();
+      return value.isEmpty ? null : value;
+    }
+    if (argument == '--demo' && index + 1 < arguments.length) {
+      final value = arguments[index + 1].trim();
+      return value.isEmpty ? null : value;
+    }
+    if (!argument.startsWith('-') && argument.trim().isNotEmpty) {
+      return argument.trim();
+    }
+  }
+  return null;
 }
 
 class SpikeScreen extends StatefulWidget {
@@ -75,7 +100,7 @@ class _SpikeScreenState extends State<SpikeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('FacetWire Playground UI Spike')),
+      appBar: AppBar(title: const Text('Placeholder Renderer Compatibility')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

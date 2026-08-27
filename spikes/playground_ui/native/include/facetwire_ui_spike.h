@@ -31,6 +31,9 @@ typedef struct fwui_buffer {
     uint64_t length;
 } fwui_buffer;
 
+/* Output buffers must be zero-initialized and released before reuse. An API
+ * call never overwrites a non-empty buffer. */
+
 FWUI_API fwui_status fwui_context_create(fwui_context **out_context);
 FWUI_API void fwui_context_destroy(fwui_context *context);
 FWUI_API fwui_status fwui_runtime_snapshot(

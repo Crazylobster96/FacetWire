@@ -98,6 +98,22 @@
       },
       "additionalProperties": true
     },
+    "coreContent": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": ["text", "image", "animated-image", "video", "audio"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "flowContent": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {"type": {"const": "flow"}},
+      "additionalProperties": true
+    },
     "extensionContent": {
       "type": "object",
       "required": ["type"],
@@ -105,7 +121,18 @@
         "type": {
           "type": "string",
           "minLength": 1,
-          "not": {"enum": ["placeholder", "document"]}
+          "not": {
+            "enum": [
+              "placeholder",
+              "document",
+              "text",
+              "image",
+              "animated-image",
+              "video",
+              "audio",
+              "flow"
+            ]
+          }
         }
       },
       "additionalProperties": true
@@ -119,6 +146,8 @@
         "semantics": {"type": "object"},
         "content": {
           "oneOf": [
+            {"$ref": "#/$defs/coreContent"},
+            {"$ref": "#/$defs/flowContent"},
             {"$ref": "#/$defs/placeholderContent"},
             {"$ref": "#/$defs/documentContent"},
             {"$ref": "#/$defs/extensionContent"}

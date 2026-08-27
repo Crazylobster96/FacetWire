@@ -1,0 +1,35 @@
+{
+  "$schema": "../../spec/schema/plugin-manifest-v0.1.schema.json",
+  "format": "facetwire.plugin-manifest",
+  "formatVersion": "0.1",
+  "plugin": {
+    "id": "org.facetwire.reference.core-image-renderer",
+    "version": "0.1.0",
+    "name": "FacetWire Core Image Renderer",
+    "vendor": "FacetWire contributors",
+    "licenseSpdx": "MPL-2.0"
+  },
+  "abi": {"major": 1, "minimumMinor": 0, "maximumMinor": 0},
+  "capabilities": [
+    {
+      "id": "facetwire.renderer.image",
+      "kind": "facetwire.capability.renderer",
+      "flags": 7,
+      "interfaces": [{"id": "facetwire.renderer.image.v1", "version": 1}]
+    },
+    {
+      "id": "facetwire.renderer.animated-image",
+      "kind": "facetwire.capability.renderer",
+      "flags": 7,
+      "interfaces": [{"id": "facetwire.renderer.animated-image.v1", "version": 1}]
+    }
+  ],
+  "artifacts": [{
+    "target": "any",
+    "profile": "static",
+    "registration": "facetwire_core_image_plugin_query"
+  }],
+  "permissions": [],
+  "dependencies": [],
+  "extensions": {}
+}

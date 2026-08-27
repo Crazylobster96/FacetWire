@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://facetwire.org/schema/plugin-manifest-v0.1.schema.json",
+  "title": "FacetWire Plugin Manifest 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "formatVersion",
+    "plugin",
+    "abi",
+    "capabilities",
+    "artifacts"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "format": { "const": "facetwire.plugin-manifest" },
+    "formatVersion": { "const": "0.1" },
+    "plugin": { "$ref": "#/$defs/plugin" },
+    "abi": { "$ref": "#/$defs/abi" },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/stableId" },
+      "default": []
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dependency" },
+      "default": []
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(?:[.-][a-z0-9][a-z0-9_-]*)+$"
+      },
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 255,
+      "pattern": "^[a-z0-9]+(?:[.-][a-z0-9][a-z0-9_-]*)+$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\u0000]+$"
+    },
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "name", "vendor", "licenseSpdx"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "vendor": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "licenseSpdx": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "abi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["major", "minimumMinor", "maximumMinor"],
+      "properties": {
+        "major": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "minimumMinor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "maximumMinor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      }
+    },
+    "interface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "version": { "type": "integer", "minimum": 1, "maximum": 4294967295 }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "interfaces"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "kind": { "$ref": "#/$defs/stableId" },
+        "flags": { "type": "integer", "minimum": 0, "default": 0 },
+        "interfaces": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/interface" }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "profile"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+        },
+        "profile": {
+          "enum": ["static", "native-dynamic", "process", "wasm", "remote"]
+        },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "querySymbol": { "const": "facetwire_plugin_query" },
+        "registration": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "maxLength": 255
+        },
+        "endpointScheme": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*$",
+          "maxLength": 64
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "profile": { "const": "static" } } },
+          "then": { "required": ["registration"] }
+        },
+        {
+          "if": {
+            "properties": { "profile": { "const": "native-dynamic" } }
+          },
+          "then": { "required": ["path", "querySymbol"] }
+        },
+        {
+          "if": {
+            "properties": { "profile": { "enum": ["process", "wasm"] } }
+          },
+          "then": { "required": ["path"] }
+        },
+        {
+          "if": { "properties": { "profile": { "const": "remote" } } },
+          "then": { "required": ["endpointScheme"] }
+        }
+      ]
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pluginId", "versionRange", "required"],
+      "properties": {
+        "pluginId": { "$ref": "#/$defs/stableId" },
+        "versionRange": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "required": { "type": "boolean" }
+      }
+    }
+  }
+}

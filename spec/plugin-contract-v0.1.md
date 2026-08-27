@@ -12,8 +12,10 @@ lifecycle, logging, static registration, and interface discovery.
 
 ### Completeness check
 
-The contract deliberately excludes rendering commands and file manifests until
-their behavior and resource limits are separately specified.
+The contract deliberately excludes rendering commands. Deployment metadata is
+specified separately by the
+[Plugin Manifest 0.1 specification](plugin-manifest-v0.1.zh-CN.md), so manifest
+evolution does not change the in-process ABI.
 
 ## 2. Identity
 
@@ -51,6 +53,10 @@ reordering and implicit compiler layout changes are prohibited.
 The host registers a query function, validates returned immutable tables, and
 calls `load` once. On success it calls `unload` exactly once before releasing
 the plugin module or host services. Unload occurs in reverse registration order.
+Before fallible initialization, `load` MUST set `*out_handle` to `NULL` and
+MUST leave it `NULL` on failure. A runtime MAY defensively call `unload` when a
+non-conforming failed `load` returns a non-NULL partial handle, preventing the
+partial resource from becoming unreachable.
 
 Plugin descriptors and function tables MUST remain valid from query through
 unload. A plugin MUST NOT retain the host API after unload. Neither party may
@@ -84,6 +90,9 @@ the calling convention defined in `facetwire.h`. A statically linked plugin MAY
 use a uniquely named query function and register its pointer directly. IPC,
 Wasm, and remote adapters MAY represent the contract through serialization but
 MUST preserve observable identity, lifecycle, status, and capability semantics.
+The Core native loader accepts only an explicit absolute UTF-8 library path;
+package discovery, path authorization, signature policy, and manifest validation
+belong to the host.
 
 ### Completeness check
 
@@ -105,9 +114,11 @@ localization.
 ## 8. Conformance
 
 A conforming 0.1 runtime MUST reject incompatible ABIs and malformed
-descriptors, prevent duplicate plugin identities, enforce capacity, balance
-load/unload, and expose deterministic registration order. A conforming plugin
-MUST pass the public header build and lifecycle tests on every claimed platform.
+descriptors, reject duplicate capability identifiers inside one plugin, prevent
+duplicate plugin identities, enforce capacity, balance load/unload, and expose
+deterministic provider enumeration in registration order. A conforming plugin
+MUST pass the public header build, lifecycle, discovery, and interface query
+tests on every claimed platform.
 
 ### Completeness check
 

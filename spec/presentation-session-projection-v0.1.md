@@ -20,6 +20,7 @@
 | Canvas、Page、Layer、Zone、资源引用 | FacetWire Document | 是 |
 | 当前设备、窗口、字体、媒介和 Capability | Presentation Session | 否 |
 | 资源可用性、进度、陈旧状态 | Presentation Session | 否 |
+| Layout Plan、Virtual Page/Fragment、当前 source anchor | Presentation Session | 否 |
 | AI 任务、服务器地址、通知和凭据 | 应用协调层 | 否，且不得进入 Renderer |
 | DisplayList、Semantics、Hit Regions | Renderer Runtime Frame | 否 |
 
@@ -109,8 +110,11 @@ uint32_t flags;
 ## 5. AI 亲和要求
 
 AI Agent 修改持久展示时必须通过稳定对象 ID 和原子 Patch；Session 状态更新使用
-独立 revision，不修改文档 revision。一次状态更新不得改变 Zone 外部几何、Layer
-顺序或 Page 分页结果。
+独立 revision，不修改文档 revision。一次普通交互状态更新不得改变 Zone 外部几何、
+Layer 顺序或持久 Authored Page。字体缩放、Render Target 或响应式模板变化属于显式
+layout-affecting Session 更新，可以生成新的 Virtual Page/Fragment Plan，但不得回写
+Authored Page 或源 Flow Item。阅读位置应以 source Item anchor 恢复，而不是沿用旧的
+Virtual Page ordinal。
 
 AI 或应用可以请求：
 

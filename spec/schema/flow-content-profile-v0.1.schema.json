@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://facetwire.org/schema/flow-content-profile-v0.1.schema.json",
+  "title": "FacetWire Flow Content Profile 0.1",
+  "$ref": "#/$defs/flowContent",
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "finiteNonNegative": {"type": "number", "minimum": 0},
+    "size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "number", "exclusiveMinimum": 0, "maximum": 1000000},
+        "height": {"type": "number", "exclusiveMinimum": 0, "maximum": 1000000}
+      }
+    },
+    "insets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "top": {"$ref": "#/$defs/finiteNonNegative"},
+        "right": {"$ref": "#/$defs/finiteNonNegative"},
+        "bottom": {"$ref": "#/$defs/finiteNonNegative"},
+        "left": {"$ref": "#/$defs/finiteNonNegative"}
+      }
+    },
+    "pageTemplate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["mode"],
+      "properties": {
+        "mode": {"enum": ["continuous", "virtual-pages", "columns"]},
+        "size": {"$ref": "#/$defs/size"},
+        "margins": {"$ref": "#/$defs/insets"},
+        "columns": {"type": "integer", "minimum": 1, "maximum": 64, "default": 1},
+        "columnGap": {"$ref": "#/$defs/finiteNonNegative"},
+        "gap": {"$ref": "#/$defs/finiteNonNegative"},
+        "minimumTextWidth": {"type": "number", "exclusiveMinimum": 0}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"mode": {"const": "virtual-pages"}}},
+          "then": {"required": ["size"]}
+        }
+      ]
+    },
+    "breakPolicy": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "breakBefore": {"type": "boolean", "default": false},
+        "breakAfter": {"type": "boolean", "default": false},
+        "keepTogether": {"type": "boolean", "default": false},
+        "keepWithNext": {"type": "boolean", "default": false},
+        "orphans": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 2},
+        "widows": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 2}
+      }
+    },
+    "placement": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "mode": {
+          "enum": ["block", "inline", "float-start", "float-end", "overlay"],
+          "default": "block"
+        },
+        "align": {"enum": ["start", "center", "end", "stretch"], "default": "start"},
+        "margins": {"$ref": "#/$defs/insets"},
+        "width": {"$ref": "#/$defs/finiteNonNegative"},
+        "height": {"$ref": "#/$defs/finiteNonNegative"},
+        "minWidth": {"$ref": "#/$defs/finiteNonNegative"},
+        "minHeight": {"$ref": "#/$defs/finiteNonNegative"},
+        "maxWidth": {"$ref": "#/$defs/finiteNonNegative"},
+        "maxHeight": {"$ref": "#/$defs/finiteNonNegative"},
+        "allowScaleDown": {"type": "boolean", "default": true},
+        "allowScaleUp": {"type": "boolean", "default": false},
+        "anchor": {"$ref": "#/$defs/id"},
+        "offset": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"}
+          }
+        },
+        "z": {"type": "integer"},
+        "readingOrder": {"type": "integer"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"mode": {"const": "overlay"}}, "required": ["mode"]},
+          "then": {"required": ["anchor", "offset", "z"]}
+        }
+      ]
+    },
+    "textSegment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "text"],
+      "properties": {
+        "type": {"const": "text"},
+        "text": {"type": "string", "maxLength": 16777216}
+      }
+    },
+    "objectSegment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "item"],
+      "properties": {
+        "type": {"const": "object"},
+        "item": {"$ref": "#/$defs/id"},
+        "baseline": {
+          "enum": ["baseline", "middle", "text-top", "text-bottom"],
+          "default": "baseline"
+        }
+      }
+    },
+    "segment": {
+      "oneOf": [
+        {"$ref": "#/$defs/textSegment"},
+        {"$ref": "#/$defs/objectSegment"}
+      ]
+    },
+    "paragraphItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "kind", "segments"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "kind": {"const": "paragraph"},
+        "segments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100000,
+          "items": {"$ref": "#/$defs/segment"}
+        },
+        "style": {"type": "object"},
+        "direction": {"enum": ["auto", "ltr", "rtl"], "default": "auto"},
+        "break": {"$ref": "#/$defs/breakPolicy"}
+      }
+    },
+    "contentSlot": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type"],
+      "properties": {
+        "type": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    },
+    "objectItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "kind", "content"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "kind": {"const": "object"},
+        "content": {"$ref": "#/$defs/contentSlot"},
+        "placement": {"$ref": "#/$defs/placement"},
+        "break": {"$ref": "#/$defs/breakPolicy"},
+        "fallbackSize": {"$ref": "#/$defs/size"},
+        "decorative": {"type": "boolean", "default": false}
+      }
+    },
+    "item": {
+      "oneOf": [
+        {"$ref": "#/$defs/paragraphItem"},
+        {"$ref": "#/$defs/objectItem"}
+      ]
+    },
+    "flowContent": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "id", "pageTemplate", "items"],
+      "properties": {
+        "type": {"const": "flow"},
+        "id": {"$ref": "#/$defs/id"},
+        "pageTemplate": {"$ref": "#/$defs/pageTemplate"},
+        "items": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {"$ref": "#/$defs/item"}
+        },
+        "responsiveProfiles": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/pageTemplate"}
+        }
+      }
+    }
+  }
+}

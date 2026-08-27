@@ -1,0 +1,13 @@
+{
+  "type": "image",
+  "resource": "image.cover",
+  "alt": "校园操场航拍图",
+  "opacity": 0.85,
+  "sampling": "smooth",
+  "orientation": "from-metadata",
+  "placement": {
+    "fit": "contain",
+    "alignment": {"x": 0.5, "y": 0.5},
+    "clip": true
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "../../spec/schema/plugin-manifest-v0.1.schema.json",
+  "format": "facetwire.plugin-manifest",
+  "formatVersion": "0.1",
+  "plugin": {
+    "id": "org.facetwire.reference.text-renderer",
+    "version": "0.1.0",
+    "name": "FacetWire Text Renderer",
+    "vendor": "FacetWire contributors",
+    "licenseSpdx": "MPL-2.0"
+  },
+  "abi": {"major": 1, "minimumMinor": 0, "maximumMinor": 0},
+  "capabilities": [{
+    "id": "facetwire.renderer.text",
+    "kind": "facetwire.capability.renderer",
+    "flags": 7,
+    "interfaces": [{"id": "facetwire.renderer.text.v1", "version": 1}]
+  }],
+  "artifacts": [{
+    "target": "any",
+    "profile": "static",
+    "registration": "facetwire_text_renderer_plugin_query"
+  }],
+  "permissions": [],
+  "dependencies": [],
+  "extensions": {}
+}

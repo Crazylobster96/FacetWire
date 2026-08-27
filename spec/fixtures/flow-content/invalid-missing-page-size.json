@@ -1,0 +1,6 @@
+{
+  "type": "flow",
+  "id": "article.invalid",
+  "pageTemplate": {"mode": "virtual-pages"},
+  "items": []
+}

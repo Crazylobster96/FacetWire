@@ -1,0 +1,42 @@
+{
+  "type": "flow",
+  "id": "article.demo",
+  "pageTemplate": {
+    "mode": "virtual-pages",
+    "size": {"width": 794, "height": 1123},
+    "margins": {"top": 72, "right": 64, "bottom": 72, "left": 64},
+    "gap": 24,
+    "minimumTextWidth": 96
+  },
+  "items": [
+    {
+      "id": "paragraph.intro",
+      "kind": "paragraph",
+      "style": {"fontSize": 18, "lineHeightMultiplier": 1.4},
+      "segments": [
+        {"type": "text", "text": "校园温度趋势 "},
+        {"type": "object", "item": "chart.sparkline", "baseline": "middle"},
+        {"type": "text", "text": " 已趋于稳定。"}
+      ]
+    },
+    {
+      "id": "chart.sparkline",
+      "kind": "object",
+      "content": {"type": "chart", "dataSource": "weather.csv"},
+      "placement": {"mode": "inline", "width": 120, "height": 32},
+      "fallbackSize": {"width": 120, "height": 32}
+    },
+    {
+      "id": "image.campus",
+      "kind": "object",
+      "content": {
+        "type": "image",
+        "resource": "image.campus",
+        "alt": "校园航拍图"
+      },
+      "placement": {"mode": "block", "align": "center", "maxWidth": 640},
+      "break": {"keepTogether": true},
+      "fallbackSize": {"width": 640, "height": 360}
+    }
+  ]
+}

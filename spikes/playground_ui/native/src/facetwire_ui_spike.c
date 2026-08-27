@@ -13,11 +13,8 @@ struct fwui_context {
     uint32_t abi_version;
 };
 
-static void clear_buffer(fwui_buffer *buffer) {
-    if (buffer != NULL) {
-        buffer->data = NULL;
-        buffer->length = 0u;
-    }
+static int buffer_available(const fwui_buffer *buffer) {
+    return buffer != NULL && buffer->data == NULL && buffer->length == 0u;
 }
 
 static void write_u16_le(uint8_t *dst, uint16_t value) {
@@ -106,8 +103,7 @@ fwui_status fwui_runtime_snapshot(
     fwui_buffer *out_utf8_json) {
     static const char snapshot[] =
         "{\"abiVersion\":1,\"renderer\":\"placeholder\",\"state\":\"ready\"}";
-    clear_buffer(out_utf8_json);
-    if (context == NULL || out_utf8_json == NULL || context->abi_version != 1u) {
+    if (context == NULL || !buffer_available(out_utf8_json) || context->abi_version != 1u) {
         return FWUI_STATUS_INVALID_ARGUMENT;
     }
     return copy_text(snapshot, out_utf8_json);
@@ -131,10 +127,9 @@ fwui_status fwui_render_placeholder(
     float radius = 0.0f;
     float minimum_dimension = 0.0f;
 
-    clear_buffer(out_display_list);
-    clear_buffer(out_semantics_utf8_json);
-    if (context == NULL || out_display_list == NULL ||
-        out_semantics_utf8_json == NULL ||
+    if (context == NULL ||
+        !buffer_available(out_display_list) ||
+        !buffer_available(out_semantics_utf8_json) ||
         out_display_list == out_semantics_utf8_json || context->abi_version != 1u ||
         !isfinite(width) || !isfinite(height) || !isfinite(opacity) ||
         width <= 0.0f || height <= 0.0f || opacity < 0.0f || opacity > 1.0f) {
