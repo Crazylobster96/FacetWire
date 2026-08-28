@@ -276,8 +276,8 @@ class _MediaRendererDemoScreenState extends State<MediaRendererDemoScreen> {
         builder: (context, child) => LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 1050;
-            final preview = _buildPreview();
-            final inspector = _buildInspector();
+            final preview = _buildPreview(scrollable: wide);
+            final inspector = _buildInspector(scrollable: wide);
             return wide
                 ? Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -287,11 +287,9 @@ class _MediaRendererDemoScreenState extends State<MediaRendererDemoScreen> {
                     ],
                   )
                 : ListView(
+                    key: const ValueKey('media-compact-scroll'),
                     padding: const EdgeInsets.all(12),
-                    children: [
-                      SizedBox(height: 650, child: preview),
-                      inspector,
-                    ],
+                    children: [preview, inspector],
                   );
           },
         ),
@@ -299,40 +297,36 @@ class _MediaRendererDemoScreenState extends State<MediaRendererDemoScreen> {
     );
   }
 
-  Widget _buildPreview() {
+  Widget _buildPreview({required bool scrollable}) {
+    final content = Padding(
+      padding: const EdgeInsets.all(20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 920),
+        child: Column(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final landscapeWidth = math.min(constraints.maxWidth, 920.0);
+                final landscapeHeight = landscapeWidth * 9 / 16;
+                final layerIsPortrait = _layerQuarterTurns.isOdd;
+                return SizedBox(
+                  key: const ValueKey('media-video-viewport'),
+                  width: layerIsPortrait ? landscapeHeight : landscapeWidth,
+                  height: layerIsPortrait ? landscapeWidth : landscapeHeight,
+                  child: _buildVideoComposition(),
+                );
+              },
+            ),
+            const SizedBox(height: 18),
+            Opacity(opacity: _audioOpacity, child: _buildAudioLayer()),
+          ],
+        ),
+      ),
+    );
     return ColoredBox(
       color: const Color(0xff111827),
       child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 920),
-            child: Column(
-              children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final landscapeWidth = math.min(
-                      constraints.maxWidth,
-                      920.0,
-                    );
-                    final landscapeHeight = landscapeWidth * 9 / 16;
-                    final layerIsPortrait = _layerQuarterTurns.isOdd;
-                    return SizedBox(
-                      key: const ValueKey('media-video-viewport'),
-                      width: layerIsPortrait ? landscapeHeight : landscapeWidth,
-                      height: layerIsPortrait
-                          ? landscapeWidth
-                          : landscapeHeight,
-                      child: _buildVideoComposition(),
-                    );
-                  },
-                ),
-                const SizedBox(height: 18),
-                Opacity(opacity: _audioOpacity, child: _buildAudioLayer()),
-              ],
-            ),
-          ),
-        ),
+        child: scrollable ? SingleChildScrollView(child: content) : content,
       ),
     );
   }
@@ -575,12 +569,14 @@ class _MediaRendererDemoScreenState extends State<MediaRendererDemoScreen> {
     );
   }
 
-  Widget _buildInspector() {
+  Widget _buildInspector({required bool scrollable}) {
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: ListView(
         key: const ValueKey('media-layer-inspector'),
         padding: const EdgeInsets.all(16),
+        primary: false,
+        physics: scrollable ? null : const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
         children: [
           const Text(

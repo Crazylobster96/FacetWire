@@ -36,8 +36,8 @@ cmake --build "$repo_root/build/macos-root"
 ctest --test-dir "$repo_root/build/macos-root" --output-on-failure
 
 
-export NO_PROXY="$NO_PROXY,localhost,127.0.0.1,::1"
-export no_proxy="$no_proxy,localhost,127.0.0.1,::1"
+export NO_PROXY="${NO_PROXY:+$NO_PROXY,}localhost,127.0.0.1,::1"
+export no_proxy="${no_proxy:+$no_proxy,}localhost,127.0.0.1,::1"
 
 cd "$app_root"
 "$flutter" pub get

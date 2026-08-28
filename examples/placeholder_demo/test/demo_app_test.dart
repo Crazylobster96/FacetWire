@@ -74,7 +74,86 @@ void main() {
     expect(find.textContaining('Final background alpha'), findsOneWidget);
     expect(client.renderCalls, greaterThanOrEqualTo(3));
   });
+
+  testWidgets('uses tabbed workspace without overflow at phone size', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      PlaceholderDemoApp(
+        key: const ValueKey('phone-sized-demo'),
+        client: _FakeClient(),
+        packageLoader: _phonePackageLoader(),
+      ),
+    );
+    for (var attempt = 0; attempt < 20; attempt += 1) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (find.byType(TabBar).evaluate().isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(tester.getSize(find.byType(Scaffold)).width, 430);
+    expect(find.byType(TabBar), findsOneWidget);
+    expect(find.text('Scene'), findsOneWidget);
+    expect(find.text('Preview'), findsOneWidget);
+    expect(find.text('Controls'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('composed-scene-preview')),
+      findsOneWidget,
+    );
+    final tabController = DefaultTabController.of(
+      tester.element(find.byType(TabBar)),
+    );
+    expect(tabController.index, 1);
+
+    await tester.tap(find.byIcon(Icons.tune_outlined));
+    await tester.pump();
+    expect(tabController.index, 2);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byKey(const ValueKey('opacity-slider')), findsOneWidget);
+    expect(find.text('82%'), findsOneWidget);
+  });
 }
+
+AgscenePackageLoader _phonePackageLoader() => AgscenePackageLoader(
+  (_) async => '''
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:phone-layout",
+  "title": "Phone Layout",
+  "canvas": {
+    "id": "canvas:phone-layout",
+    "size": {"width": 650, "height": 366},
+    "pages": [{
+      "id": "page:phone-layout",
+      "size": {"width": 650, "height": 366},
+      "layers": [{
+        "id": "layer:phone-layout",
+        "z": 0,
+        "zones": [{
+          "id": "zone:phone-layout",
+          "bounds": {"x": 0, "y": 0, "width": 650, "height": 366},
+          "content": {
+            "type": "placeholder",
+            "kind": "image",
+            "reason": "resource_unavailable",
+            "mode": "standard",
+            "label": "Phone layout placeholder",
+            "permittedActions": ["retry"]
+          }
+        }]
+      }]
+    }]
+  },
+  "resources": []
+}
+''',
+);
 
 final class _FakeClient implements NativeDemoClient {
   var renderCalls = 0;

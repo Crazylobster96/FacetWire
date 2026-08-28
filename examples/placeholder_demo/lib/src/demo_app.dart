@@ -296,60 +296,101 @@ class _PlaceholderDemoScreenState extends State<PlaceholderDemoScreen> {
   @override
   Widget build(BuildContext context) {
     final snapshot = _snapshot;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('FacetWire Placeholder Renderer Demo'),
-        actions: [
-          IconButton(
-            key: const ValueKey('open-core-content-demo'),
-            tooltip: '富媒体综合演示：Text / Image / GIF / Chart / Video',
-            onPressed: () => Navigator.of(context).pushNamed('/content'),
-            icon: const Icon(Icons.article_outlined),
-          ),
-          IconButton(
-            key: const ValueKey('open-media-renderer-demo'),
-            tooltip: 'Audio/Video Renderer 0.1',
-            onPressed: () => Navigator.of(context).pushNamed('/media'),
-            icon: const Icon(Icons.perm_media_outlined),
-          ),
-          IconButton(
-            key: const ValueKey('open-flow-layout-demo'),
-            tooltip: 'Flow Layout 0.1',
-            onPressed: () => Navigator.of(context).pushNamed('/flow'),
-            icon: const Icon(Icons.view_stream_outlined),
-          ),
-          if (snapshot != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Chip(
-                avatar: const Icon(Icons.check_circle, size: 18),
-                label: Text('${snapshot['pluginVersion']} · real C ABI'),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 700;
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              compact ? 'FacetWire' : 'FacetWire Placeholder Renderer Demo',
+            ),
+            actions: [
+              IconButton(
+                key: const ValueKey('open-core-content-demo'),
+                tooltip: '富媒体综合演示：Text / Image / GIF / Chart / Video',
+                onPressed: () => Navigator.of(context).pushNamed('/content'),
+                icon: const Icon(Icons.article_outlined),
               ),
-            ),
-          IconButton(
-            tooltip: 'Parameter Schema',
-            onPressed: _schema == null ? null : _showSchema,
-            icon: const Icon(Icons.data_object),
+              IconButton(
+                key: const ValueKey('open-media-renderer-demo'),
+                tooltip: 'Audio/Video Renderer 0.1',
+                onPressed: () => Navigator.of(context).pushNamed('/media'),
+                icon: const Icon(Icons.perm_media_outlined),
+              ),
+              IconButton(
+                key: const ValueKey('open-flow-layout-demo'),
+                tooltip: 'Flow Layout 0.1',
+                onPressed: () => Navigator.of(context).pushNamed('/flow'),
+                icon: const Icon(Icons.view_stream_outlined),
+              ),
+              if (snapshot != null && !compact)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Chip(
+                    avatar: const Icon(Icons.check_circle, size: 18),
+                    label: Text('${snapshot['pluginVersion']} · real C ABI'),
+                  ),
+                ),
+              IconButton(
+                tooltip: 'Parameter Schema',
+                onPressed: _schema == null ? null : _showSchema,
+                icon: const Icon(Icons.data_object),
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: _busy
-          ? const Center(child: CircularProgressIndicator())
-          : _document == null
-          ? _ErrorView(error: _error)
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(width: 286, child: _buildSceneTree(_document!)),
-                const VerticalDivider(width: 1),
-                Expanded(child: _buildPreview()),
-                const VerticalDivider(width: 1),
-                SizedBox(width: 350, child: _buildInspector()),
-              ],
-            ),
+          body: _busy
+              ? const Center(child: CircularProgressIndicator())
+              : _document == null
+              ? _ErrorView(error: _error)
+              : _buildWorkspace(_document!),
+        );
+      },
     );
   }
+
+  Widget _buildWorkspace(SceneDocument document) => LayoutBuilder(
+    builder: (context, constraints) {
+      if (constraints.maxWidth >= 1100) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(width: 286, child: _buildSceneTree(document)),
+            const VerticalDivider(width: 1),
+            Expanded(child: _buildPreview()),
+            const VerticalDivider(width: 1),
+            SizedBox(width: 350, child: _buildInspector()),
+          ],
+        );
+      }
+      return DefaultTabController(
+        length: 3,
+        initialIndex: 1,
+        child: Column(
+          children: [
+            const Material(
+              child: TabBar(
+                tabs: [
+                  Tab(icon: Icon(Icons.account_tree_outlined), text: 'Scene'),
+                  Tab(icon: Icon(Icons.preview_outlined), text: 'Preview'),
+                  Tab(icon: Icon(Icons.tune_outlined), text: 'Controls'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildSceneTree(document),
+                  _buildPreview(),
+                  _buildInspector(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 
   Widget _buildSceneTree(SceneDocument document) => Material(
     color: Theme.of(context).colorScheme.surfaceContainerLow,

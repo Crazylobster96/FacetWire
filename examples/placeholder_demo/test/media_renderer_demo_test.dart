@@ -190,6 +190,46 @@ void main() {
     expect(backend.closed, isTrue);
   });
 
+  testWidgets('compact media page scrolls to and operates layer controls', (
+    tester,
+  ) async {
+    final backend = _FakeMediaBackend();
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(home: MediaRendererDemoScreen(backend: backend)),
+    );
+    await tester.pumpAndSettle();
+
+    final page = find.byKey(const ValueKey('media-compact-scroll'));
+    final opacity = find.byKey(const ValueKey('media-video-opacity'));
+    expect(page, findsOneWidget);
+
+    final outerScrollable = find
+        .descendant(of: page, matching: find.byType(Scrollable))
+        .first;
+    final position = tester.state<ScrollableState>(outerScrollable).position;
+    expect(position.pixels, 0);
+
+    await tester.drag(page, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(0));
+
+    await tester.ensureVisible(opacity);
+    await tester.pump();
+    expect(opacity, findsOneWidget);
+
+    final initialOpacity = tester.widget<Slider>(opacity).value;
+    await tester.drag(opacity, const Offset(-120, 0));
+    await tester.pump();
+    expect(tester.widget<Slider>(opacity).value, lessThan(initialOpacity));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(backend.closed, isTrue);
+  });
+
   testWidgets('layer rotation swaps zone size and reflows related layers', (
     tester,
   ) async {
