@@ -27,12 +27,34 @@ void main() {
 
   test('rejects unknown versions, lengths, and non-finite values', () {
     final badVersion = Uint8List.fromList([
-      0x46, 0x57, 0x44, 0x4c, 2, 0, 12, 0, 0, 0, 0, 0,
+      0x46,
+      0x57,
+      0x44,
+      0x4c,
+      2,
+      0,
+      12,
+      0,
+      0,
+      0,
+      0,
+      0,
     ]);
     expect(() => decodeDisplayList(badVersion), throwsFormatException);
 
     final badLength = Uint8List.fromList([
-      0x46, 0x57, 0x44, 0x4c, 1, 0, 12, 0, 1, 0, 0, 0,
+      0x46,
+      0x57,
+      0x44,
+      0x4c,
+      1,
+      0,
+      12,
+      0,
+      1,
+      0,
+      0,
+      0,
     ]);
     expect(() => decodeDisplayList(badLength), throwsFormatException);
   });

@@ -1,0 +1,73 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:core-content-demo:level-3",
+  "title": "Core Content Demo / Level 3",
+  "canvas": {
+    "id": "canvas:core-level-3",
+    "size": {"width": 230, "height": 170},
+    "pages": [{
+      "id": "page:core-level-3",
+      "size": {"width": 230, "height": 170},
+      "layers": [
+        {
+          "id": "layer:animated-image:level-3",
+          "z": 0,
+          "zones": [{
+            "id": "zone:animated-image:level-3",
+            "bounds": {"x": 5, "y": 5, "width": 180, "height": 122},
+            "content": {
+              "type": "animated-image",
+              "resource": "gif:level-3",
+              "alt": "Level 3 animated marker",
+              "opacity": 0.8,
+              "placement": {"fit": "cover", "alignment": {"x": 0.5, "y": 0.5}, "clip": true},
+              "playback": {"autoplay": true, "loop": true, "playbackRate": 1, "controls": "hidden"}
+            }
+          }]
+        },
+        {
+          "id": "layer:image:level-3",
+          "z": 5,
+          "zones": [{
+            "id": "zone:image:level-3",
+            "bounds": {"x": 140, "y": 18, "width": 80, "height": 80},
+            "content": {
+              "type": "image",
+              "resource": "image:level-3",
+              "alt": "Level 3 green geometry",
+              "opacity": 0.62,
+              "placement": {"fit": "fill", "alignment": {"x": 0.5, "y": 0.5}, "clip": true}
+            }
+          }]
+        },
+        {
+          "id": "layer:text:level-3",
+          "z": 10,
+          "zones": [{
+            "id": "zone:text:level-3",
+            "bounds": {"x": 18, "y": 82, "width": 196, "height": 76},
+            "content": {
+              "type": "text",
+              "format": "plain",
+              "text": "Level 3\nGIF + Image + Text",
+              "language": "en",
+              "opacity": 0.94,
+              "style": {
+                "fontSize": 14,
+                "fontWeight": 700,
+                "color": {"red": 0.02, "green": 0.15, "blue": 0.09, "alpha": 1},
+                "backgroundColor": {"red": 0.86, "green": 1, "blue": 0.91, "alpha": 0.78}
+              },
+              "layout": {"overflow": "clip", "padding": {"top": 6, "right": 8, "bottom": 6, "left": 8}}
+            }
+          }]
+        }
+      ]
+    }]
+  },
+  "resources": [
+    {"id": "image:level-3", "source": "resources/level-3.png", "mediaType": "image/png"},
+    {"id": "gif:level-3", "source": "resources/level-3.gif", "mediaType": "image/gif"}
+  ]
+}

@@ -257,12 +257,14 @@ typedef struct fw_media_session_snapshot_v1 {
     uint32_t user_initiated_play;
     uint32_t hidden_from_semantics;
     uint32_t flags;
+    fw_media_rotation_quarter_turns content_rotation_quarter_turns;
 } fw_media_session_snapshot_v1;
 ```
 
 Renderer request 与 snapshot 分开传入，使相同 Document request 可以在多个 Session 中
 复用。`revision` 必须不小于 request 的 `presentation_revision`；否则返回
-`FW_STATUS_INVALID_STATE`，由宿主重取 snapshot。
+`FW_STATUS_INVALID_STATE`，由宿主重取 snapshot。`content_rotation_quarter_turns` 取 0–3，
+属于用户会话状态；按钮、键盘和对话指令必须更新同一字段并递增 revision。
 
 `role`、action mask 和 state 的公共取值在实现前应抽取到
 `include/facetwire/semantics.h`。现有 Placeholder 接口保留兼容别名，Media 接口不得
@@ -288,6 +290,7 @@ typedef struct fw_media_surface_command_v1 {
     uint32_t clip_to_viewport;
     uint32_t show_poster_until_ready;
     uint32_t flags;
+    fw_media_rotation_quarter_turns content_rotation_quarter_turns;
 } fw_media_surface_command_v1;
 
 typedef struct fw_media_visual_sink_v1 {
@@ -304,7 +307,8 @@ typedef struct fw_media_visual_sink_v1 {
 
 `source_normalized` 使用 0–1 坐标表示 cover/clip 后的采样区；`destination` 使用 Canvas
 逻辑坐标。Sink 立即复制 command，不保留字符串视图。外部表面由 session_id 关联宿主
-播放器，不把纹理句柄传给插件。
+播放器，不把纹理句柄传给插件。Poster、decoded frame、external surface 必须消费同一条
+包含旋转的 command；Sink 不得在视频可展示后继续把旧 Poster 留作透明底图。
 
 ### 本章检查
 
@@ -338,6 +342,7 @@ typedef uint64_t fw_media_semantics_action_mask;
 #define FW_MEDIA_ACTION_SET_MUTED     (1ull << 5)
 #define FW_MEDIA_ACTION_SET_VOLUME    (1ull << 6)
 #define FW_MEDIA_ACTION_SELECT_TRACK  (1ull << 7)
+#define FW_MEDIA_ACTION_SET_ROTATION  (1ull << 8)
 
 typedef struct fw_media_semantics_v1 {
     uint32_t struct_size;
@@ -354,6 +359,7 @@ typedef struct fw_media_semantics_v1 {
     fw_media_semantics_action_mask actions;
     uint32_t hidden;
     uint32_t flags;
+    fw_media_rotation_quarter_turns content_rotation_quarter_turns;
 } fw_media_semantics_v1;
 typedef struct fw_media_measure_result_v1 {
     uint32_t struct_size;
@@ -411,7 +417,8 @@ Service/Sink。检查所有 bool、枚举、UTF-8、opacity、volume、rate、of
 
 ### 7.3 `render`
 
-验证 snapshot revision，计算 Placement，按协商模式调用 Visual Sink 恰好一次或在
+验证 snapshot revision 和 0–3 的内容旋转值；90°/270° 先交换有效固有宽高，再计算
+Placement。按协商模式调用 Visual Sink 恰好一次或在
 opacity=0/audio 无视觉时零次。decoded-frame 严格执行 open→acquire→draw→release→close；
 任何失败路径保持平衡。
 
@@ -449,7 +456,7 @@ protected content 禁止 decoded-frame；external-surface 是否允许由服务 
 - export 与实时播放不需要两个文件格式。
 - DRM 不会被软件帧路径意外绕过。
 
-## 9. Placement 算法
+## 9. Placement 与旋转算法
 
 输入固有尺寸 `(iw,ih)` 与 viewport `(vw,vh)`：none 使用 1；contain 使用
 `min(vw/iw,vh/ih)`；cover 使用 `max`；fill 分别使用 x/y。alignment 计算剩余空间偏移，
@@ -458,16 +465,27 @@ viewport，但 `clip=true` 时 Sink 必须裁剪。
 
 audio artwork 使用同一算法；无 artwork 时不合成隐式背景。
 
+内容旋转和视频层旋转是两个不同操作：
+
+1. **内容旋转**保持 viewport/Zone 不变。0°/180° 使用 `(iw,ih)`；90°/270° 使用
+   `(ih,iw)` 计算 Placement，并把 quarter-turns 原样写入 Surface Command。Poster、首帧
+   和实时视频共同应用该命令。横向 Zone 中的竖向 contain 内容允许出现纯色留白。
+2. **视频层旋转**由通用场景布局围绕 Zone 中心交换宽高并生成新 Layout Plan。宿主重新
+   求解关联字幕和控制 Layer 的 anchor/offset；这些关联 Layer 保持自身正向。Media
+   Renderer 只接收重排后的 bounds，不修改兄弟 Layer。
+
 ### 本章检查
 
 - 与 Core Image Renderer 的 Placement 数学一致。
 - cover 的源裁剪和目标裁剪均有清晰坐标系。
 - 固定 1:1 Playground 模式不会进入算法输入。
+- 内容旋转通过 `fw_visual_transform_resolve` 解析且不导致 Zone reflow；视频层旋转通过
+  `fw_visual_transform_layer_bounds` 解析并明确要求 Layout Plan reflow。
 
 ## 10. 缓存与确定性
 
 cache key 包含：规范化请求、Resource fingerprint、selected output mode、Target、
-Placement 结果、poster/artwork fingerprint 和结构 Session 状态。实时帧的 position 不进入
+Placement 结果、内容旋转 quarter-turns、poster/artwork fingerprint 和结构 Session 状态。实时帧的 position 不进入
 可长期复用视觉缓存；poster-only 可以缓存。字符串按内容哈希，不按指针地址。
 
 ### 本章检查
@@ -507,6 +525,9 @@ fake Media Service 记录 probe/open/acquire/release/close 次数，可配置 me
 - decoded-frame 成功/每个失败点 handle 平衡；
 - external-surface 不 acquire frame；
 - poster-only 不 open 主媒体；
+- 90°/270° 内容旋转交换有效固有宽高，Surface Command、Semantics 和 cache key 同步变化；
+- Poster 与实时 Surface 共享同一变换且不同时占用视觉槽；
+- 视频层旋转只在宿主 UI 测试中交换 Zone 宽高并重排关联 Layer；
 - opacity 0 零视觉命令但保留语义；
 - 800×600 与 1400×900 Playground 窗口不改变 fixed 1:1 的 Renderer 请求；
 - 相同字符串内容不同指针产生相同 cache key。
@@ -543,7 +564,8 @@ Layer 通过 session_id 与视频关联。失败时 Runtime 在原 Zone 降级 P
 和页面几何不变。
 
 不存在以下冲突：播放器状态不会写回 ASP；平台对象不会穿过插件 ABI；audio 无视觉时仍
-有语义；poster 与首帧共享 Placement；根预览缩放不改变 Renderer 输入；受限 Apple/Android
+有语义；poster 与首帧共享 Placement 和旋转；内容旋转属于 Session，视频层旋转属于
+Layout Plan；根预览缩放不改变 Renderer 输入；受限 Apple/Android
 平台通过静态注册仍使用同一插件代码。
 
 ### 本章检查

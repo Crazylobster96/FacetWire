@@ -1,5 +1,15 @@
 # FacetWire Playground UI Spike
 
+> **Migration status / 迁移状态**
+>
+> The renderer pages, scenes, platform runners, and Flow Native Bridge from
+> this spike are now integrated into `examples/placeholder_demo`, the canonical
+> FacetWire Playground. Keep this directory for architecture history and
+> isolated experiments; do not ship it as a second user-facing app.
+>
+> 本 Spike 的 Renderer 页面、场景、平台 Runner 与 Flow Native Bridge 已迁移到
+> `examples/placeholder_demo`（正式 FacetWire Playground）。本目录仅保留作架构历史
+> 和隔离实验，不再作为第二个面向用户的 App 发布。
 This disposable spike validates the boundary selected by ADR-0001:
 
 ~~~text
@@ -50,6 +60,19 @@ scaling, and allows panning when the viewport is smaller than the canvas.
 预览控制栏可切换“适应窗口”和“固定 1:1”。后者始终保持描述文件中的逻辑尺寸并居中，
 窗口较小时只改变可视区域，可拖动画布查看，不会因 App 窗口变化重新缩放内容。
 
+## Flow Layout 0.1 verification / 流式排版验证
+
+The stream icon opens a verification page backed by the real native
+org.facetwire.reference.flow-layout plugin. Its uncompressed package has three
+recursive levels. Levels 1 and 2 compose text-image-text; Level 3 proves that
+an unknown child keeps its bounds through Placeholder fallback. The page also
+tests the explicitly unsupported virtual-pages boundary, viewer opacity, fit
+mode, and fixed 1:1 mode.
+
+顶栏的流式布局图标打开 Flow Layout 0.1 验证页。该页面通过 Native Assets 调用真实
+C 插件，不是 Dart 布局模拟。三层未压缩场景依次验证图片对象、嵌套图片对象和未知对象
+Placeholder 降级；设备验收时合同区必须显示 Native PASS。完整命令与五平台验收表见
+../../docs/guides/flow-layout-cross-platform-validation.zh-CN.md。
 ## Audio/Video Renderer demo / 音视频演示
 
 The movie icon on the Core Content page opens the Audio/Video Renderer 0.1
@@ -87,11 +110,12 @@ flutter analyze
 flutter test
 ~~~
 
-Build native first and copy or link the produced library beside the desktop
-runner executable. Mobile integration must statically register the same C ABI.
-Production work must move FFI calls to a worker isolate; this spike keeps the
-decoder and client ports separate so that isolation can be measured without
-changing the presentation API.
+The Flutter build hook compiles the native bridge and Flow Layout plugin through
+Native Assets for Windows, macOS, iOS, and Android; no manual DLL copy is
+required. visionOS statically compiles the same sources through its XcodeGen
+project. Production work must move long-running FFI calls to a worker isolate;
+the spike keeps decoder and client ports separate so that isolation can be
+measured without changing the presentation API.
 
 ## Binary display-list batch v1
 

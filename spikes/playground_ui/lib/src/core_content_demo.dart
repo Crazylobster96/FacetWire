@@ -600,6 +600,12 @@ class _CoreContentDemoScreenState extends State<CoreContentDemoScreen> {
             onPressed: _loading ? null : _showOpenDialog,
           ),
           IconButton(
+            key: const ValueKey('open-flow-layout-demo'),
+            tooltip: 'Flow Layout 0.1 验证',
+            icon: const Icon(Icons.view_stream_outlined),
+            onPressed: () => Navigator.of(context).pushNamed('/flow'),
+          ),
+          IconButton(
             key: const ValueKey('open-media-demo'),
             tooltip: 'Audio/Video Renderer 0.1 演示',
             icon: const Icon(Icons.perm_media_outlined),

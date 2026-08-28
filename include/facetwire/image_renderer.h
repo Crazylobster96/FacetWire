@@ -7,6 +7,7 @@
 #include <facetwire/renderer.h>
 #include <facetwire/render_target.h>
 #include <facetwire/semantics.h>
+#include <facetwire/visual_transform.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,11 +27,11 @@ typedef uint32_t fw_image_content_kind;
 #define FW_IMAGE_CONTENT_STATIC   1u
 #define FW_IMAGE_CONTENT_ANIMATED 2u
 
-typedef uint32_t fw_image_fit;
-#define FW_IMAGE_FIT_NONE    0u
-#define FW_IMAGE_FIT_CONTAIN 1u
-#define FW_IMAGE_FIT_COVER   2u
-#define FW_IMAGE_FIT_FILL    3u
+typedef fw_visual_fit fw_image_fit;
+#define FW_IMAGE_FIT_NONE    FW_VISUAL_FIT_NONE
+#define FW_IMAGE_FIT_CONTAIN FW_VISUAL_FIT_CONTAIN
+#define FW_IMAGE_FIT_COVER   FW_VISUAL_FIT_COVER
+#define FW_IMAGE_FIT_FILL    FW_VISUAL_FIT_FILL
 
 typedef uint32_t fw_image_sampling;
 #define FW_IMAGE_SAMPLING_AUTO       0u
@@ -71,6 +72,7 @@ typedef struct fw_image_renderer_request_v1 {
     fw_render_target_profile_v1 target;
     uint64_t presentation_revision;
     uint32_t flags;
+    fw_visual_rotation_quarter_turns content_rotation_quarter_turns;
 } fw_image_renderer_request_v1;
 
 typedef struct fw_image_acquire_request_v1 {
@@ -112,6 +114,9 @@ typedef struct fw_image_draw_sink_v1 {
     fw_status(FW_CALL *draw_image)(void *, fw_image_handle,
         fw_rect_f32 source, fw_rect_f32 destination,
         float opacity, fw_image_sampling sampling);
+    fw_status(FW_CALL *draw_image_transformed)(void *, fw_image_handle,
+        const fw_visual_transform_result_v1 *, float opacity,
+        fw_image_sampling sampling);
 } fw_image_draw_sink_v1;
 
 typedef struct fw_image_services_v1 {
@@ -146,6 +151,8 @@ typedef struct fw_image_render_result_v1 {
     uint64_t cache_key_high;
     uint64_t cache_key_low;
     uint32_t flags;
+    fw_visual_rotation_quarter_turns content_rotation_quarter_turns;
+    uint32_t uncovered_is_transparent;
 } fw_image_render_result_v1;
 
 typedef struct fw_image_semantics_v1 {
@@ -156,6 +163,7 @@ typedef struct fw_image_semantics_v1 {
     uint32_t decorative;
     uint32_t animated;
     uint32_t flags;
+    fw_visual_rotation_quarter_turns content_rotation_quarter_turns;
 } fw_image_semantics_v1;
 
 typedef struct fw_image_renderer_api_v1 {

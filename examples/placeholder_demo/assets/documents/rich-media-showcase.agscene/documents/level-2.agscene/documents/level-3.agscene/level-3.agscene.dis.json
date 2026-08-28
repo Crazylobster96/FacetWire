@@ -1,0 +1,15 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:rich-media-showcase:level-3",
+  "title": "FacetWire Rich Media Showcase / Level 3",
+  "canvas": {
+    "id": "canvas:rich-media-level-3",
+    "size": {"width": 220, "height": 145},
+    "pages": [{"id": "page:rich-media-level-3", "size": {"width": 220, "height": 145}, "layers": [
+      {"id": "layer:animated-image:level-3", "z": 0, "zones": [{"id": "zone:animated-image:level-3", "bounds": {"x": 0, "y": 0, "width": 220, "height": 145}, "semantics": {"role": "image", "label": "Level 3 animated background"}, "content": {"type": "animated-image", "resource": "gif:level-3", "alt": "Level 3 animated background", "opacity": 0.74, "placement": {"fit": "cover", "alignment": {"x": 0.5, "y": 0.5}, "clip": true}, "playback": {"autoplay": true, "loop": true, "playbackRate": 1, "controls": "hidden"}}}]},
+      {"id": "layer:text:level-3", "z": 10, "zones": [{"id": "zone:text:level-3", "bounds": {"x": 15, "y": 16, "width": 185, "height": 78}, "semantics": {"role": "text", "label": "Level 3 overlay text"}, "content": {"type": "text", "format": "plain", "text": "Level 3\nGIF + Text", "language": "en", "selectable": false, "opacity": 0.91, "style": {"fontSize": 17, "fontWeight": 700, "lineHeightMultiplier": 1.1, "color": {"red": 1, "green": 1, "blue": 1, "alpha": 1}, "backgroundColor": {"red": 0.05, "green": 0.08, "blue": 0.18, "alpha": 0.72}}, "layout": {"overflow": "clip", "padding": {"top": 8, "right": 8, "bottom": 8, "left": 8}}}}]}
+    ]}]
+  },
+  "resources": [{"id": "gif:level-3", "source": "resources/level-3.gif", "mediaType": "image/gif"}]
+}

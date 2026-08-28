@@ -1,0 +1,11 @@
+{
+  "format": "facetwire.agent-scene-package", "version": "0.1",
+  "id": "document:flow-demo:level-3", "title": "Flow Layout Demo / Level 3 Fallback",
+  "canvas": {"id": "canvas:flow-level-3", "size": {"width": 600, "height": 700}, "pages": [{"id": "page:flow-level-3", "size": {"width": 600, "height": 700}, "layers": [
+    {"id": "layer:flow:level-3", "z": 0, "zones": [{"id": "zone:flow:level-3", "bounds": {"x": 0, "y": 0, "width": 600, "height": 700}, "semantics": {"role": "document", "label": "Level 3 fallback Flow"}, "content": {"type": "flow", "id": "flow.level-3", "pageTemplate": {"mode": "continuous", "size": {"width": 600, "height": 700}, "margins": {"top": 24, "right": 24, "bottom": 24, "left": 24}}, "items": [
+      {"id": "paragraph.intro.level-3", "kind": "paragraph", "style": {"fontSize": 20, "fontWeight": 600, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "Level 3 / 后备 Flow：未知对象仍然保留占位尺寸。"}], "placement": {"mode": "block", "margins": {"top": 8, "bottom": 8}}},
+      {"id": "object.missing.level-3", "kind": "object", "content": {"type": "unknown", "resource": "resource:missing", "alt": "Missing renderer fallback"}, "placement": {"mode": "block", "margins": {"top": 16, "bottom": 12}, "fallbackSize": {"width": 180, "height": 112}}},
+      {"id": "paragraph.closing.level-3", "kind": "paragraph", "style": {"fontSize": 16, "fontWeight": 400, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "Fallback 不得让后续段落塌陷或改变源顺序。"}], "placement": {"mode": "block", "margins": {"top": 10, "bottom": 6}}}
+    ]}}]}
+  ]}]}, "resources": []
+}

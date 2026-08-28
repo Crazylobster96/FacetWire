@@ -27,6 +27,7 @@ cmake -S "$repo_root" -B "$native_build" \
 cmake --build "$native_build" --config Release \
   --target facetwire_placeholder_demo_bridge \
   facetwire_placeholder_demo_bridge_test \
+  facetwire_playground_bridge_test \
   facetwire_placeholder_renderer_test \
   facetwire_placeholder_rendering_contract_test
 ctest --test-dir "$native_build" -C Release --output-on-failure \
@@ -51,6 +52,6 @@ mkdir -p "$app/Contents/Frameworks"
 cp "$dylib" "$app/Contents/Frameworks/"
 codesign --force --deep --sign - "$app"
 
-echo "FacetWire Placeholder Demo macOS build passed."
+echo "FacetWire Playground macOS build passed."
 echo "Run: open '$app'"
 

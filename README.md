@@ -38,6 +38,7 @@ examples/documents/                Conforming uncompressed .agscene fixtures
 plugins/text_renderer/             Reference Text Renderer 0.1
 plugins/core_image_renderer/        Reference Image and Animated Image renderer
 plugins/core_media_renderer/        Reference Audio and Video renderer
+plugins/flow_layout/                Experimental Flow Layout 0.1 reference
 spikes/playground_ui/               Shared Windows/macOS/iOS/Android demo host
 plugins/placeholder_renderer/      Reference fallback renderer
 tests/                             ABI and conformance smoke tests
@@ -66,6 +67,9 @@ To build and run the Windows/macOS demonstration, see
 The Text/Image/GIF three-level recursive demo and its four-platform validation
 matrix are documented in
 [`docs/guides/core-content-renderers-demo-validation.zh-CN.md`](docs/guides/core-content-renderers-demo-validation.zh-CN.md).
+### Current Flow Layout implementation
+
+`org.facetwire.reference.flow-layout` now exposes the public C ABI, plugin manifest, deterministic Layout Plan, continuous single-page block flow, adjacent vertical margin collapse, Text Fragment/Child Measure service boundaries, and the Page/Fragment sink. This is the first experimental slice and only claims `continuous + block`; virtual pages, columns, inline objects, floats, overlays, keep/widow/orphan rules, and the Playground projection remain pending. Valid requests outside this slice return `FW_STATUS_UNSUPPORTED` explicitly.
 
 
 ## ABI model
@@ -87,15 +91,20 @@ See [the 0.1 plugin contract](spec/plugin-contract-v0.1.md), the experimental
 [plugin manifest specification](spec/plugin-manifest-v0.1.zh-CN.md), the
 [ASP Directory Profile](spec/agent-scene-package-directory-v0.1.md), the
 [Core Content Profile](spec/core-content-profile-v0.1.zh-CN.md), and the
+[VisualTransform specification](spec/visual-transform-v0.1.zh-CN.md), the
 [Flow Content Profile](spec/flow-content-profile-v0.1.zh-CN.md), and the
 [architecture overview](docs/architecture.md). The first content plugin is specified by the
 [Text Renderer requirements](docs/requirements/text-renderer-requirements-v0.1.md) and
 [function-level detailed design](docs/design/text-renderer-detailed-design-v0.1.md).
 Flow layout is specified by its [requirements](docs/requirements/flow-layout-renderer-requirements-v0.1.md)
 and [function-level design](docs/design/flow-layout-renderer-detailed-design-v0.1.md).
+The Playground, recursive fixture, and five-platform acceptance procedure are documented in
+[the Chinese cross-platform validation guide](docs/guides/flow-layout-cross-platform-validation.zh-CN.md).
 Audio and video rendering are specified by the
 [Media Renderer requirements](docs/requirements/media-renderers-requirements-v0.1.md)
 and [function-level design](docs/design/media-renderers-detailed-design-v0.1.md).
+The shared Image/GIF/Video/future-Chart geometry contract is documented in the
+[VisualTransform function-level design](docs/design/visual-transform-detailed-design-v0.1.md).
 Long-lived technical decisions are indexed in the
 [architecture decision records](docs/adr/README.md).
 

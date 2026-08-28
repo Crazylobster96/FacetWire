@@ -9,6 +9,23 @@ add_executable(facetwire_runtime_test runtime_test.c)
 target_compile_features(facetwire_runtime_test PRIVATE c_std_11)
 target_link_libraries(facetwire_runtime_test PRIVATE FacetWire::facetwire)
 
+add_executable(facetwire_visual_transform_test visual_transform_test.c)
+target_compile_features(facetwire_visual_transform_test PRIVATE c_std_11)
+target_link_libraries(facetwire_visual_transform_test PRIVATE
+    FacetWire::facetwire)
+if(MSVC)
+    target_compile_options(facetwire_visual_transform_test PRIVATE
+        /W4 /WX /permissive- /utf-8)
+else()
+    target_compile_options(facetwire_visual_transform_test PRIVATE
+        -Wall -Wextra -Wpedantic -Werror)
+    target_link_libraries(facetwire_visual_transform_test PRIVATE m)
+endif()
+add_test(NAME facetwire.visual_transform.contract
+    COMMAND facetwire_visual_transform_test)
+set_tests_properties(facetwire.visual_transform.contract PROPERTIES
+    LABELS "unit;contract;visual-transform;image;animated-image;video;chart")
+
 add_test(NAME facetwire.runtime.contract COMMAND facetwire_runtime_test)
 
 add_executable(facetwire_runtime_discovery_test runtime_discovery_test.c)
@@ -72,7 +89,8 @@ set_tests_properties(
 if(TARGET facetwire_placeholder_renderer AND
    TARGET facetwire_text_renderer AND
    TARGET facetwire_core_image_renderer AND
-   TARGET facetwire_core_media_renderer)
+   TARGET facetwire_core_media_renderer AND
+   TARGET facetwire_flow_layout)
     add_executable(facetwire_memory_lifetime_test memory_lifetime_test.c)
     target_compile_features(facetwire_memory_lifetime_test PRIVATE c_std_11)
     target_link_libraries(facetwire_memory_lifetime_test PRIVATE
@@ -80,7 +98,8 @@ if(TARGET facetwire_placeholder_renderer AND
         FacetWire::placeholder_renderer
         FacetWire::text_renderer
         FacetWire::core_image_renderer
-        FacetWire::core_media_renderer)
+        FacetWire::core_media_renderer
+        FacetWire::flow_layout)
     if(MSVC)
         target_compile_options(facetwire_memory_lifetime_test PRIVATE
             /W4 /WX /permissive- /utf-8)

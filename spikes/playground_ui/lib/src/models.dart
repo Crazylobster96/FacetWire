@@ -10,9 +10,9 @@ enum DisplayOpcode {
   final int wireValue;
 
   static DisplayOpcode fromWire(int value) => values.firstWhere(
-        (candidate) => candidate.wireValue == value,
-        orElse: () => throw FormatException('Unknown display opcode: $value'),
-      );
+    (candidate) => candidate.wireValue == value,
+    orElse: () => throw FormatException('Unknown display opcode: $value'),
+  );
 }
 
 final class DisplayCommand {
@@ -42,10 +42,7 @@ final class DisplayCommand {
 }
 
 final class RenderFrame {
-  const RenderFrame({
-    required this.displayList,
-    required this.semanticsJson,
-  });
+  const RenderFrame({required this.displayList, required this.semanticsJson});
 
   final Uint8List displayList;
   final String semanticsJson;
@@ -58,6 +55,12 @@ abstract interface class NativeRuntimeClient {
     required double width,
     required double height,
     required double opacity,
+  });
+
+  Future<String> composeFlowDemo({
+    required double width,
+    required double height,
+    required int demoCase,
   });
 
   Future<void> close();

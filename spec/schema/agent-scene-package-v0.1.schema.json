@@ -156,12 +156,25 @@
       },
       "additionalProperties": true
     },
+    "layerTransform": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rotationQuarterTurns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3,
+          "default": 0
+        }
+      }
+    },
     "layer": {
       "type": "object",
       "required": ["id", "z", "zones"],
       "properties": {
         "id": {"$ref": "#/$defs/id"},
         "z": {"type": "integer"},
+        "transform": {"$ref": "#/$defs/layerTransform"},
         "zones": {"type": "array", "items": {"$ref": "#/$defs/zone"}}
       },
       "additionalProperties": true

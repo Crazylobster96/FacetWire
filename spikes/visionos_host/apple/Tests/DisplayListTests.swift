@@ -31,6 +31,33 @@ final class DisplayListTests: XCTestCase {
         XCTAssertThrowsError(try DisplayListDecoder.decode(bytes))
     }
 
+    func testNativeFlowLayoutReturnsThreeBalancedFragments() throws {
+        let report = try FacetWireBridge.composeFlow(demoCase: 0)
+
+        XCTAssertTrue(report.nativeRuntime)
+        XCTAssertEqual(report.capability, "facetwire.layout.flow")
+        XCTAssertEqual(report.composeStatus, 0)
+        XCTAssertTrue(report.complete)
+        XCTAssertTrue(report.pagesBalanced)
+        XCTAssertEqual(report.fragmentCount, 3)
+        XCTAssertEqual(report.fragments.map(\.kind), ["text", "object", "text"])
+    }
+
+    func testNativeFlowLayoutPreservesUnknownObjectAsPlaceholder() throws {
+        let report = try FacetWireBridge.composeFlow(demoCase: 2)
+
+        XCTAssertEqual(report.composeStatus, 0)
+        XCTAssertEqual(report.fragments[1].kind, "placeholder")
+        XCTAssertEqual(report.fragments[1].sourceItemId, "object.missing.level-3")
+    }
+
+    func testVirtualPagesBoundaryIsExplicitlyUnsupported() throws {
+        let report = try FacetWireBridge.composeFlow(demoCase: 3)
+
+        XCTAssertEqual(report.composeStatus, 11)
+        XCTAssertFalse(report.complete)
+        XCTAssertEqual(report.fragmentCount, 0)
+    }
     private func writeUInt16(_ value: UInt16, to data: inout Data, at offset: Int) {
         data[offset] = UInt8(value & 0xff)
         data[offset + 1] = UInt8((value >> 8) & 0xff)

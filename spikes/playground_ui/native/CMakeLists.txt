@@ -4,17 +4,23 @@ project(FacetWirePlaygroundUiSpike VERSION 0.1.0 LANGUAGES C)
 
 include(CTest)
 
+get_filename_component(FACETWIRE_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
+
 add_library(facetwire_ui_spike SHARED
     src/facetwire_ui_spike.c
+    ${FACETWIRE_REPO_ROOT}/plugins/flow_layout/src/plugin.c
 )
 target_compile_features(facetwire_ui_spike PUBLIC c_std_11)
 target_compile_definitions(facetwire_ui_spike PRIVATE FWUI_BUILDING_LIBRARY)
-target_include_directories(facetwire_ui_spike PUBLIC include)
+target_include_directories(facetwire_ui_spike PUBLIC
+    include
+    ${FACETWIRE_REPO_ROOT}/include)
 
 if(MSVC)
-    target_compile_options(facetwire_ui_spike PRIVATE /W4 /WX /permissive-)
+    target_compile_options(facetwire_ui_spike PRIVATE /W4 /WX /permissive- /utf-8)
 else()
     target_compile_options(facetwire_ui_spike PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_link_libraries(facetwire_ui_spike PRIVATE m)
 endif()
 
 if(BUILD_TESTING)
@@ -22,7 +28,7 @@ if(BUILD_TESTING)
     target_compile_features(facetwire_ui_spike_test PRIVATE c_std_11)
     target_link_libraries(facetwire_ui_spike_test PRIVATE facetwire_ui_spike)
     if(MSVC)
-        target_compile_options(facetwire_ui_spike_test PRIVATE /W4 /WX /permissive-)
+        target_compile_options(facetwire_ui_spike_test PRIVATE /W4 /WX /permissive- /utf-8)
     else()
         target_compile_options(facetwire_ui_spike_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()

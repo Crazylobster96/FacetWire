@@ -7,6 +7,7 @@
 #include <facetwire/renderer.h>
 #include <facetwire/render_target.h>
 #include <facetwire/semantics.h>
+#include <facetwire/visual_transform.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,11 +30,11 @@ typedef uint32_t fw_media_output_mode;
 #define FW_MEDIA_OUTPUT_ALL (FW_MEDIA_OUTPUT_EXTERNAL_SURFACE | \
     FW_MEDIA_OUTPUT_DECODED_FRAME | FW_MEDIA_OUTPUT_POSTER_ONLY)
 
-typedef uint32_t fw_media_fit;
-#define FW_MEDIA_FIT_NONE    0u
-#define FW_MEDIA_FIT_CONTAIN 1u
-#define FW_MEDIA_FIT_COVER   2u
-#define FW_MEDIA_FIT_FILL    3u
+typedef fw_visual_fit fw_media_fit;
+#define FW_MEDIA_FIT_NONE    FW_VISUAL_FIT_NONE
+#define FW_MEDIA_FIT_CONTAIN FW_VISUAL_FIT_CONTAIN
+#define FW_MEDIA_FIT_COVER   FW_VISUAL_FIT_COVER
+#define FW_MEDIA_FIT_FILL    FW_VISUAL_FIT_FILL
 
 typedef uint32_t fw_media_session_state;
 #define FW_MEDIA_STATE_IDLE       0u
@@ -50,6 +51,12 @@ typedef uint32_t fw_media_controls_mode;
 #define FW_MEDIA_CONTROLS_AUTO    0u
 #define FW_MEDIA_CONTROLS_VISIBLE 1u
 #define FW_MEDIA_CONTROLS_HIDDEN  2u
+
+typedef fw_visual_rotation_quarter_turns fw_media_rotation_quarter_turns;
+#define FW_MEDIA_ROTATION_0   FW_VISUAL_ROTATION_0
+#define FW_MEDIA_ROTATION_90  FW_VISUAL_ROTATION_90
+#define FW_MEDIA_ROTATION_180 FW_VISUAL_ROTATION_180
+#define FW_MEDIA_ROTATION_270 FW_VISUAL_ROTATION_270
 
 typedef uint32_t fw_media_request_flags;
 #define FW_MEDIA_REQUEST_NONE                  0u
@@ -189,6 +196,7 @@ typedef struct fw_media_session_snapshot_v1 {
     uint32_t user_initiated_play;
     uint32_t hidden_from_semantics;
     uint32_t flags;
+    fw_media_rotation_quarter_turns content_rotation_quarter_turns;
 } fw_media_session_snapshot_v1;
 
 typedef struct fw_media_surface_command_v1 {
@@ -202,6 +210,7 @@ typedef struct fw_media_surface_command_v1 {
     uint32_t clip_to_viewport;
     uint32_t show_poster_until_ready;
     uint32_t flags;
+    fw_media_rotation_quarter_turns content_rotation_quarter_turns;
 } fw_media_surface_command_v1;
 
 typedef struct fw_media_visual_sink_v1 {
@@ -238,6 +247,7 @@ typedef uint64_t fw_media_semantics_action_mask;
 #define FW_MEDIA_ACTION_SET_MUTED     (UINT64_C(1) << 5)
 #define FW_MEDIA_ACTION_SET_VOLUME    (UINT64_C(1) << 6)
 #define FW_MEDIA_ACTION_SELECT_TRACK  (UINT64_C(1) << 7)
+#define FW_MEDIA_ACTION_SET_ROTATION  (UINT64_C(1) << 8)
 
 typedef struct fw_media_semantics_v1 {
     uint32_t struct_size;
@@ -254,6 +264,7 @@ typedef struct fw_media_semantics_v1 {
     fw_media_semantics_action_mask actions;
     uint32_t hidden;
     uint32_t flags;
+    fw_media_rotation_quarter_turns content_rotation_quarter_turns;
 } fw_media_semantics_v1;
 
 typedef struct fw_media_measure_result_v1 {

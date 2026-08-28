@@ -2,6 +2,7 @@
 /build/
 **/build/
 **/.dart_tool/
+**/.flutter-plugins-dependencies
 **/flutter/ephemeral/
 /out/
 /dist/
@@ -19,6 +20,7 @@ Testing/
 *.user
 *.suo
 *.swp
+*.iml
 
 # Platform artefacts
 .DS_Store

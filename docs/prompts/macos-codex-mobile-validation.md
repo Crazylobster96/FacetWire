@@ -54,20 +54,19 @@ https://github.com/Crazylobster96/FacetWire.git
 步骤 C：自动化测试
 - 运行 ./scripts/validate-mobile-macos.sh。
 - 它应依次完成：
-  1) 根 FacetWire CMake 配置、编译和 CTest；
-  2) spikes/playground_ui/native CMake、编译和 CTest；
-  3) flutter pub get；
-  4) flutter analyze；
-  5) flutter test；
-  6) flutter build macos --debug；
-  7) flutter build ios --simulator --debug。
+  1) 根 FacetWire CMake（启用统一 Playground Bridge）配置、编译和 CTest；
+  2) flutter pub get；
+  3) flutter analyze；
+  4) flutter test；
+  5) flutter build macos --debug；
+  6) flutter build ios --simulator --debug。
 - 任一步失败时，记录完整命令、退出码、首个根因错误和相关版本。区分代码失败、
   网络失败、工具缺失和 Apple 签名失败。
 
 步骤 D：macOS 与 iOS Simulator 人工验收
 - 启动 macOS Debug App，确认窗口打开、无崩溃。
 - 启动一个可用 iOS Simulator，并运行：
-  cd spikes/playground_ui
+  cd examples/placeholder_demo
   "$FACETWIRE_FLUTTER_ROOT/bin/flutter" devices
   "$FACETWIRE_FLUTTER_ROOT/bin/flutter" run -d <simulator-id>
 - 对 macOS 和 iOS Simulator 分别检查：
@@ -83,7 +82,7 @@ https://github.com/Crazylobster96/FacetWire.git
 步骤 E：iOS 真机
 - 让我连接并解锁设备、信任 Mac、开启 Developer Mode。
 - 运行 "$FACETWIRE_FLUTTER_ROOT/bin/flutter" devices，列出设备名称和 ID。
-- 打开 spikes/playground_ui/ios/Runner.xcworkspace。
+- 打开 examples/placeholder_demo/ios/Runner.xcworkspace。
 - 如果 Signing & Capabilities 尚未配置，让我选择 Apple Development Team。
 - 默认 Bundle ID 是 org.facetwire.facetwirePlaygroundUiSpike；若冲突，让我提供
   一个唯一 Bundle ID。

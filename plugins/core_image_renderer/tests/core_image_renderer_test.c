@@ -2,6 +2,7 @@
 #include <facetwire/image_renderer.h>
 
 #include <math.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,8 +22,10 @@ typedef struct fake_state {
     uint32_t restores;
     uint32_t clips;
     uint32_t draws;
+    uint32_t transformed_draws;
     float opacity;
     fw_rect_f32 destination;
+    fw_visual_transform_result_v1 transform;
     fw_image_acquire_request_v1 acquire_request;
 } fake_state;
 
@@ -67,6 +70,22 @@ static fw_status FW_CALL fake_draw(void *u, fw_image_handle handle,
     CHECK(handle != NULL);
     (void)source; (void)sampling;
     ++state->draws; state->opacity = opacity; state->destination = destination;
+    return FW_STATUS_OK;
+}
+
+static fw_status FW_CALL fake_draw_transformed(void *u,
+    fw_image_handle handle, const fw_visual_transform_result_v1 *transform,
+    float opacity, fw_image_sampling sampling) {
+    fake_state *state = (fake_state *)u;
+    CHECK(handle != NULL);
+    CHECK(transform != NULL &&
+        transform->struct_size >= sizeof(*transform));
+    (void)sampling;
+    ++state->draws;
+    ++state->transformed_draws;
+    state->opacity = opacity;
+    state->destination = transform->destination;
+    state->transform = *transform;
     return FW_STATUS_OK;
 }
 
@@ -118,7 +137,8 @@ int main(void) {
     fake_state state = {0};
     fw_image_service_v1 images = {sizeof(images), &state, fake_acquire, fake_release};
     fw_image_draw_sink_v1 draw = {
-        sizeof(draw), &state, fake_save, fake_restore, fake_clip, fake_draw};
+        sizeof(draw), &state, fake_save, fake_restore, fake_clip, fake_draw,
+        fake_draw_transformed};
     fw_image_services_v1 services = {sizeof(services), &images, &draw, 0u};
     CHECK(api != NULL && api->load(&host, &plugin) == FW_STATUS_OK);
     CHECK(api->get_descriptor()->capability_count == 2u);
@@ -136,20 +156,55 @@ int main(void) {
         (fw_rect_f32){0, 0, 300, 300}, &services, &render) == FW_STATUS_OK);
     CHECK(state.saves == 1u && state.clips == 1u && state.draws == 1u &&
         state.restores == 1u);
+    CHECK(state.transformed_draws == 1u);
     CHECK(fabsf(state.opacity - 0.35f) < 0.001f);
     CHECK(state.destination.width > 300.0f || state.destination.height > 300.0f);
     CHECK(state.acquires == state.releases);
+    CHECK(render.uncovered_is_transparent == 1u);
     semantics.struct_size = sizeof(semantics);
     CHECK(renderer->build_semantics(plugin, &request,
         (fw_rect_f32){0, 0, 300, 300}, &semantics) == FW_STATUS_OK);
     CHECK(semantics.decorative == 0u && semantics.animated == 0u);
     request = make_request(FW_IMAGE_CONTENT_ANIMATED);
     request.target.reduce_motion = 1u;
+    request.placement.fit = FW_IMAGE_FIT_CONTAIN;
+    request.content_rotation_quarter_turns = FW_VISUAL_ROTATION_90;
+    render.struct_size = sizeof(render);
+    CHECK(renderer->render(plugin, &request,
+        (fw_rect_f32){0, 20, 400, 300}, &services, &render) == FW_STATUS_OK);
+    CHECK(state.acquire_request.position_ms == 0u);
+    CHECK(render.frame_count == 12u && render.frame_index == 4u);
+    CHECK(render.content_rotation_quarter_turns == FW_VISUAL_ROTATION_90);
+    CHECK(state.transform.content_rotation_quarter_turns ==
+        FW_VISUAL_ROTATION_90);
+    CHECK(state.transform.uncovered_is_transparent == 1u);
+    CHECK(fabsf(state.destination.x - 115.625f) < 0.001f);
+    CHECK(fabsf(state.destination.y - 20.0f) < 0.001f);
+    CHECK(fabsf(state.destination.width - 168.75f) < 0.001f);
+    CHECK(fabsf(state.destination.height - 300.0f) < 0.001f);
+    semantics.struct_size = sizeof(semantics);
+    CHECK(renderer->build_semantics(plugin, &request,
+        (fw_rect_f32){0, 20, 400, 300}, &semantics) == FW_STATUS_OK);
+    CHECK(semantics.content_rotation_quarter_turns ==
+        FW_VISUAL_ROTATION_90);
+    {
+        fw_image_draw_sink_v1 old_draw = draw;
+        fw_image_services_v1 old_services = services;
+        old_draw.struct_size = (uint32_t)(offsetof(fw_image_draw_sink_v1,
+            draw_image) + sizeof(old_draw.draw_image));
+        old_services.draw = &old_draw;
+        render.struct_size = sizeof(render);
+        CHECK(renderer->render(plugin, &request,
+            (fw_rect_f32){0, 20, 400, 300}, &old_services, &render) ==
+            FW_STATUS_UNSUPPORTED);
+    }
+    request.struct_size = (uint32_t)offsetof(fw_image_renderer_request_v1,
+        content_rotation_quarter_turns);
     render.struct_size = sizeof(render);
     CHECK(renderer->render(plugin, &request,
         (fw_rect_f32){0, 0, 320, 180}, &services, &render) == FW_STATUS_OK);
-    CHECK(state.acquire_request.position_ms == 0u);
-    CHECK(render.frame_count == 12u && render.frame_index == 4u);
+    CHECK(render.content_rotation_quarter_turns == FW_VISUAL_ROTATION_0);
+    request.struct_size = sizeof(request);
     request.opacity = -0.1f;
     validation.struct_size = sizeof(validation);
     CHECK(renderer->validate(plugin, &request, &validation) ==

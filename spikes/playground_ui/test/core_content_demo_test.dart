@@ -97,6 +97,7 @@ void main() {
     expect(find.text('Text + Core Image 0.1 Demo'), findsOneWidget);
     expect(find.textContaining('3 recursive documents'), findsOneWidget);
     expect(activeSource, findsOneWidget);
+    expect(find.byKey(const ValueKey('open-flow-layout-demo')), findsOneWidget);
     final canvasBox = find.byKey(const ValueKey('preview-canvas-box'));
     expect(tester.getSize(canvasBox).width, lessThan(960));
 
@@ -117,10 +118,12 @@ void main() {
     await tester.scrollUntilVisible(
       textOpacity,
       220,
-      scrollable: find.descendant(
-        of: find.byKey(const ValueKey('core-content-controls')),
-        matching: find.byType(Scrollable),
-      ).first,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('core-content-controls')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     expect(textOpacity, findsOneWidget);
     expect(find.byKey(const ValueKey('type-opacity:image')), findsOneWidget);

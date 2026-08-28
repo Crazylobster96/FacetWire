@@ -21,6 +21,8 @@ option(FACETWIRE_BUILD_CORE_IMAGE_RENDERER
     "Build the reference Core Image and Animated Image renderer" ON)
 option(FACETWIRE_BUILD_CORE_MEDIA_RENDERER
     "Build the reference Audio and Video renderer" ON)
+option(FACETWIRE_BUILD_FLOW_LAYOUT
+    "Build the experimental reference Flow Layout renderer" ON)
 option(FACETWIRE_BUILD_PLACEHOLDER_DEMO
     "Build the Windows/macOS placeholder demo native bridge" OFF)
 option(FACETWIRE_ENABLE_NATIVE_DYNAMIC_LOADING
@@ -37,6 +39,7 @@ endif()
 add_library(facetwire ${FACETWIRE_LIBRARY_TYPE}
     src/dynamic_library.c
     src/runtime.c
+    src/visual_transform.c
 )
 add_library(FacetWire::facetwire ALIAS facetwire)
 
@@ -81,6 +84,9 @@ endif()
 if(FACETWIRE_BUILD_CORE_MEDIA_RENDERER)
     add_subdirectory(plugins/core_media_renderer)
 endif()
+if(FACETWIRE_BUILD_FLOW_LAYOUT)
+    add_subdirectory(plugins/flow_layout)
+endif()
 
 if(FACETWIRE_BUILD_EXAMPLES)
     add_subdirectory(examples/hello_plugin)
@@ -91,6 +97,11 @@ if(FACETWIRE_BUILD_PLACEHOLDER_DEMO)
         message(FATAL_ERROR
             "FACETWIRE_BUILD_PLACEHOLDER_DEMO requires "
             "FACETWIRE_BUILD_PLACEHOLDER_RENDERER")
+    endif()
+    if(NOT FACETWIRE_BUILD_FLOW_LAYOUT)
+        message(FATAL_ERROR
+            "FACETWIRE_BUILD_PLACEHOLDER_DEMO requires "
+            "FACETWIRE_BUILD_FLOW_LAYOUT")
     endif()
     add_subdirectory(examples/placeholder_demo/native)
 endif()

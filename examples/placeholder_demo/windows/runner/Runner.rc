@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "org.facetwire" "\0"
-            VALUE "FileDescription", "facetwire_placeholder_demo" "\0"
+            VALUE "FileDescription", "FacetWire Playground" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "facetwire_placeholder_demo" "\0"
+            VALUE "InternalName", "FacetWire Playground" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 org.facetwire. All rights reserved." "\0"
             VALUE "OriginalFilename", "facetwire_placeholder_demo.exe" "\0"
-            VALUE "ProductName", "facetwire_placeholder_demo" "\0"
+            VALUE "ProductName", "FacetWire Playground" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

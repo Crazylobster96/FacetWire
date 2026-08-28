@@ -7,23 +7,36 @@ import 'package:flutter/material.dart';
 
 import 'core_content_demo.dart';
 import 'display_list.dart';
+import 'flow_layout_demo.dart';
 import 'media_renderer_demo.dart';
 import 'models.dart';
 
-class SpikeApp extends StatelessWidget {
+class SpikeApp extends StatefulWidget {
   const SpikeApp({required this.client, this.initialDemoPath, super.key});
 
   final NativeRuntimeClient client;
   final String? initialDemoPath;
 
   @override
+  State<SpikeApp> createState() => _SpikeAppState();
+}
+
+class _SpikeAppState extends State<SpikeApp> {
+  @override
+  void dispose() {
+    unawaited(widget.client.close());
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'FacetWire Playground Spike',
       theme: ThemeData(colorSchemeSeed: const Color(0xff4f7ef7)),
-      home: CoreContentDemoScreen(initialPath: initialDemoPath),
+      home: CoreContentDemoScreen(initialPath: widget.initialDemoPath),
       routes: {
-        '/placeholder': (context) => SpikeScreen(client: client),
+        '/placeholder': (context) => SpikeScreen(client: widget.client),
+        '/flow': (context) => FlowLayoutDemoScreen(client: widget.client),
         '/media': (context) => const MediaRendererDemoScreen(),
       },
     );
@@ -89,12 +102,6 @@ class _SpikeScreenState extends State<SpikeScreen> {
         setState(() => _error = error);
       }
     }
-  }
-
-  @override
-  void dispose() {
-    unawaited(widget.client.close());
-    super.dispose();
   }
 
   @override
@@ -227,6 +234,81 @@ class DisplayListPainter extends CustomPainter {
 final class DemoRuntimeClient implements NativeRuntimeClient {
   @override
   Future<void> close() async {}
+
+  @override
+  Future<String> composeFlowDemo({
+    required double width,
+    required double height,
+    required int demoCase,
+  }) async {
+    final contentCase = demoCase == 3 ? 0 : demoCase;
+    final prefixes = ['level-1', 'level-2', 'level-3'];
+    final prefix = prefixes[contentCase];
+    final fallback = contentCase == 2;
+    final unsupported = demoCase == 3;
+    return jsonEncode({
+      'pluginId': 'org.facetwire.reference.flow-layout',
+      'capability': 'facetwire.layout.flow',
+      'interfaceVersion': 1,
+      'demoCase': demoCase,
+      'composeStatus': unsupported ? 11 : 0,
+      'complete': !unsupported,
+      'pageCount': unsupported ? 0 : 1,
+      'fragmentCount': unsupported ? 0 : 3,
+      'textFragmentCount': unsupported ? 0 : 2,
+      'objectFragmentCount': unsupported ? 0 : 1,
+      'continuousExtent': {'width': width, 'height': 384.0},
+      'planKey': 'demo0000000000000000000000000001',
+      'pagesBalanced': true,
+      'supportedSlice': 'continuous+block',
+      'nativeRuntime': false,
+      'fragments': unsupported
+          ? <Object?>[]
+          : <Object?>[
+              {
+                'kind': 'text',
+                'sourceItemId': 'paragraph.intro.$prefix',
+                'contentKind': '',
+                'bounds': {
+                  'x': 24.0,
+                  'y': 32.0,
+                  'width': width - 48,
+                  'height': 56.0,
+                },
+                'textStart': 0,
+                'textEnd': 48,
+              },
+              {
+                'kind': fallback ? 'placeholder' : 'object',
+                'sourceItemId': fallback
+                    ? 'object.missing.$prefix'
+                    : 'image.hero.$prefix',
+                'contentKind': fallback ? 'unknown' : 'image',
+                'bounds': {
+                  'x': 24.0,
+                  'y': 104.0,
+                  'width': fallback ? 180.0 : 240.0 - 20 * contentCase,
+                  'height': fallback ? 112.0 : 150.0 - 15 * contentCase,
+                },
+                'textStart': 0,
+                'textEnd': 0,
+              },
+              {
+                'kind': 'text',
+                'sourceItemId': 'paragraph.closing.$prefix',
+                'contentKind': '',
+                'bounds': {
+                  'x': 24.0,
+                  'y': fallback ? 228.0 : 266.0 - 15 * contentCase,
+                  'width': width - 48,
+                  'height': 56.0,
+                },
+                'textStart': 0,
+                'textEnd': 48,
+              },
+            ],
+    });
+  }
 
   @override
   Future<RenderFrame> renderPlaceholder({

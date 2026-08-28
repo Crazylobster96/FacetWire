@@ -2,11 +2,22 @@
 #include <facetwire/image_renderer.h>
 
 #include <math.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define IM_MAGIC 0x494d4731u
 #define IM_MAX_STRING_BYTES 8192u
+#define IM_FIELD_END(type, field) \
+    (offsetof(type, field) + sizeof(((type *)0)->field))
+#define IM_REQUEST_V1_BASE_SIZE \
+    IM_FIELD_END(fw_image_renderer_request_v1, flags)
+#define IM_DRAW_SINK_V1_BASE_SIZE \
+    IM_FIELD_END(fw_image_draw_sink_v1, draw_image)
+#define IM_RENDER_RESULT_V1_BASE_SIZE \
+    IM_FIELD_END(fw_image_render_result_v1, flags)
+#define IM_SEMANTICS_V1_BASE_SIZE \
+    IM_FIELD_END(fw_image_semantics_v1, flags)
 
 typedef struct im_context {
     uint32_t magic;
@@ -41,7 +52,9 @@ static const char im_parameter_schema[] =
     "{\"id\":\"fit\",\"type\":\"enum\",\"default\":\"contain\","
     "\"values\":[\"none\",\"contain\",\"cover\",\"fill\"]},"
     "{\"id\":\"playbackRate\",\"type\":\"number\",\"default\":1,"
-    "\"minimum\":0.05,\"maximum\":16}]}";
+    "\"minimum\":0.05,\"maximum\":16},"
+    "{\"id\":\"contentRotationQuarterTurns\",\"type\":\"integer\","
+    "\"default\":0,\"minimum\":0,\"maximum\":3}]}";
 
 static int im_context_valid(fw_plugin_handle plugin) {
     const im_context *context = (const im_context *)plugin;
@@ -91,13 +104,34 @@ static int im_finite_nonnegative(float value) {
     return isfinite(value) && value >= 0.0f;
 }
 
+static fw_visual_rotation_quarter_turns im_request_rotation(
+    const fw_image_renderer_request_v1 *request) {
+    return request->struct_size >= IM_FIELD_END(fw_image_renderer_request_v1,
+        content_rotation_quarter_turns) ?
+        request->content_rotation_quarter_turns : FW_VISUAL_ROTATION_0;
+}
+
+static fw_visual_transform_v1 im_transform(
+    const fw_image_renderer_request_v1 *request) {
+    fw_visual_transform_v1 transform;
+    memset(&transform, 0, sizeof(transform));
+    transform.struct_size = sizeof(transform);
+    transform.fit = request->placement.fit;
+    transform.alignment_x = request->placement.alignment_x;
+    transform.alignment_y = request->placement.alignment_y;
+    transform.clip = request->placement.clip;
+    transform.content_rotation_quarter_turns =
+        im_request_rotation(request);
+    return transform;
+}
+
 static fw_status im_validate_request(
     fw_plugin_handle plugin,
     const fw_image_renderer_request_v1 *request,
     const char **out_key) {
     *out_key = "image.invalid_argument";
     if (!im_context_valid(plugin) || request == NULL ||
-        request->struct_size < sizeof(*request) ||
+        request->struct_size < IM_REQUEST_V1_BASE_SIZE ||
         request->placement.struct_size < sizeof(request->placement) ||
         request->playback.struct_size < sizeof(request->playback) ||
         request->constraints.struct_size < sizeof(request->constraints) ||
@@ -121,7 +155,8 @@ static fw_status im_validate_request(
         request->placement.fit > FW_IMAGE_FIT_FILL ||
         request->placement.sampling > FW_IMAGE_SAMPLING_PIXELATED ||
         request->placement.clip > 1u || request->playback.autoplay > 1u ||
-        request->playback.loop > 1u || request->playback.playing > 1u) {
+        request->playback.loop > 1u || request->playback.playing > 1u ||
+        im_request_rotation(request) > FW_VISUAL_ROTATION_270) {
         *out_key = "image.invalid_enum";
         return FW_STATUS_INVALID_ARGUMENT;
     }
@@ -209,37 +244,6 @@ static fw_size_f32 im_measure_size(
     return size;
 }
 
-static void im_placement(
-    fw_size_f32 intrinsic,
-    fw_rect_f32 bounds,
-    const fw_image_placement_v1 *placement,
-    fw_rect_f32 *out_source,
-    fw_rect_f32 *out_destination) {
-    float width = intrinsic.width;
-    float height = intrinsic.height;
-    float sx = bounds.width / intrinsic.width;
-    float sy = bounds.height / intrinsic.height;
-    float scale;
-    if (placement->fit == FW_IMAGE_FIT_FILL) {
-        width = bounds.width;
-        height = bounds.height;
-    } else if (placement->fit == FW_IMAGE_FIT_CONTAIN ||
-        placement->fit == FW_IMAGE_FIT_COVER) {
-        scale = placement->fit == FW_IMAGE_FIT_CONTAIN ?
-            (sx < sy ? sx : sy) : (sx > sy ? sx : sy);
-        width = intrinsic.width * scale;
-        height = intrinsic.height * scale;
-    }
-    *out_source = (fw_rect_f32){0.0f, 0.0f,
-        intrinsic.width, intrinsic.height};
-    out_destination->x = bounds.x +
-        (bounds.width - width) * placement->alignment_x;
-    out_destination->y = bounds.y +
-        (bounds.height - height) * placement->alignment_y;
-    out_destination->width = width;
-    out_destination->height = height;
-}
-
 static void im_hash(uint64_t *high, uint64_t *low,
     const void *data, size_t length) {
     const unsigned char *bytes = (const unsigned char *)data;
@@ -275,6 +279,8 @@ static fw_status FW_CALL im_measure(fw_plugin_handle plugin,
     const char *key;
     fw_image_handle handle;
     fw_image_info_v1 info;
+    fw_visual_transform_v1 transform;
+    fw_visual_transform_result_v1 resolved;
     fw_status status;
     uint32_t size;
     (void)key;
@@ -289,7 +295,18 @@ static fw_status FW_CALL im_measure(fw_plugin_handle plugin,
     status = im_acquire(request, services->images, &handle, &info);
     if (status != FW_STATUS_OK) return status;
     out_result->intrinsic_size = info.intrinsic_size;
-    out_result->size = im_measure_size(info.intrinsic_size,
+    transform = im_transform(request);
+    transform.fit = FW_VISUAL_FIT_NONE;
+    memset(&resolved, 0, sizeof(resolved));
+    resolved.struct_size = sizeof(resolved);
+    status = fw_visual_transform_resolve(info.intrinsic_size,
+        (fw_rect_f32){0.0f, 0.0f, info.intrinsic_size.width,
+            info.intrinsic_size.height}, &transform, &resolved);
+    if (status != FW_STATUS_OK) {
+        services->images->release(services->images->user_data, handle);
+        return status;
+    }
+    out_result->size = im_measure_size(resolved.effective_intrinsic_size,
         &request->constraints);
     services->images->release(services->images->user_data, handle);
     return FW_STATUS_OK;
@@ -304,6 +321,10 @@ static fw_status FW_CALL im_render(fw_plugin_handle plugin,
     fw_image_handle handle;
     fw_image_info_v1 info;
     const fw_image_draw_sink_v1 *draw;
+    fw_visual_transform_v1 transform;
+    fw_visual_transform_result_v1 resolved;
+    fw_visual_rotation_quarter_turns rotation;
+    int has_transformed_draw;
     fw_status status;
     fw_status first = FW_STATUS_OK;
     uint32_t saved = 0u;
@@ -312,24 +333,52 @@ static fw_status FW_CALL im_render(fw_plugin_handle plugin,
     uint64_t low = UINT64_C(1469598103934665603);
     (void)key;
     if (services == NULL || services->struct_size < sizeof(*services) ||
-        out_result == NULL || out_result->struct_size < sizeof(*out_result) ||
+        out_result == NULL ||
+        out_result->struct_size < IM_RENDER_RESULT_V1_BASE_SIZE ||
         !isfinite(bounds.x) || !isfinite(bounds.y) ||
         !im_finite_nonnegative(bounds.width) ||
         !im_finite_nonnegative(bounds.height)) return FW_STATUS_INVALID_ARGUMENT;
     size = out_result->struct_size;
-    memset(out_result, 0, sizeof(*out_result));
+    memset(out_result, 0, size < sizeof(*out_result) ?
+        size : sizeof(*out_result));
     out_result->struct_size = size;
     status = im_validate_request(plugin, request, &key);
     if (status != FW_STATUS_OK) return status;
+    rotation = im_request_rotation(request);
     draw = services->draw;
-    if (draw == NULL || draw->struct_size < sizeof(*draw) ||
+    if (draw == NULL || draw->struct_size < IM_DRAW_SINK_V1_BASE_SIZE ||
         draw->save == NULL || draw->restore == NULL ||
         draw->clip_rect == NULL || draw->draw_image == NULL)
         return FW_STATUS_INVALID_ARGUMENT;
+    has_transformed_draw = draw->struct_size >=
+        IM_FIELD_END(fw_image_draw_sink_v1, draw_image_transformed) &&
+        draw->draw_image_transformed != NULL;
+    if (rotation != FW_VISUAL_ROTATION_0 && !has_transformed_draw)
+        return FW_STATUS_UNSUPPORTED;
     status = im_acquire(request, services->images, &handle, &info);
     if (status != FW_STATUS_OK) return status;
-    im_placement(info.intrinsic_size, bounds, &request->placement,
-        &out_result->source_rect, &out_result->destination_rect);
+    transform = im_transform(request);
+    memset(&resolved, 0, sizeof(resolved));
+    resolved.struct_size = sizeof(resolved);
+    status = fw_visual_transform_resolve(info.intrinsic_size, bounds,
+        &transform, &resolved);
+    if (status != FW_STATUS_OK) {
+        services->images->release(services->images->user_data, handle);
+        return status;
+    }
+    out_result->source_rect = (fw_rect_f32){
+        resolved.source_normalized.x * info.intrinsic_size.width,
+        resolved.source_normalized.y * info.intrinsic_size.height,
+        resolved.source_normalized.width * info.intrinsic_size.width,
+        resolved.source_normalized.height * info.intrinsic_size.height};
+    out_result->destination_rect = resolved.destination;
+    if (size >= IM_FIELD_END(fw_image_render_result_v1,
+        content_rotation_quarter_turns))
+        out_result->content_rotation_quarter_turns = rotation;
+    if (size >= IM_FIELD_END(fw_image_render_result_v1,
+        uncovered_is_transparent))
+        out_result->uncovered_is_transparent =
+            resolved.uncovered_is_transparent;
     if (request->opacity > 0.0f) {
         first = draw->save(draw->user_data);
         if (first == FW_STATUS_OK) { saved = 1u; ++out_result->emitted_command_count; }
@@ -338,9 +387,15 @@ static fw_status FW_CALL im_render(fw_plugin_handle plugin,
             if (first == FW_STATUS_OK) ++out_result->emitted_command_count;
         }
         if (first == FW_STATUS_OK) {
-            first = draw->draw_image(draw->user_data, handle,
-                out_result->source_rect, out_result->destination_rect,
-                request->opacity, request->placement.sampling);
+            if (has_transformed_draw) {
+                first = draw->draw_image_transformed(draw->user_data, handle,
+                    &resolved, request->opacity,
+                    request->placement.sampling);
+            } else {
+                first = draw->draw_image(draw->user_data, handle,
+                    out_result->source_rect, out_result->destination_rect,
+                    request->opacity, request->placement.sampling);
+            }
             if (first == FW_STATUS_OK) ++out_result->emitted_command_count;
         }
         if (saved != 0u) {
@@ -354,6 +409,7 @@ static fw_status FW_CALL im_render(fw_plugin_handle plugin,
     im_hash(&high, &low, request->resource_id.data, request->resource_id.length);
     im_hash(&high, &low, &request->opacity, sizeof(request->opacity));
     im_hash(&high, &low, &request->placement, sizeof(request->placement));
+    im_hash(&high, &low, &rotation, sizeof(rotation));
     im_hash(&high, &low, &bounds, sizeof(bounds));
     im_hash(&high, &low, &info.fingerprint_high, sizeof(info.fingerprint_high));
     im_hash(&high, &low, &info.frame_index, sizeof(info.frame_index));
@@ -370,12 +426,14 @@ static fw_status FW_CALL im_build_semantics(fw_plugin_handle plugin,
     fw_status status;
     uint32_t size;
     (void)key;
-    if (out_semantics == NULL || out_semantics->struct_size < sizeof(*out_semantics) ||
+    if (out_semantics == NULL ||
+        out_semantics->struct_size < IM_SEMANTICS_V1_BASE_SIZE ||
         !isfinite(bounds.x) || !isfinite(bounds.y) ||
         !im_finite_nonnegative(bounds.width) ||
         !im_finite_nonnegative(bounds.height)) return FW_STATUS_INVALID_ARGUMENT;
     size = out_semantics->struct_size;
-    memset(out_semantics, 0, sizeof(*out_semantics));
+    memset(out_semantics, 0, size < sizeof(*out_semantics) ?
+        size : sizeof(*out_semantics));
     out_semantics->struct_size = size;
     status = im_validate_request(plugin, request, &key);
     if (status != FW_STATUS_OK) return status;
@@ -384,6 +442,10 @@ static fw_status FW_CALL im_build_semantics(fw_plugin_handle plugin,
     out_semantics->bounds = bounds;
     out_semantics->decorative = request->alt.length == 0u;
     out_semantics->animated = request->kind == FW_IMAGE_CONTENT_ANIMATED;
+    if (size >= IM_FIELD_END(fw_image_semantics_v1,
+        content_rotation_quarter_turns))
+        out_semantics->content_rotation_quarter_turns =
+            im_request_rotation(request);
     return FW_STATUS_OK;
 }
 

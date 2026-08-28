@@ -36,6 +36,19 @@ Apple 目录保存 XcodeGen 工程定义，避免把自动生成的 Xcode 工程
 
 随后在生成的工程中检查二维窗口和 `Open volume` 操作。真机签名必须使用测试者本地的 Apple Developer Team。
 
+## Flow Layout 0.1 增量验证
+
+Apple 宿主现会静态编译 plugins/flow_layout/src/plugin.c，并通过同一
+fwui_compose_flow_demo C ABI 显示三层 Flow Layout Plan。运行
+scripts/validate-visionos-spike-macos.sh 后，还需在 Simulator 或真机检查：
+
+1. Level 1、Level 2 均显示三个片段，顺序为文本、对象、文本。
+2. Level 3 中间显示橙色 Placeholder，后一段文字保持在其后。
+3. virtual-pages 开关显示 composeStatus 11。
+4. Flow 诊断为绿色 PASS · native Flow；不接受模拟回退。
+5. Viewer opacity 的 1 与 0 分别表示完全不透明和完全透明。
+
+完整五平台步骤见 docs/guides/flow-layout-cross-platform-validation.zh-CN.md。
 ## 验收边界
 
 Windows PASS 不等于 visionOS PASS。只有 Windows 合同测试、visionOS Simulator 和 Vision Pro 真机项目分别留有证据后，才能提升支持等级。

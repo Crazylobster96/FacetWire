@@ -3,7 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
-app_root="$repo_root/spikes/playground_ui"
+app_root="$repo_root/examples/placeholder_demo"
 env_file="$HOME/.config/facetwire/flutter.env"
 
 if [[ -z "${FACETWIRE_FLUTTER_ROOT:-}" && -f "$env_file" ]]; then
@@ -30,13 +30,14 @@ expected_commit="$(
 }
 
 cmake -S "$repo_root" -B "$repo_root/build/macos-root" \
-  -DFACETWIRE_BUILD_TESTS=ON
+  -DFACETWIRE_BUILD_TESTS=ON \
+  -DFACETWIRE_BUILD_PLACEHOLDER_DEMO=ON
 cmake --build "$repo_root/build/macos-root"
 ctest --test-dir "$repo_root/build/macos-root" --output-on-failure
 
-cmake -S "$app_root/native" -B "$repo_root/build/macos-ui-native"
-cmake --build "$repo_root/build/macos-ui-native"
-ctest --test-dir "$repo_root/build/macos-ui-native" --output-on-failure
+
+export NO_PROXY="$NO_PROXY,localhost,127.0.0.1,::1"
+export no_proxy="$no_proxy,localhost,127.0.0.1,::1"
 
 cd "$app_root"
 "$flutter" pub get

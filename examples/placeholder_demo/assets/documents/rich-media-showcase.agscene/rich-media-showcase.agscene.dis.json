@@ -1,0 +1,70 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:rich-media-showcase:level-1",
+  "title": "FacetWire Rich Media Showcase / Level 1",
+  "canvas": {
+    "id": "canvas:rich-media-level-1",
+    "size": {"width": 1280, "height": 820},
+    "pages": [{
+      "id": "page:rich-media-level-1",
+      "size": {"width": 1280, "height": 820},
+      "layers": [
+        {"id": "layer:image:level-1", "z": 0, "zones": [{
+          "id": "zone:image:level-1",
+          "bounds": {"x": 40, "y": 40, "width": 600, "height": 360},
+          "semantics": {"role": "image", "label": "FacetWire showcase image"},
+          "content": {"type": "image", "resource": "image:showcase", "alt": "FacetWire showcase image", "opacity": 0.78, "placement": {"fit": "cover", "alignment": {"x": 0.5, "y": 0.5}, "clip": true}}
+        }]},
+        {"id": "layer:chart:level-1", "z": 4, "zones": [{
+          "id": "zone:chart:level-1",
+          "bounds": {"x": 660, "y": 40, "width": 570, "height": 300},
+          "semantics": {"role": "img", "label": "Renderer coverage bar chart"},
+          "content": {
+            "type": "chart", "chartType": "bar", "title": "Renderer coverage / 渲染能力覆盖", "opacity": 0.96,
+            "data": [
+              {"label": "Text", "value": 92, "color": "#2563EB"},
+              {"label": "Image", "value": 86, "color": "#DC2626"},
+              {"label": "GIF", "value": 74, "color": "#7C3AED"},
+              {"label": "Media", "value": 81, "color": "#0F766E"}
+            ]
+          }
+        }]},
+        {"id": "layer:text:level-1", "z": 10, "zones": [{
+          "id": "zone:text:level-1",
+          "bounds": {"x": 66, "y": 66, "width": 510, "height": 152},
+          "semantics": {"role": "text", "label": "Rich media showcase heading"},
+          "content": {
+            "type": "text", "format": "plain", "text": "FacetWire 富媒体综合演示\nText · Image · GIF · Chart · Video\n每个内容保持独立 Layer、坐标与 opacity。", "language": "zh-CN", "selectable": true, "opacity": 0.94,
+            "style": {"fontSize": 24, "fontWeight": 650, "lineHeightMultiplier": 1.18, "color": {"red": 0.04, "green": 0.08, "blue": 0.16, "alpha": 1}, "backgroundColor": {"red": 0.96, "green": 0.98, "blue": 1, "alpha": 0.80}},
+            "layout": {"overflow": "clip", "padding": {"top": 12, "right": 14, "bottom": 12, "left": 14}}
+          }
+        }]},
+        {"id": "layer:animated-image:level-1", "z": 15, "zones": [{
+          "id": "zone:animated-image:level-1",
+          "bounds": {"x": 60, "y": 430, "width": 300, "height": 190},
+          "semantics": {"role": "image", "label": "Animated GIF layer"},
+          "content": {"type": "animated-image", "resource": "gif:showcase", "alt": "Animated GIF layer", "opacity": 0.86, "placement": {"fit": "contain", "alignment": {"x": 0.5, "y": 0.5}, "clip": true}, "playback": {"autoplay": true, "loop": true, "playbackRate": 1, "controls": "hidden"}}
+        }]},
+        {"id": "layer:video:level-1", "z": 20, "zones": [{
+          "id": "zone:video:level-1",
+          "bounds": {"x": 390, "y": 350, "width": 640, "height": 390},
+          "semantics": {"role": "video", "label": "FacetWire local video"},
+          "content": {"type": "video", "resource": "video:showcase", "posterResource": "poster:showcase", "opacity": 0.92, "placement": {"fit": "contain", "alignment": {"x": 0.5, "y": 0.5}, "clip": true}, "playback": {"autoplay": false, "loop": true, "controls": "minimal", "muted": false}}
+        }]},
+        {"id": "layer:document:level-2", "z": 30, "zones": [{
+          "id": "zone:document:level-2",
+          "bounds": {"x": 900, "y": 350, "width": 330, "height": 410},
+          "semantics": {"role": "document", "label": "Nested level 2 at native size"},
+          "content": {"type": "document", "source": "documents/level-2.agscene/level-2.agscene.dis.json", "placement": {"fit": "none", "alignment": {"x": 0, "y": 0}, "clip": true}}
+        }]}
+      ]
+    }]
+  },
+  "resources": [
+    {"id": "image:showcase", "source": "resources/showcase-image.png", "mediaType": "image/png"},
+    {"id": "gif:showcase", "source": "resources/showcase.gif", "mediaType": "image/gif"},
+    {"id": "video:showcase", "source": "resources/showcase-video.mp4", "mediaType": "video/mp4"},
+    {"id": "poster:showcase", "source": "resources/showcase-video-poster.png", "mediaType": "image/png"}
+  ]
+}

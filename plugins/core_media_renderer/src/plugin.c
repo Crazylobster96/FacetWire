@@ -2,12 +2,19 @@
 #include <facetwire/media_renderer.h>
 
 #include <math.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define MR_MAGIC UINT32_C(0x4d445231)
 #define MR_MAX_STRING_BYTES 8192u
 #define MR_MAX_TRACKS 1024u
+#define MR_FIELD_END(type, field) \
+    (offsetof(type, field) + sizeof(((type *)0)->field))
+#define MR_SESSION_SNAPSHOT_V1_BASE_SIZE \
+    MR_FIELD_END(fw_media_session_snapshot_v1, flags)
+#define MR_MEDIA_SEMANTICS_V1_BASE_SIZE \
+    MR_FIELD_END(fw_media_semantics_v1, flags)
 
 typedef struct mr_context {
     uint32_t magic;
@@ -43,7 +50,9 @@ static const char mr_parameter_schema[] =
     "{\"id\":\"volume\",\"type\":\"number\",\"default\":1,"
     "\"minimum\":0,\"maximum\":1,\"step\":0.01},"
     "{\"id\":\"playbackRate\",\"type\":\"number\",\"default\":1,"
-    "\"minimum\":0.05,\"maximum\":16}]}";
+    "\"minimum\":0.05,\"maximum\":16},"
+    "{\"id\":\"contentRotationQuarterTurns\",\"type\":\"integer\","
+    "\"default\":0,\"minimum\":0,\"maximum\":3}]}";
 
 static int mr_context_valid(fw_plugin_handle plugin) {
     const mr_context *context = (const mr_context *)plugin;
@@ -226,7 +235,12 @@ static fw_status mr_validate_request(fw_plugin_handle plugin,
 static fw_status mr_validate_snapshot(
     const fw_media_renderer_request_v1 *request,
     const fw_media_session_snapshot_v1 *snapshot) {
-    if (snapshot == NULL || snapshot->struct_size < sizeof(*snapshot) ||
+    const fw_media_rotation_quarter_turns rotation = snapshot != NULL &&
+        snapshot->struct_size >= MR_FIELD_END(fw_media_session_snapshot_v1,
+            content_rotation_quarter_turns) ?
+        snapshot->content_rotation_quarter_turns : FW_MEDIA_ROTATION_0;
+    if (snapshot == NULL ||
+        snapshot->struct_size < MR_SESSION_SNAPSHOT_V1_BASE_SIZE ||
         snapshot->state > FW_MEDIA_STATE_FAILED ||
         snapshot->revision < request->presentation_revision ||
         !isfinite(snapshot->playback_rate) || snapshot->playback_rate <= 0.0f ||
@@ -235,11 +249,19 @@ static fw_status mr_validate_snapshot(
         snapshot->effective_volume > 1.0f || snapshot->muted > 1u ||
         snapshot->user_initiated_play > 1u ||
         snapshot->hidden_from_semantics > 1u ||
+        rotation > FW_MEDIA_ROTATION_270 ||
         !mr_valid_string(snapshot->selected_track_resource_id, 0))
         return snapshot != NULL &&
             snapshot->revision < request->presentation_revision ?
             FW_STATUS_INVALID_STATE : FW_STATUS_INVALID_ARGUMENT;
     return FW_STATUS_OK;
+}
+
+static fw_media_rotation_quarter_turns mr_snapshot_rotation(
+    const fw_media_session_snapshot_v1 *snapshot) {
+    return snapshot->struct_size >= MR_FIELD_END(fw_media_session_snapshot_v1,
+        content_rotation_quarter_turns) ?
+        snapshot->content_rotation_quarter_turns : FW_MEDIA_ROTATION_0;
 }
 
 static fw_status mr_probe(const fw_media_renderer_request_v1 *request,
@@ -358,41 +380,6 @@ static fw_size_f32 mr_measure_size(fw_size_f32 intrinsic,
     return size;
 }
 
-static void mr_placement(fw_size_f32 intrinsic, fw_rect_f32 bounds,
-    const fw_media_placement_v1 *placement, fw_rect_f32 *out_source,
-    fw_rect_f32 *out_destination) {
-    float width;
-    float height;
-    float sx;
-    float sy;
-    float scale;
-    *out_source = (fw_rect_f32){0.0f, 0.0f, 1.0f, 1.0f};
-    if (intrinsic.width <= 0.0f || intrinsic.height <= 0.0f) {
-        intrinsic.width = bounds.width;
-        intrinsic.height = bounds.height;
-    }
-    width = intrinsic.width;
-    height = intrinsic.height;
-    sx = intrinsic.width > 0.0f ? bounds.width / intrinsic.width : 1.0f;
-    sy = intrinsic.height > 0.0f ? bounds.height / intrinsic.height : 1.0f;
-    if (placement->fit == FW_MEDIA_FIT_FILL) {
-        width = bounds.width;
-        height = bounds.height;
-    } else if (placement->fit == FW_MEDIA_FIT_CONTAIN ||
-        placement->fit == FW_MEDIA_FIT_COVER) {
-        scale = placement->fit == FW_MEDIA_FIT_CONTAIN ?
-            (sx < sy ? sx : sy) : (sx > sy ? sx : sy);
-        width = intrinsic.width * scale;
-        height = intrinsic.height * scale;
-    }
-    out_destination->x = bounds.x +
-        (bounds.width - width) * placement->alignment_x;
-    out_destination->y = bounds.y +
-        (bounds.height - height) * placement->alignment_y;
-    out_destination->width = width;
-    out_destination->height = height;
-}
-
 static void mr_hash_bytes(uint64_t *high, uint64_t *low,
     const void *data, size_t length) {
     const unsigned char *bytes = (const unsigned char *)data;
@@ -443,6 +430,11 @@ static void mr_cache_key(const fw_media_renderer_request_v1 *request,
     mr_hash_bytes(&high, &low, &snapshot->revision,
         sizeof(snapshot->revision));
     mr_hash_bytes(&high, &low, &snapshot->state, sizeof(snapshot->state));
+    {
+        const fw_media_rotation_quarter_turns rotation =
+            mr_snapshot_rotation(snapshot);
+        mr_hash_bytes(&high, &low, &rotation, sizeof(rotation));
+    }
     for (i = 0u; i < request->track_count; ++i) {
         mr_hash_view(&high, &low, request->tracks[i].resource_id);
         mr_hash_view(&high, &low, request->tracks[i].kind);
@@ -563,6 +555,9 @@ static fw_status FW_CALL mr_render(fw_plugin_handle plugin,
     fw_media_output_mode mode;
     fw_media_info_v1 info;
     fw_media_surface_command_v1 command;
+    fw_media_rotation_quarter_turns rotation;
+    fw_visual_transform_v1 transform;
+    fw_visual_transform_result_v1 resolved;
     const char *key;
     fw_status status;
     uint32_t size;
@@ -578,6 +573,7 @@ static fw_status FW_CALL mr_render(fw_plugin_handle plugin,
     if (status != FW_STATUS_OK) return status;
     status = mr_validate_snapshot(request, snapshot);
     if (status != FW_STATUS_OK) return status;
+    rotation = mr_snapshot_rotation(snapshot);
     status = mr_probe(request, services, &info);
     if (status != FW_STATUS_OK) return status;
     status = mr_select_output(request, &info, &mode, &flags);
@@ -591,8 +587,22 @@ static fw_status FW_CALL mr_render(fw_plugin_handle plugin,
     command.clip_to_viewport = request->placement.clip;
     command.show_poster_until_ready =
         request->poster_or_artwork_resource_id.length != 0u;
-    mr_placement(info.intrinsic_visual_size, bounds, &request->placement,
-        &command.source_normalized, &command.destination);
+    command.content_rotation_quarter_turns = rotation;
+    memset(&transform, 0, sizeof(transform));
+    transform.struct_size = sizeof(transform);
+    transform.fit = request->placement.fit;
+    transform.alignment_x = request->placement.alignment_x;
+    transform.alignment_y = request->placement.alignment_y;
+    transform.clip = request->placement.clip;
+    transform.content_rotation_quarter_turns = rotation;
+    memset(&resolved, 0, sizeof(resolved));
+    resolved.struct_size = sizeof(resolved);
+    status = fw_visual_transform_resolve(info.intrinsic_visual_size, bounds,
+        &transform, &resolved);
+    if (status != FW_STATUS_OK) return status;
+    command.source_normalized = resolved.source_normalized;
+    command.destination = resolved.destination;
+    command.clip_to_viewport = resolved.clip_to_viewport;
     out_result->output_mode = mode;
     out_result->destination = command.destination;
     out_result->source_normalized = command.source_normalized;
@@ -641,12 +651,13 @@ static fw_status FW_CALL mr_build_semantics(fw_plugin_handle plugin,
     fw_status status;
     uint32_t size;
     if (out_semantics == NULL ||
-        out_semantics->struct_size < sizeof(*out_semantics) ||
+        out_semantics->struct_size < MR_MEDIA_SEMANTICS_V1_BASE_SIZE ||
         !isfinite(bounds.x) || !isfinite(bounds.y) ||
         !mr_finite_nonnegative(bounds.width) ||
         !mr_finite_nonnegative(bounds.height)) return FW_STATUS_INVALID_ARGUMENT;
     size = out_semantics->struct_size;
-    memset(out_semantics, 0, sizeof(*out_semantics));
+    memset(out_semantics, 0, size < sizeof(*out_semantics) ?
+        size : sizeof(*out_semantics));
     out_semantics->struct_size = size;
     status = mr_validate_request(plugin, request, &flags, &key);
     (void)flags; (void)key;
@@ -673,7 +684,13 @@ static fw_status FW_CALL mr_build_semantics(fw_plugin_handle plugin,
             FW_MEDIA_ACTION_SEEK_TO;
     if (request->track_count != 0u)
         out_semantics->actions |= FW_MEDIA_ACTION_SELECT_TRACK;
+    if (request->kind == FW_MEDIA_KIND_VIDEO)
+        out_semantics->actions |= FW_MEDIA_ACTION_SET_ROTATION;
     out_semantics->hidden = snapshot->hidden_from_semantics;
+    if (size >= MR_FIELD_END(fw_media_semantics_v1,
+        content_rotation_quarter_turns))
+        out_semantics->content_rotation_quarter_turns =
+            mr_snapshot_rotation(snapshot);
     return FW_STATUS_OK;
 }
 

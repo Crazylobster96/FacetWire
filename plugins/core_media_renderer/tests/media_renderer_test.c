@@ -2,6 +2,7 @@
 #include <facetwire/media_renderer.h>
 
 #include <math.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -255,7 +256,44 @@ int main(void) {
     CHECK(state.probes == 1u && state.external_commands == 1u);
     CHECK(state.opens == 0u && state.acquires == 0u);
     CHECK(fabsf(state.last_command.opacity - 0.65f) < 0.001f);
+    CHECK(state.last_command.content_rotation_quarter_turns ==
+        FW_MEDIA_ROTATION_0);
     CHECK(render.command_count == 1u);
+
+    reset_counts(&state);
+    snapshot.content_rotation_quarter_turns = FW_MEDIA_ROTATION_90;
+    render_copy.struct_size = sizeof(render_copy);
+    CHECK(renderer->render(plugin, &request, &snapshot,
+        (fw_rect_f32){10.0f, 20.0f, 400.0f, 300.0f},
+        &services, &render_copy) == FW_STATUS_OK);
+    CHECK(state.last_command.content_rotation_quarter_turns ==
+        FW_MEDIA_ROTATION_90);
+    CHECK(fabsf(state.last_command.destination.x - 125.625f) < 0.001f);
+    CHECK(fabsf(state.last_command.destination.y - 20.0f) < 0.001f);
+    CHECK(fabsf(state.last_command.destination.width - 168.75f) < 0.001f);
+    CHECK(fabsf(state.last_command.destination.height - 300.0f) < 0.001f);
+    CHECK(render.cache_key_high != render_copy.cache_key_high ||
+        render.cache_key_low != render_copy.cache_key_low);
+    semantics.struct_size = sizeof(semantics);
+    CHECK(renderer->build_semantics(plugin, &request, &snapshot,
+        (fw_rect_f32){10.0f, 20.0f, 400.0f, 300.0f},
+        &semantics) == FW_STATUS_OK);
+    CHECK(semantics.content_rotation_quarter_turns == FW_MEDIA_ROTATION_90);
+    CHECK((semantics.actions & FW_MEDIA_ACTION_SET_ROTATION) != 0u);
+    snapshot.content_rotation_quarter_turns = FW_MEDIA_ROTATION_0;
+
+    reset_counts(&state);
+    snapshot.content_rotation_quarter_turns = FW_MEDIA_ROTATION_90;
+    snapshot.struct_size = (uint32_t)(offsetof(
+        fw_media_session_snapshot_v1, flags) + sizeof(snapshot.flags));
+    render_copy.struct_size = sizeof(render_copy);
+    CHECK(renderer->render(plugin, &request, &snapshot,
+        (fw_rect_f32){10.0f, 20.0f, 400.0f, 300.0f},
+        &services, &render_copy) == FW_STATUS_OK);
+    CHECK(state.last_command.content_rotation_quarter_turns ==
+        FW_MEDIA_ROTATION_0);
+    snapshot.struct_size = sizeof(snapshot);
+    snapshot.content_rotation_quarter_turns = FW_MEDIA_ROTATION_0;
 
     request.resource_id.data = resource_copy;
     render_copy.struct_size = sizeof(render_copy);
@@ -313,6 +351,8 @@ int main(void) {
     CHECK(render.output_mode == FW_MEDIA_OUTPUT_POSTER_ONLY);
     CHECK(state.poster_commands == 1u && state.opens == 0u);
     CHECK(state.last_poster.length == request.poster_or_artwork_resource_id.length);
+    CHECK(state.last_command.content_rotation_quarter_turns ==
+        FW_MEDIA_ROTATION_0);
 
     reset_counts(&state);
     state.info.available_output_modes = FW_MEDIA_OUTPUT_EXTERNAL_SURFACE;
@@ -371,6 +411,12 @@ int main(void) {
         FW_STATUS_INVALID_ARGUMENT);
 
     request = make_request(FW_MEDIA_KIND_VIDEO);
+    snapshot.content_rotation_quarter_turns = 4u;
+    render.struct_size = sizeof(render);
+    CHECK(renderer->render(plugin, &request, &snapshot,
+        (fw_rect_f32){0.0f, 0.0f, 640.0f, 360.0f},
+        &services, &render) == FW_STATUS_INVALID_ARGUMENT);
+    snapshot.content_rotation_quarter_turns = FW_MEDIA_ROTATION_0;
     request.opacity = -0.01f;
     validation.struct_size = sizeof(validation);
     CHECK(renderer->validate(plugin, &request, &validation) ==

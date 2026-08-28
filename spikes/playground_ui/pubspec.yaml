@@ -10,6 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   ffi: 2.2.0
+  code_assets: 1.2.1
+  hooks: 2.2.0
+  native_toolchain_c: 0.19.3
   media_kit: 1.2.6
   media_kit_video: 2.0.1
   media_kit_libs_video: 1.0.7
@@ -33,6 +36,11 @@ flutter:
     - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/level-3.agscene.dis.json
     - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/resources/level-3.png
     - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/resources/level-3.gif
+    - assets/documents/flow-layout-recursive-demo.agscene/flow-layout-recursive-demo.agscene.dis.json
+    - assets/documents/flow-layout-recursive-demo.agscene/resources/level-1.png
+    - assets/documents/flow-layout-recursive-demo.agscene/documents/level-2.agscene/level-2.agscene.dis.json
+    - assets/documents/flow-layout-recursive-demo.agscene/documents/level-2.agscene/resources/level-2.png
+    - assets/documents/flow-layout-recursive-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/level-3.agscene.dis.json
     - assets/documents/media-renderer-demo.agscene/media-renderer-demo.agscene.dis.json
     - assets/documents/media-renderer-demo.agscene/resources/facetwire-demo.mp4
     - assets/documents/media-renderer-demo.agscene/resources/facetwire-demo.wav

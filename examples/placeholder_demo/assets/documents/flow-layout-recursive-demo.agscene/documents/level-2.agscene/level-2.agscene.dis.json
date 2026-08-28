@@ -1,0 +1,13 @@
+{
+  "format": "facetwire.agent-scene-package", "version": "0.1",
+  "id": "document:flow-demo:level-2", "title": "Flow Layout Demo / Level 2",
+  "canvas": {"id": "canvas:flow-level-2", "size": {"width": 600, "height": 760}, "pages": [{"id": "page:flow-level-2", "size": {"width": 600, "height": 760}, "layers": [
+    {"id": "layer:flow:level-2", "z": 0, "zones": [{"id": "zone:flow:level-2", "bounds": {"x": 0, "y": 0, "width": 600, "height": 700}, "semantics": {"role": "document", "label": "Level 2 continuous Flow"}, "content": {"type": "flow", "id": "flow.level-2", "pageTemplate": {"mode": "continuous", "size": {"width": 600, "height": 700}, "margins": {"top": 24, "right": 24, "bottom": 24, "left": 24}}, "items": [
+      {"id": "paragraph.intro.level-2", "kind": "paragraph", "style": {"fontSize": 20, "fontWeight": 600, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "Level 2 / 嵌套 Flow：验证源顺序和相邻 margin collapse。"}], "placement": {"mode": "block", "margins": {"top": 8, "bottom": 8}}},
+      {"id": "image.hero.level-2", "kind": "object", "content": {"type": "image", "resource": "image:hero", "alt": "FacetWire green geometry"}, "placement": {"mode": "block", "margins": {"top": 16, "bottom": 12}, "fallbackSize": {"width": 180, "height": 112}}},
+      {"id": "paragraph.closing.level-2", "kind": "paragraph", "style": {"fontSize": 16, "fontWeight": 400, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "Plan Key 在相同输入下应跨宿主保持稳定。"}], "placement": {"mode": "block", "margins": {"top": 10, "bottom": 6}}}
+    ]}}]},
+    {"id": "layer:document:level-3", "z": 10, "zones": [{"id": "zone:document:level-3", "bounds": {"x": 330, "y": 500, "width": 230, "height": 220}, "semantics": {"role": "document", "label": "Nested Flow level 3"}, "content": {"type": "document", "source": "documents/level-3.agscene/level-3.agscene.dis.json", "placement": {"fit": "none", "clip": true}}}]}
+  ]}]},
+  "resources": [{"id": "image:hero", "source": "resources/level-2.png", "mediaType": "image/png"}]
+}

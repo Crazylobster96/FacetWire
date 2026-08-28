@@ -96,9 +96,9 @@ flowchart LR
 | --- | --- |
 | MDR-SES-001 | 每个媒体 Zone 在 Presentation Session 中具有稳定 session_id。 |
 | MDR-SES-002 | Renderer 只读取不可变 snapshot，不持有可变播放器状态。 |
-| MDR-SES-003 | snapshot 必须包含 revision、state、position、duration、buffered、rate、muted、volume、selected_track。 |
+| MDR-SES-003 | snapshot 必须包含 revision、state、position、duration、buffered、rate、muted、volume、selected_track 和 `content_rotation_quarter_turns`。旋转值只允许 0、1、2、3，分别表示顺时针 0°、90°、180°、270°。 |
 | MDR-SES-004 | 过期 revision 的异步结果不得覆盖新状态。 |
-| MDR-SES-005 | seek、rate、volume 和 track 命令由宿主原子应用并生成新 revision。 |
+| MDR-SES-005 | seek、rate、volume、track 和内容旋转命令由宿主原子应用并生成新 revision。 |
 | MDR-SES-006 | start/end 片段边界必须在所有 seek、loop 和 ended 判断中生效。 |
 | MDR-SES-007 | 页面离开、设备锁定、音频焦点丢失的暂停策略属于宿主，不写入文件。 |
 
@@ -113,11 +113,14 @@ flowchart LR
 | ID | 需求 |
 | --- | --- |
 | MDR-MEA-001 | video measure 使用探测到的固有尺寸和 Zone constraints；旋转元数据必须在固有尺寸中体现。 |
-| MDR-MEA-002 | none/contain/cover/fill 与 Core Image Placement 数学一致。 |
+| MDR-MEA-002 | none/contain/cover/fill 与 Core Image Placement 共同调用 `VisualTransform`，不得保留插件私有算法副本。 |
 | MDR-MEA-003 | audio 默认以已分配 Zone 为 viewport；artwork/title/控件不得改变兄弟布局。 |
-| MDR-MEA-004 | poster 与视频帧必须使用相同 Placement，切换时不得跳动。 |
+| MDR-MEA-004 | poster、首帧、实时视频必须使用相同 Placement、内容旋转、裁剪和 opacity，切换时不得跳动或重叠显示旧 Poster。 |
 | MDR-MEA-005 | 未知固有尺寸时使用约束内确定性 fallback，并设置 normalized 标志。 |
 | MDR-MEA-006 | 根 Playground 的适应窗口/固定 1:1 只属于预览视口，不改变媒体测量。 |
+| MDR-MEA-007 | 内容旋转保持 Zone 不变；90°/270° 交换有效固有宽高，再按既有 none/contain/cover/fill 重新计算。contain 产生的空白由宿主表面背景策略处理，不得用未旋转的旧 Poster 填充。 |
+| MDR-MEA-008 | “旋转视频层”属于场景布局/宿主合成操作：围绕 Zone 中心交换宽高并生成新 Layout Plan；Media Renderer 不得擅自移动兄弟 Layer。 |
+| MDR-MEA-009 | 与视频 Zone 关联的字幕和控制 Layer 在视频层旋转后重新求解位置，但保持文字和控件自身正向，不随视频像素一起旋转。 |
 
 ### 本章检查
 
@@ -132,11 +135,12 @@ flowchart LR
 | MDR-REN-001 | external-surface 模式只输出声明式 surface placement，不返回平台对象。 |
 | MDR-REN-002 | decoded-frame 模式只把宿主拥有的 opaque frame handle 同步交回 Visual Sink。 |
 | MDR-REN-003 | poster-only 用 poster/artwork 或稳定 Placeholder，适用于 `FW_MEDIA_REQUEST_REDUCE_DATA`、导出和 codec 不可播放但海报可用。 |
-| MDR-REN-004 | opacity、clip、Placement 在三种输出模式下语义一致。 |
+| MDR-REN-004 | opacity、clip、Placement 和内容旋转在三种输出模式下语义一致。 |
 | MDR-REN-005 | opacity=0 可不提交视觉表面，但 Semantics 和 Session 保留。 |
 | MDR-REN-006 | Renderer 不绘制未显式请求的白色/黑色背景。 |
 | MDR-REN-007 | sink 拒绝后立即停止并保持 save/restore、frame acquire/release 平衡。 |
 | MDR-REN-008 | 控制按钮、字幕文字和视频画面是独立 Layer；Renderer 不把它们烘焙为单一不可操作画面。 |
+| MDR-REN-009 | `show_poster_until_ready` 只允许 Poster 在首个可展示视频帧之前占用同一视觉槽；视频可展示后，Poster 必须退出而不能作为透明视频下的残留底图。 |
 
 ### 本章检查
 
@@ -167,7 +171,7 @@ flowchart LR
 | MDR-TRK-001 | Renderer 暴露 Track 列表和当前选择，不解析或翻译文本内容。 |
 | MDR-TRK-002 | Subtitle Renderer 根据媒体 session_id 和 Track cue snapshot 独立渲染。 |
 | MDR-TRK-003 | Media Controls Layer 通过标准 Intent 操作 Session；隐藏内建控件不禁用对话控制。 |
-| MDR-TRK-004 | 0.1 Intent 至少预留 play、pause、toggle、seek-relative、seek-to、set-rate、set-muted、set-volume、select-track。 |
+| MDR-TRK-004 | 0.1 Intent 至少预留 play、pause、toggle、seek-relative、seek-to、set-rate、set-muted、set-volume、select-track、set-content-rotation。视频层旋转使用通用布局 Intent，不混入 Media Renderer。 |
 | MDR-TRK-005 | 控制权限、确认和审计由应用策略处理，Renderer 不自行授权。 |
 
 ### 本章检查
@@ -235,7 +239,8 @@ flowchart LR
 | 输入 | 最小/完整 audio、video，UTF-8 label，未知字段 |
 | 时间 | 0、片段边界、seek 越界、loop、ended、过期 revision |
 | opacity | 0、0.1、0.5、0.99、1、NaN、越界 |
-| Placement | none/contain/cover/fill、alignment、clip、旋转尺寸 |
+| Placement | none/contain/cover/fill、alignment、clip、0/90/180/270° 内容旋转、视频层宽高交换 |
+| Poster 切换 | Poster、首帧、实时帧共享变换；首帧后不残留、不叠图 |
 | 输出 | external-surface、decoded-frame、poster-only、sink 拒绝 |
 | 服务 | probe/open/close、codec 缺失、资源缺失、DRM、配额、handle 平衡 |
 | Track | 0/1/64、重复默认、选择、语言、字幕 Session 对齐 |
@@ -254,7 +259,7 @@ flowchart LR
 ## 14. 关联、冲突与扩展性检查
 
 - 与 Core Content Profile：复用资源、Playback、Track、Placement 和 Session 分界，不修改 Schema。
-- 与 Image Renderer：复用 Placement 数学；poster/artwork 通过 Image Service，不复制解码逻辑。
+- 与 Image Renderer：复用公共 `VisualTransform` 实现；poster/artwork 通过 Image Service，不复制解码或几何逻辑。
 - 与 Text Renderer：title/字幕排版仍由 Text Service/Subtitle Renderer 负责。
 - 与 Placeholder Renderer：所有失败保持原 Zone 几何并可显示 poster/占位描述。
 - 与 Playground：根预览缩放模式不进入 Renderer ABI。

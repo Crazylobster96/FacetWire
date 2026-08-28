@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$appRoot = Join-Path $repoRoot "spikes\playground_ui"
+$appRoot = Join-Path $repoRoot "examples\placeholder_demo"
 
 $candidates = @()
 if ($env:FACETWIRE_FLUTTER_ROOT) {
@@ -46,6 +46,8 @@ if ($UseChinaMirror) {
     $env:FLUTTER_STORAGE_BASE_URL = "https://storage.flutter-io.cn"
 }
 $env:FLUTTER_SUPPRESS_ANALYTICS = "true"
+$env:NO_PROXY = "$($env:NO_PROXY),localhost,127.0.0.1,::1"
+$env:no_proxy = "$($env:no_proxy),localhost,127.0.0.1,::1"
 
 Push-Location $appRoot
 try {
@@ -65,7 +67,7 @@ $source = Join-Path $appRoot "build\app\outputs\flutter-apk\app-$Mode.apk"
 $dist = Join-Path $repoRoot "dist\android"
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 $abi = $TargetPlatform.Replace("android-", "")
-$destination = Join-Path $dist "FacetWire-Playground-UI-Spike-0.1.0-$abi-$Mode.apk"
+$destination = Join-Path $dist "FacetWire-Playground-0.2.0-$abi-$Mode.apk"
 Copy-Item -LiteralPath $source -Destination $destination -Force
 
 $buildToolsRoot = Join-Path $env:ANDROID_SDK_ROOT "build-tools"

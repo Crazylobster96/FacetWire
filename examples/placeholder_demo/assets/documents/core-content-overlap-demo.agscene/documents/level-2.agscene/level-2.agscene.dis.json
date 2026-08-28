@@ -1,0 +1,86 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:core-content-demo:level-2",
+  "title": "Core Content Demo / Level 2",
+  "canvas": {
+    "id": "canvas:core-level-2",
+    "size": {"width": 500, "height": 350},
+    "pages": [{
+      "id": "page:core-level-2",
+      "size": {"width": 500, "height": 350},
+      "layers": [
+        {
+          "id": "layer:image:level-2",
+          "z": 0,
+          "zones": [{
+            "id": "zone:image:level-2",
+            "bounds": {"x": 10, "y": 10, "width": 310, "height": 225},
+            "content": {
+              "type": "image",
+              "resource": "image:level-2",
+              "alt": "Level 2 amber geometry",
+              "opacity": 0.7,
+              "placement": {"fit": "cover", "alignment": {"x": 0.5, "y": 0.5}, "clip": true}
+            }
+          }]
+        },
+        {
+          "id": "layer:animated-image:level-2",
+          "z": 5,
+          "zones": [{
+            "id": "zone:animated-image:level-2",
+            "bounds": {"x": 292, "y": 16, "width": 190, "height": 132},
+            "content": {
+              "type": "animated-image",
+              "resource": "gif:level-2",
+              "alt": "Level 2 animated marker",
+              "opacity": 0.78,
+              "placement": {"fit": "contain", "alignment": {"x": 0.5, "y": 0.5}, "clip": true},
+              "playback": {"autoplay": true, "loop": true, "playbackRate": 1, "controls": "hidden"}
+            }
+          }]
+        },
+        {
+          "id": "layer:text:level-2",
+          "z": 10,
+          "zones": [{
+            "id": "zone:text:level-2",
+            "bounds": {"x": 28, "y": 28, "width": 276, "height": 112},
+            "content": {
+              "type": "text",
+              "format": "plain",
+              "text": "Level 2 / 第二层\n坐标 28,28；保持 500×350 原始画布。",
+              "language": "zh-CN",
+              "opacity": 0.88,
+              "style": {
+                "fontSize": 17,
+                "fontWeight": 600,
+                "color": {"red": 0.13, "green": 0.07, "blue": 0.02, "alpha": 1},
+                "backgroundColor": {"red": 1, "green": 0.96, "blue": 0.84, "alpha": 0.8}
+              },
+              "layout": {"overflow": "clip", "padding": {"top": 8, "right": 10, "bottom": 8, "left": 10}}
+            }
+          }]
+        },
+        {
+          "id": "layer:document:level-3",
+          "z": 20,
+          "zones": [{
+            "id": "zone:document:level-3",
+            "bounds": {"x": 250, "y": 164, "width": 230, "height": 170},
+            "content": {
+              "type": "document",
+              "source": "documents/level-3.agscene/level-3.agscene.dis.json",
+              "placement": {"fit": "none", "alignment": {"x": 0, "y": 0}, "clip": true}
+            }
+          }]
+        }
+      ]
+    }]
+  },
+  "resources": [
+    {"id": "image:level-2", "source": "resources/level-2.png", "mediaType": "image/png"},
+    {"id": "gif:level-2", "source": "resources/level-2.gif", "mediaType": "image/gif"}
+  ]
+}

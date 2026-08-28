@@ -25,12 +25,14 @@ targets:
     sources:
       - path: Sources
       - path: ../../playground_ui/native/src/facetwire_ui_spike.c
+      - path: ../../../plugins/flow_layout/src/plugin.c
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.facetwire.visionos-spike
         HEADER_SEARCH_PATHS:
           - $(inherited)
           - $(PROJECT_DIR)/../../playground_ui/native/include
+          - $(PROJECT_DIR)/../../../include
         SWIFT_OBJC_BRIDGING_HEADER: $(PROJECT_DIR)/Sources/FacetWireVisionOSSpike-Bridging-Header.h
         GCC_PREPROCESSOR_DEFINITIONS:
           - $(inherited)
@@ -49,6 +51,7 @@ targets:
         HEADER_SEARCH_PATHS:
           - $(inherited)
           - $(PROJECT_DIR)/../../playground_ui/native/include
+          - $(PROJECT_DIR)/../../../include
 schemes:
   FacetWireVisionOSSpike:
     build:

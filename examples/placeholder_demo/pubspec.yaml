@@ -1,7 +1,7 @@
 name: facetwire_placeholder_demo
-description: Windows and macOS demo for the FacetWire placeholder renderer.
+description: Cross-platform FacetWire Playground for renderer and scene verification.
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
@@ -10,6 +10,13 @@ dependencies:
   flutter:
     sdk: flutter
   ffi: 2.2.0
+  code_assets: 1.2.1
+  hooks: 2.2.0
+  native_toolchain_c: 0.19.3
+  media_kit: 1.2.6
+  media_kit_video: 2.0.1
+  media_kit_libs_video: 1.0.7
+  path_provider: 2.1.6
 
 dev_dependencies:
   flutter_test:
@@ -25,4 +32,31 @@ flutter:
     - assets/documents/recursive-placeholder-demo.agscene/documents/level-2.agscene/resources/
     - assets/documents/recursive-placeholder-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/
     - assets/documents/recursive-placeholder-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/resources/
-
+    - assets/documents/core-content-overlap-demo.agscene/core-content-overlap-demo.agscene.dis.json
+    - assets/documents/core-content-overlap-demo.agscene/resources/level-1.png
+    - assets/documents/core-content-overlap-demo.agscene/resources/level-1.gif
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/level-2.agscene.dis.json
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/resources/level-2.png
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/resources/level-2.gif
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/level-3.agscene.dis.json
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/resources/level-3.png
+    - assets/documents/core-content-overlap-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/resources/level-3.gif
+    - assets/documents/rich-media-showcase.agscene/rich-media-showcase.agscene.dis.json
+    - assets/documents/rich-media-showcase.agscene/resources/showcase-image.png
+    - assets/documents/rich-media-showcase.agscene/resources/showcase.gif
+    - assets/documents/rich-media-showcase.agscene/resources/showcase-video.mp4
+    - assets/documents/rich-media-showcase.agscene/resources/showcase-video-poster.png
+    - assets/documents/rich-media-showcase.agscene/documents/level-2.agscene/level-2.agscene.dis.json
+    - assets/documents/rich-media-showcase.agscene/documents/level-2.agscene/resources/level-2.png
+    - assets/documents/rich-media-showcase.agscene/documents/level-2.agscene/documents/level-3.agscene/level-3.agscene.dis.json
+    - assets/documents/rich-media-showcase.agscene/documents/level-2.agscene/documents/level-3.agscene/resources/level-3.gif
+    - assets/documents/flow-layout-recursive-demo.agscene/flow-layout-recursive-demo.agscene.dis.json
+    - assets/documents/flow-layout-recursive-demo.agscene/resources/level-1.png
+    - assets/documents/flow-layout-recursive-demo.agscene/documents/level-2.agscene/level-2.agscene.dis.json
+    - assets/documents/flow-layout-recursive-demo.agscene/documents/level-2.agscene/resources/level-2.png
+    - assets/documents/flow-layout-recursive-demo.agscene/documents/level-2.agscene/documents/level-3.agscene/level-3.agscene.dis.json
+    - assets/documents/media-renderer-demo.agscene/media-renderer-demo.agscene.dis.json
+    - assets/documents/media-renderer-demo.agscene/resources/facetwire-demo.mp4
+    - assets/documents/media-renderer-demo.agscene/resources/facetwire-demo.wav
+    - assets/documents/media-renderer-demo.agscene/resources/video-poster.png
+    - assets/documents/media-renderer-demo.agscene/resources/audio-artwork.png

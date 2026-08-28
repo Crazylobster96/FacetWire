@@ -3,6 +3,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'core_content_demo.dart';
+import 'flow_layout_demo.dart';
+import 'flow_runtime_client.dart';
+import 'media_renderer_demo.dart';
+
 import 'demo_models.dart';
 import 'package_loader.dart';
 
@@ -10,20 +15,36 @@ const String demoDescriptorAsset =
     'assets/documents/recursive-placeholder-demo.agscene/'
     'recursive-placeholder-demo.agscene.dis.json';
 
-class PlaceholderDemoApp extends StatelessWidget {
+class PlaceholderDemoApp extends StatefulWidget {
   const PlaceholderDemoApp({
     required this.client,
     required this.packageLoader,
+    this.runtimeClient = const DemoRuntimeClient(),
+    this.initialDemoPath,
     super.key,
   });
 
   final NativeDemoClient client;
+  final NativeRuntimeClient runtimeClient;
   final AgscenePackageLoader packageLoader;
+  final String? initialDemoPath;
+
+  @override
+  State<PlaceholderDemoApp> createState() => _PlaceholderDemoAppState();
+}
+
+class _PlaceholderDemoAppState extends State<PlaceholderDemoApp> {
+  @override
+  void dispose() {
+    unawaited(widget.client.close());
+    unawaited(widget.runtimeClient.close());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    title: 'FacetWire Placeholder Demo',
+    title: 'FacetWire Playground',
     theme: ThemeData(
       colorScheme: ColorScheme.fromSeed(
         seedColor: const Color(0xff4169e1),
@@ -38,8 +59,39 @@ class PlaceholderDemoApp extends StatelessWidget {
       ),
       useMaterial3: true,
     ),
-    home: PlaceholderDemoScreen(client: client, packageLoader: packageLoader),
+    home: PlaceholderDemoScreen(
+      client: widget.client,
+      packageLoader: widget.packageLoader,
+    ),
+    routes: {
+      '/placeholder': (_) => PlaceholderDemoScreen(
+        client: widget.client,
+        packageLoader: widget.packageLoader,
+      ),
+      '/content': (_) =>
+          CoreContentDemoScreen(initialPath: widget.initialDemoPath),
+      '/media': (_) => const MediaRendererDemoScreen(),
+      '/flow': (_) => FlowLayoutDemoScreen(client: widget.runtimeClient),
+    },
   );
+}
+
+String? parseDemoPathArguments(List<String> arguments) {
+  for (var index = 0; index < arguments.length; index += 1) {
+    final argument = arguments[index];
+    if (argument.startsWith('--demo=')) {
+      final value = argument.substring('--demo='.length).trim();
+      return value.isEmpty ? null : value;
+    }
+    if (argument == '--demo' && index + 1 < arguments.length) {
+      final value = arguments[index + 1].trim();
+      return value.isEmpty ? null : value;
+    }
+    if (!argument.startsWith('-') && argument.trim().isNotEmpty) {
+      return argument.trim();
+    }
+  }
+  return null;
 }
 
 class PlaceholderDemoScreen extends StatefulWidget {
@@ -242,18 +294,30 @@ class _PlaceholderDemoScreenState extends State<PlaceholderDemoScreen> {
   }
 
   @override
-  void dispose() {
-    unawaited(widget.client.close());
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final snapshot = _snapshot;
     return Scaffold(
       appBar: AppBar(
         title: const Text('FacetWire Placeholder Renderer Demo'),
         actions: [
+          IconButton(
+            key: const ValueKey('open-core-content-demo'),
+            tooltip: '富媒体综合演示：Text / Image / GIF / Chart / Video',
+            onPressed: () => Navigator.of(context).pushNamed('/content'),
+            icon: const Icon(Icons.article_outlined),
+          ),
+          IconButton(
+            key: const ValueKey('open-media-renderer-demo'),
+            tooltip: 'Audio/Video Renderer 0.1',
+            onPressed: () => Navigator.of(context).pushNamed('/media'),
+            icon: const Icon(Icons.perm_media_outlined),
+          ),
+          IconButton(
+            key: const ValueKey('open-flow-layout-demo'),
+            tooltip: 'Flow Layout 0.1',
+            onPressed: () => Navigator.of(context).pushNamed('/flow'),
+            icon: const Icon(Icons.view_stream_outlined),
+          ),
           if (snapshot != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),

@@ -1,0 +1,27 @@
+{
+  "format": "facetwire.agent-scene-package",
+  "version": "0.1",
+  "id": "document:flow-demo:level-1",
+  "title": "Flow Layout Demo / Level 1",
+  "canvas": {
+    "id": "canvas:flow-level-1",
+    "size": {"width": 720, "height": 900},
+    "pages": [{"id": "page:flow-level-1", "size": {"width": 720, "height": 900}, "layers": [
+      {"id": "layer:flow:level-1", "z": 0, "zones": [{
+        "id": "zone:flow:level-1", "bounds": {"x": 40, "y": 40, "width": 600, "height": 700},
+        "semantics": {"role": "document", "label": "Level 1 continuous Flow"},
+        "content": {
+          "type": "flow", "id": "flow.level-1",
+          "pageTemplate": {"mode": "continuous", "size": {"width": 600, "height": 700}, "margins": {"top": 24, "right": 24, "bottom": 24, "left": 24}},
+          "items": [
+            {"id": "paragraph.intro.level-1", "kind": "paragraph", "style": {"fontSize": 20, "fontWeight": 600, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "Level 1 / 根 Flow：真实插件生成连续 block Layout Plan。"}], "placement": {"mode": "block", "margins": {"top": 8, "bottom": 8}}},
+            {"id": "image.hero.level-1", "kind": "object", "content": {"type": "image", "resource": "image:hero", "alt": "FacetWire blue geometry"}, "placement": {"mode": "block", "margins": {"top": 16, "bottom": 12}, "fallbackSize": {"width": 180, "height": 112}}},
+            {"id": "paragraph.closing.level-1", "kind": "paragraph", "style": {"fontSize": 16, "fontWeight": 400, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "图片占据流空间，后一段必须位于图片之后。"}], "placement": {"mode": "block", "margins": {"top": 10, "bottom": 6}}}
+          ]
+        }
+      }]},
+      {"id": "layer:document:level-2", "z": 10, "zones": [{"id": "zone:document:level-2", "bounds": {"x": 430, "y": 610, "width": 250, "height": 250}, "semantics": {"role": "document", "label": "Nested Flow level 2"}, "content": {"type": "document", "source": "documents/level-2.agscene/level-2.agscene.dis.json", "placement": {"fit": "none", "clip": true}}}]}
+    ]}]
+  },
+  "resources": [{"id": "image:hero", "source": "resources/level-1.png", "mediaType": "image/png"}]
+}

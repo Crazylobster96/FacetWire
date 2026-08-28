@@ -42,7 +42,7 @@
         "y": { "type": "number", "minimum": 0, "maximum": 1 }
       }
     },
-    "mediaPlacement": {
+    "visualPlacement": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -54,7 +54,13 @@
           "$ref": "#/$defs/alignment",
           "default": { "x": 0.5, "y": 0.5 }
         },
-        "clip": { "type": "boolean", "default": true }
+        "clip": { "type": "boolean", "default": true },
+        "contentRotationQuarterTurns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3,
+          "default": 0
+        }
       }
     },
     "padding": {
@@ -221,7 +227,7 @@
         "resource": { "$ref": "#/$defs/idRef" },
         "alt": { "type": "string", "maxLength": 8192 },
         "opacity": { "$ref": "#/$defs/opacity" },
-        "placement": { "$ref": "#/$defs/mediaPlacement" },
+        "placement": { "$ref": "#/$defs/visualPlacement" },
         "sampling": {
           "enum": ["auto", "smooth", "pixelated"],
           "default": "auto"
@@ -241,7 +247,7 @@
         "resource": { "$ref": "#/$defs/idRef" },
         "alt": { "type": "string", "maxLength": 8192 },
         "opacity": { "$ref": "#/$defs/opacity" },
-        "placement": { "$ref": "#/$defs/mediaPlacement" },
+        "placement": { "$ref": "#/$defs/visualPlacement" },
         "playback": { "$ref": "#/$defs/animationPlayback" }
       }
     },
@@ -255,7 +261,7 @@
         "label": { "type": "string", "minLength": 1, "maxLength": 8192 },
         "posterResource": { "$ref": "#/$defs/idRef" },
         "opacity": { "$ref": "#/$defs/opacity" },
-        "placement": { "$ref": "#/$defs/mediaPlacement" },
+        "placement": { "$ref": "#/$defs/visualPlacement" },
         "playback": { "$ref": "#/$defs/avPlayback" },
         "tracks": {
           "type": "array",

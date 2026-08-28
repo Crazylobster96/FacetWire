@@ -70,9 +70,17 @@ document and SHOULD remain stable across AI patches.
 
 `canvas` contains an `id`, logical `size`, and ordered `pages`. Logical units
 are device-independent pixels for screen media. Each Page contains an `id`,
-`size`, and ordered `layers`. Each Layer contains an `id`, integer `z`, and
-ordered `zones`. Each Zone contains an `id`, `bounds`, optional `semantics`, and
-one `content` object.
+`size`, and ordered `layers`. Each Layer contains an `id`, integer `z`, optional
+`transform`, and ordered `zones`. Each Zone contains an `id`, `bounds`, optional
+`semantics`, and one `content` object.
+
+`layer.transform.rotationQuarterTurns` is an integer from 0 through 3 and
+defaults to 0. A 90° or 270° layer rotation is resolved around the layer/Zone
+center, swaps its effective width and height, and rotates the layer content with
+it. It is a layout operation: the host MUST produce a new Layout Plan for any
+related subtitle or control layers. Those related layers are repositioned but
+remain upright unless their own transforms say otherwise. This is distinct from
+content-level `VisualTransform`, which never changes stored Zone bounds.
 
 `bounds` is `{x, y, width, height}`. Values MUST be finite, and width/height
 MUST be non-negative. A Zone retains these bounds even when its content cannot
@@ -109,6 +117,7 @@ preserves the child Canvas intrinsic logical size without implicit clipping.
 - Placeholder output replaces Zone content, never Canvas/Page/Layer layout.
 - Page and layer ordering remain deterministic.
 - Unsupported future content retains its intended space.
+- Layer rotation and content rotation have separate, non-conflicting scopes.
 
 ## 5. Recursive documents
 
@@ -209,4 +218,3 @@ are not expressible by those schemas alone.
   placeholder renderer contract.
 - Compression can later wrap the exact directory tree without changing any
   descriptor-relative references.
-

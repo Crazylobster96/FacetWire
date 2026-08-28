@@ -1,16 +1,19 @@
 add_library(facetwire_placeholder_demo_bridge SHARED
     src/facetwire_placeholder_demo.c
+    src/facetwire_playground_bridge.c
 )
 
 target_compile_features(facetwire_placeholder_demo_bridge PRIVATE c_std_11)
 target_compile_definitions(facetwire_placeholder_demo_bridge PRIVATE
     FACETWIRE_PLACEHOLDER_DEMO_BUILD
+    FWUI_BUILDING_LIBRARY
 )
 target_include_directories(facetwire_placeholder_demo_bridge PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 target_link_libraries(facetwire_placeholder_demo_bridge PRIVATE
     FacetWire::placeholder_renderer
+    FacetWire::flow_layout
 )
 set_target_properties(facetwire_placeholder_demo_bridge PROPERTIES
     OUTPUT_NAME facetwire_placeholder_demo_bridge
@@ -56,6 +59,30 @@ if(BUILD_TESTING AND FACETWIRE_BUILD_TESTS)
     )
     set_tests_properties(facetwire.placeholder_demo.bridge PROPERTIES
         LABELS "unit;demo;placeholder"
+    )
+    add_executable(facetwire_playground_bridge_test
+        tests/playground_bridge_test.c
+    )
+    target_compile_features(facetwire_playground_bridge_test PRIVATE c_std_11)
+    target_link_libraries(facetwire_playground_bridge_test PRIVATE
+        facetwire_placeholder_demo_bridge
+    )
+    if(MSVC)
+        target_compile_options(facetwire_playground_bridge_test PRIVATE
+            /W4 /WX /permissive-
+        )
+    else()
+        target_compile_options(facetwire_playground_bridge_test PRIVATE
+            -Wall -Wextra -Wpedantic -Werror
+        )
+    endif()
+    add_test(
+        NAME facetwire.placeholder_demo.playground_bridge
+        COMMAND facetwire_playground_bridge_test
+    )
+    set_tests_properties(
+        facetwire.placeholder_demo.playground_bridge PROPERTIES
+        LABELS "unit;demo;placeholder;flow"
     )
 endif()
 

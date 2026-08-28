@@ -107,7 +107,7 @@ validate-mobile-macos.sh 会验证 SDK commit，执行根运行时 CTest、UI Na
 profile 签名。Windows 产物不能替代此步骤。
 
 1. 用 USB 或已配对的无线连接连接设备，在设备上信任 Mac，并开启 Developer Mode。
-2. 打开 spikes/playground_ui/ios/Runner.xcworkspace。
+2. 打开 examples/placeholder_demo/ios/Runner.xcworkspace。
 3. 在 Runner > Signing & Capabilities 选择你的 Team。
 4. 如 org.facetwire.facetwirePlaygroundUiSpike 不唯一，改为你账号下唯一 Bundle ID。
 5. 不要把 Apple ID、证书、私钥、profile 或临时签名配置提交到 Git。
@@ -115,7 +115,7 @@ profile 签名。Windows 产物不能替代此步骤。
 
 ~~~bash
 source "$HOME/.config/facetwire/flutter.env"
-cd spikes/playground_ui
+cd examples/placeholder_demo
 "$FACETWIRE_FLUTTER_ROOT/bin/flutter" devices
 "$FACETWIRE_FLUTTER_ROOT/bin/flutter" run -d <device-id>
 ~~~

@@ -30,6 +30,7 @@ examples/documents/                合规的未压缩 .agscene 测试夹具
 plugins/text_renderer/             Text Renderer 0.1 参考实现
 plugins/core_image_renderer/       图片与动态图片 Renderer 参考实现
 plugins/core_media_renderer/       音频与视频 Renderer 参考实现
+plugins/flow_layout/               Flow Layout 0.1 实验性参考实现
 spikes/playground_ui/              Windows/macOS/iOS/Android 共用演示宿主
 plugins/placeholder_renderer/      Placeholder 后备 Renderer 参考实现
 tests/                             ABI 与一致性冒烟测试
@@ -54,6 +55,9 @@ ctest --preset default
 ```
 
 构建并运行 Windows/macOS 演示请参阅 [`examples/placeholder_demo/README.md`](examples/placeholder_demo/README.md)。Text/Image/GIF 三层递归演示及其四平台验证矩阵记录在[核心内容 Renderer 演示验证指南](docs/guides/core-content-renderers-demo-validation.zh-CN.md)中。
+### Flow Layout 当前实现状态
+
+`org.facetwire.reference.flow-layout` 已提供公共 C ABI、插件 Manifest、确定性 Layout Plan、连续单页 block flow、相邻垂直 margin collapse、Text Fragment/Child Measure Service 边界和 Page/Fragment Sink。当前实现是首个实验切片，只承诺 `continuous + block`；`virtual-pages`、columns、inline object、float、overlay、keep/widow/orphan 与 Playground 投影尚未实现，合法请求会明确返回 `FW_STATUS_UNSUPPORTED`。
 
 ## ABI 模型
 
@@ -63,13 +67,15 @@ ctest --preset default
 
 内存不得由 ABI 另一侧释放。字符串使用 UTF-8 字节区间，不假定以 NUL 结尾。每个可扩展结构都以 `struct_size` 和 ABI 版本开头。
 
-进一步阅读：[0.1 插件协议](spec/plugin-contract-v0.1.md)、实验性的[插件清单规范](spec/plugin-manifest-v0.1.zh-CN.md)、[ASP 目录规范](spec/agent-scene-package-directory-v0.1.md)、[核心内容规范](spec/core-content-profile-v0.1.zh-CN.md)、[流式内容规范](spec/flow-content-profile-v0.1.zh-CN.md)和[架构概览中文版](docs/architecture.zh-CN.md)。
+进一步阅读：[0.1 插件协议](spec/plugin-contract-v0.1.md)、实验性的[插件清单规范](spec/plugin-manifest-v0.1.zh-CN.md)、[ASP 目录规范](spec/agent-scene-package-directory-v0.1.md)、[核心内容规范](spec/core-content-profile-v0.1.zh-CN.md)、[VisualTransform 规范](spec/visual-transform-v0.1.zh-CN.md)、[流式内容规范](spec/flow-content-profile-v0.1.zh-CN.md)和[架构概览中文版](docs/architecture.zh-CN.md)。
 
 内容插件和布局能力的设计文档包括：
 
 - [Text Renderer 需求](docs/requirements/text-renderer-requirements-v0.1.md)与[函数级详细设计](docs/design/text-renderer-detailed-design-v0.1.md)
 - [Flow Layout 需求](docs/requirements/flow-layout-renderer-requirements-v0.1.md)与[函数级详细设计](docs/design/flow-layout-renderer-detailed-design-v0.1.md)
+- [Flow Layout Playground 五平台验证指南](docs/guides/flow-layout-cross-platform-validation.zh-CN.md)
 - [Media Renderer 需求](docs/requirements/media-renderers-requirements-v0.1.md)与[函数级详细设计](docs/design/media-renderers-detailed-design-v0.1.md)
+- [VisualTransform 函数级详细设计](docs/design/visual-transform-detailed-design-v0.1.md)
 - [架构决策记录索引](docs/adr/README.md)
 
 ## 许可证

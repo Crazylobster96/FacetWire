@@ -12,7 +12,7 @@
 | Text Renderer 0.1 | `facetwire.renderer.text` | UTF-8、CRLF/LF 规范化、Text Service v2、测量、滚动、DisplayList、Semantics、opacity |
 | Core Image Renderer | `facetwire.renderer.image` | Resource 解码服务、固有尺寸、none/contain/cover/fill、裁剪、采样、opacity、Semantics |
 | Animated Image Renderer | `facetwire.renderer.animated-image` | GIF/帧动画资源、自动播放初始策略、reduce-motion 稳定帧、opacity |
-| Playground Core Content 页面 | 标准 ASP 目录包 | 三层递归、原始坐标嵌套、Layer 覆盖、Text/PNG/GIF、交互式 opacity |
+| Playground Rich Media 页面 | 标准 ASP 目录包 + Playground Chart 预览 | 三层递归、原始坐标嵌套、Layer 覆盖、Text/PNG/GIF/Chart/Video、交互式 opacity |
 
 原生插件验证与 Flutter 视觉验证是两套互补门禁。Flutter 能显示 PNG/GIF 不等于 C ABI
 插件已通过；C 插件单元测试也不替代真实设备上的字体、解码器和 GPU 验证。
@@ -28,7 +28,7 @@
 演示包位于：
 
 ```text
-spikes/playground_ui/assets/documents/core-content-overlap-demo.agscene/
+examples/placeholder_demo/assets/documents/core-content-overlap-demo.agscene/
 ├── core-content-overlap-demo.agscene.dis.json       960 × 640
 ├── resources/
 │   ├── level-1.png
@@ -76,12 +76,14 @@ opacity = 0.00  完全透明 / fully transparent
 
 页面提供两类调试控制：
 
-1. Text、Image、GIF 类型滑杆是批量调试系数，用于快速观察某一类 Layer；
+1. Text、Image、GIF、Chart、Video 类型滑杆是批量调试系数，用于快速观察某一类 Layer；
 2. 点击任意 Layer 后，“当前层”滑杆直接覆盖该 Zone 的最终 session opacity，取值 0–1，
    不修改目录包内的持久值。
 
 Renderer 不填充隐式白底。最终 Alpha 由内容 Alpha、颜色 Alpha 和有效 opacity 组合；
 `opacity=0` 时内容不可见，但 Zone 几何、递归关系和兄弟 Layer 排版保持不变。
+`document` Zone 的 opacity 作用于整个子 Canvas 与全部后代 Layer；未显式声明背景时，
+子 Canvas 保持透明，不得合成白板。
 
 ### 本章检查
 
@@ -119,7 +121,7 @@ ctest --test-dir build/content-renderers-shared --output-on-failure
 ### 4.3 Flutter 共用测试
 
 ```powershell
-cd spikes/playground_ui
+cd examples/placeholder_demo
 flutter pub get
 flutter analyze
 flutter test
@@ -137,9 +139,10 @@ flutter test
 
 ## 5. 四平台构建与真机检查
 
-应用启动后应直接显示 `Text + Core Image 0.1 Demo`，不需要从旧占位页二次导航。
-顶栏开发板图标用于进入 Placeholder Renderer 兼容性测试页。如果启动后只看到大面积
-灰色占位框，说明运行的是旧构建产物，需要重新构建并重新安装应用。
+应用启动后先显示 Placeholder 兼容性首页；点击顶栏文章图标进入
+`FacetWire Rich Media Showcase`。内容页默认加载三层综合演示包，并保留顶栏开发板
+图标返回 Placeholder Renderer 兼容性测试页。如果内容页只看到旧的大面积灰色占位框，
+说明运行的是旧构建产物，需要重新构建并重新安装应用。
 
 顶栏文件夹图标支持两种本地来源：
 
@@ -163,7 +166,7 @@ flutter test
 ### Windows
 
 ```powershell
-cd spikes/playground_ui
+cd examples/placeholder_demo
 flutter build windows --debug
 flutter run -d windows
 ```
@@ -171,7 +174,7 @@ flutter run -d windows
 ### Android
 
 ```powershell
-cd spikes/playground_ui
+cd examples/placeholder_demo
 flutter build apk --debug
 adb install -r build/app/outputs/flutter-apk/app-debug.apk
 ```
@@ -180,7 +183,7 @@ adb install -r build/app/outputs/flutter-apk/app-debug.apk
 
 ```bash
 source "$HOME/.config/facetwire/flutter.env"
-cd spikes/playground_ui
+cd examples/placeholder_demo
 export NO_PROXY="${NO_PROXY:+$NO_PROXY,}localhost,127.0.0.1,::1"
 export no_proxy="${no_proxy:+$no_proxy,}localhost,127.0.0.1,::1"
 "$FACETWIRE_FLUTTER_ROOT/bin/flutter" pub get
@@ -197,16 +200,18 @@ iOS 真机使用 `flutter devices` 获取设备 ID，然后执行
 
 | ID | 检查项 | 预期结果 |
 | --- | --- | --- |
-| CC-01 | 点击 Playground 顶栏 Layer 图标 | 打开 `Text + Core Image 0.1 Demo` |
-| CC-02 | 查看层级 | 显示 3 recursive documents、11 zones |
-| CC-03 | 查看递归位置 | Level 2 位于根坐标 430,250；Level 3 位于 Level 2 坐标 250,164 |
-| CC-04 | 查看覆盖 | Text/Image/GIF 边框和内容按 z 顺序相互覆盖 |
-| CC-05 | GIF | 三层 GIF 自动连续播放，无静态 PNG 冒充 |
-| CC-06 | 类型调试滑杆 | 只改变对应 Text、Image 或 GIF 类别 |
-| CC-07 | 当前层 opacity=0 | 当前层完全不可见，其他层位置不变 |
+| CC-01 | 点击 Playground 顶栏文章图标 | 打开 `FacetWire Rich Media Showcase` |
+| CC-02 | 查看层级 | 显示 3 recursive documents、12 zones |
+| CC-03 | 查看递归位置 | Level 2 位于根坐标 900,350；Level 3 位于 Level 2 坐标 85,250，均为 `fit=none` |
+| CC-04 | 查看覆盖 | Text/Image/GIF/Chart/Video 与递归文档按 z 顺序相互覆盖 |
+| CC-05 | GIF | Level 1 与 Level 3 GIF 自动连续播放，无静态 PNG 冒充 |
+| CC-06 | 类型调试滑杆 | 只改变对应 Text、Image、GIF、Chart 或 Video 类别 |
+| CC-07 | 当前层 opacity=0 | 当前层完全不可见；若为 document，则整个子树消失并直接透出父 Canvas，不残留白板 |
 | CC-08 | 当前层 opacity=1 | 当前层完全不透明，仍保留素材自身 Alpha |
 | CC-09 | 点击嵌套层 | 当前层信息显示该 Zone 的原始 bounds |
 | CC-10 | 缩放/旋转设备 | 根 viewport 适配屏幕，嵌套文档内部坐标关系不改变 |
+| CC-11 | 视频海报与播放 | 初始显示海报；点击播放后加载本地 MP4，暂停/继续有效 |
+| CC-12 | 图表能力标识 | 显示描述数据生成的柱状图；明确标注为 Playground 预览而非已完成 Chart Renderer 插件 |
 
 ### 本章检查
 
@@ -216,7 +221,9 @@ iOS 真机使用 `flutter devices` 获取设备 ID，然后执行
 
 ## 6. 当前边界与下一步
 
-当前 Flutter 页面是标准目录包的跨平台视觉宿主，用于验证组合关系；C 插件的 Host
+当前 Flutter 页面是标准目录包的跨平台视觉宿主，用于验证组合关系。综合演示中的
+Chart 是宿主原生预览，不是已完成的 Chart Renderer 插件；Video 则复用现有 Core Media
+播放路径。C 插件的 Host
 Service/DisplayList 路径由原生契约测试验证。下一步生产化集成应让 Playground 的内容
 投影器把同一 Zone 转成 `fw_text_renderer_request_v1` 或
 `fw_image_renderer_request_v1`，再把真实 DisplayList/纹理结果桥接到 Flutter，而不是长期

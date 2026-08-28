@@ -234,7 +234,8 @@ Track `kind` 支持 `subtitles`、`captions`、`descriptions`、`chapters`、`me
 
 ## 8. Placement 统一语义
 
-静态图片、动态图片和视频复用同一 `placement`：
+静态图片、动态图片和视频复用同一 `placement`。未来的图表 Profile 也必须复用这一
+`VisualTransform`，不得另行定义同名但算法不同的 fit/旋转规则：
 
 | `fit` | 语义 |
 | --- | --- |
@@ -243,15 +244,25 @@ Track `kind` 支持 `subtitles`、`captions`、`descriptions`、`chapters`、`me
 | `cover` | 等比缩放并覆盖 Zone，允许溢出 |
 | `fill` | 横纵独立缩放到 Zone |
 
-默认 `alignment={0.5,0.5}`、`clip=true`。Placement 只计算内容到 Zone 的变换，不得
-修改 Zone `bounds`、Page 分页或兄弟 Zone 布局。音频没有固有视觉画面，是否展示封面和
-控件由 Renderer 与控制 Layer 决定。
+默认 `alignment={0.5,0.5}`、`clip=true`、`contentRotationQuarterTurns=0`。旋转值
+`0/1/2/3` 分别表示顺时针 `0°/90°/180°/270°`。内容旋转保持 Zone 不变；90° 与
+270° 先交换有效固有宽高，再执行同一套 `none/contain/cover/fill`、alignment 与 clip
+计算。Poster、首帧、GIF 的每一帧、实时视频以及未来图表的缓存画面必须使用同一个解析
+结果。`contain` 等方式没有覆盖的区域必须透明，Renderer 不得自动填充白色、黑色或旧
+Poster。
+
+Placement 只计算内容到 Zone 的变换，不得修改 Zone `bounds`、Page 分页或兄弟 Zone
+布局。场景 Layer 的旋转是独立的布局操作：它围绕 Layer/Zone 中心交换 90°/270°后的
+宽高、带着内容一起旋转，并要求宿主重新定位关联字幕与控件 Layer。音频没有固有视觉
+画面，是否展示封面和控件由 Renderer 与控制 Layer 决定。
 
 ### 本章检查
 
 - 媒体 Placement 与递归 Document Placement 使用相同术语。
 - 两者默认值可以不同且已明确：Document 默认 `none`，媒体默认 `contain`。
 - 内容变换不会反向改写存储坐标。
+- 内容旋转与 Layer 旋转边界明确；前者不 reflow，后者触发宿主布局重算。
+- 未覆盖像素保持透明，背景颜色只能由场景或宿主显式提供。
 
 ## 9. 持久播放策略与 Session 状态
 

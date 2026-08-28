@@ -6,9 +6,40 @@ struct FacetWireFrame {
     let accessibilityLabel: String
 }
 
+struct FacetWireFlowBounds: Decodable {
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
+}
+
+struct FacetWireFlowFragment: Decodable, Identifiable {
+    let kind: String
+    let sourceItemId: String
+    let contentKind: String
+    let bounds: FacetWireFlowBounds
+
+    var id: String { sourceItemId }
+}
+
+struct FacetWireFlowReport: Decodable {
+    let pluginId: String
+    let capability: String
+    let composeStatus: Int
+    let complete: Bool
+    let pageCount: Int
+    let fragmentCount: Int
+    let planKey: String
+    let pagesBalanced: Bool
+    let supportedSlice: String
+    let nativeRuntime: Bool
+    let fragments: [FacetWireFlowFragment]
+}
+
 enum FacetWireBridgeError: Error {
     case create(Int32)
     case render(Int32)
+    case compose(Int32)
     case missingBuffer
     case invalidSemantics
 }
@@ -51,5 +82,32 @@ enum FacetWireBridge {
             commands: try DisplayListDecoder.decode(displayData),
             accessibilityLabel: label
         )
+    }
+
+    static func composeFlow(
+        width: Float = 600,
+        height: Float = 700,
+        demoCase: UInt32
+    ) throws -> FacetWireFlowReport {
+        var context: OpaquePointer?
+        let createStatus = fwui_context_create(&context)
+        guard createStatus == FWUI_STATUS_OK else {
+            throw FacetWireBridgeError.create(Int32(createStatus.rawValue))
+        }
+        defer { fwui_context_destroy(context) }
+
+        var output = fwui_buffer(data: nil, length: 0)
+        defer { fwui_buffer_release(&output) }
+        let composeStatus = fwui_compose_flow_demo(
+            context, width, height, demoCase, &output
+        )
+        guard composeStatus == FWUI_STATUS_OK else {
+            throw FacetWireBridgeError.compose(Int32(composeStatus.rawValue))
+        }
+        guard let pointer = output.data else {
+            throw FacetWireBridgeError.missingBuffer
+        }
+        let data = Data(bytes: pointer, count: Int(output.length))
+        return try JSONDecoder().decode(FacetWireFlowReport.self, from: data)
     }
 }

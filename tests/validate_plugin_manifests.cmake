@@ -83,3 +83,6 @@ validate_manifest("plugins/core_media_renderer/facetwire.plugin.json"
     "org.facetwire.reference.core-media-renderer"
     "facetwire_core_media_plugin_query" "facetwire.renderer.video"
     "facetwire.renderer.audio")
+validate_manifest("plugins/flow_layout/facetwire.plugin.json"
+    "org.facetwire.reference.flow-layout"
+    "facetwire_flow_layout_plugin_query" "facetwire.layout.flow")

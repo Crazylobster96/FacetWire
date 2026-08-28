@@ -57,6 +57,7 @@ Invoke-Checked {
     & $cmake --build $nativeBuild --target `
         facetwire_placeholder_demo_bridge `
         facetwire_placeholder_demo_bridge_test `
+        facetwire_playground_bridge_test `
         facetwire_placeholder_renderer_test `
         facetwire_placeholder_rendering_contract_test
 } "Native bridge build failed."
@@ -86,6 +87,60 @@ Invoke-Checked {
         "-DCMAKE_BUILD_TYPE=$Configuration" `
         -DFLUTTER_TARGET_PLATFORM=windows-x64
 } "Flutter Windows CMake configure failed."
+
+# media_kit downloads archives during configure, but its extraction targets do
+# not establish file-level dependencies for Ninja. Pre-extract them, then
+# regenerate so the imported libraries exist before media_kit_video links.
+function Expand-NativeArchive {
+    param(
+        [Parameter(Mandatory = $true)] [string]$Archive,
+        [Parameter(Mandatory = $true)] [string]$Destination,
+        [Parameter(Mandatory = $true)] [string]$Expected
+    )
+    if (Test-Path -LiteralPath $Expected) { return }
+    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+    Push-Location $Destination
+    try {
+        Invoke-Checked {
+            & $cmake -E tar xvf $Archive
+        } "Failed to extract native media archive: $Archive"
+    } finally {
+        Pop-Location
+    }
+    if (-not (Test-Path -LiteralPath $Expected)) {
+        throw "Native media archive did not produce: $Expected"
+    }
+}
+
+$mpvArchive = Join-Path $runnerBuild "mpv-dev-x86_64-20230924-git-652a1dd.7z"
+$mpvRoot = Join-Path $runnerBuild "libmpv"
+Expand-NativeArchive -Archive $mpvArchive -Destination $mpvRoot `
+    -Expected (Join-Path $mpvRoot "libmpv.dll.a")
+$mpvNestedHeaders = Join-Path $mpvRoot "include\mpv"
+$mpvHeaders = Join-Path $mpvRoot "include"
+if ((Test-Path -LiteralPath $mpvNestedHeaders) -and
+    -not (Test-Path -LiteralPath (Join-Path $mpvHeaders "client.h"))) {
+    Copy-Item -LiteralPath (Join-Path $mpvNestedHeaders "client.h") `
+        -Destination $mpvHeaders -Force
+    Copy-Item -LiteralPath (Join-Path $mpvNestedHeaders "render.h") `
+        -Destination $mpvHeaders -Force
+    Copy-Item -LiteralPath (Join-Path $mpvNestedHeaders "render_gl.h") `
+        -Destination $mpvHeaders -Force
+    Copy-Item -LiteralPath (Join-Path $mpvNestedHeaders "stream_cb.h") `
+        -Destination $mpvHeaders -Force
+}
+
+$angleArchive = Join-Path $runnerBuild "ANGLE.7z"
+$angleRoot = Join-Path $runnerBuild "ANGLE"
+Expand-NativeArchive -Archive $angleArchive -Destination $angleRoot `
+    -Expected (Join-Path $angleRoot "lib\libEGL.dll.lib")
+
+Invoke-Checked {
+    & $cmake -S (Join-Path $demoRoot "windows") -B $runnerBuild -G Ninja `
+        "-DCMAKE_MAKE_PROGRAM=$ninja" `
+        "-DCMAKE_BUILD_TYPE=$Configuration" `
+        -DFLUTTER_TARGET_PLATFORM=windows-x64
+} "Flutter Windows CMake regenerate after media extraction failed."
 Invoke-Checked { & $cmake --build $runnerBuild } "Windows Runner build failed."
 Invoke-Checked {
     & $cmake --install $runnerBuild --config $Configuration
@@ -110,5 +165,5 @@ if (-not (Test-Path -LiteralPath $exe)) {
     throw "Demo EXE was not produced: $exe"
 }
 
-Write-Host "FacetWire Placeholder Demo Windows build passed."
+Write-Host "FacetWire Playground Windows build passed."
 Write-Host "Run: $exe"

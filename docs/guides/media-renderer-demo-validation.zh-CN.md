@@ -1,7 +1,7 @@
 # Audio/Video Renderer 0.1 Playground 验证指南
 
 状态：**Windows 自动验证已通过；macOS、iOS、Android 待按本指南补充真机结果**
-适用目录：`spikes/playground_ui`
+适用目录：`examples/placeholder_demo`
 演示包：`assets/documents/media-renderer-demo.agscene`
 
 ## 1. 验证目标
@@ -13,7 +13,7 @@ macOS、iOS 与 Android 上检查以下能力：
 1. 视频、字幕、控制按钮和音频会话作为四个独立 Layer 展示；
 2. 各 Layer 可独立定位、覆盖和调整不透明度；
 3. 不透明度严格采用 `1 = 完全不透明，0 = 完全透明`，支持 0.1、0.99 等小数；
-4. 视频支持播放/暂停、前后跳转、倍速与画面旋转；
+4. 视频支持播放/暂停、前后跳转、倍速、内容旋转与视频层旋转；
 5. 控制按钮 Layer 可显示、隐藏或渐隐，而对话/宿主动作仍可操作 Session；
 6. 音频与视频拥有独立 Session，不共享错误的播放状态；
 7. 页面关闭后播放器、订阅、临时资源与原生 token 能正确释放。
@@ -81,7 +81,7 @@ Windows PowerShell 如果没有加载 Visual Studio 开发者环境，应使用�
 ### 3.2 Flutter 静态分析与单元测试
 
 ```powershell
-cd spikes/playground_ui
+cd examples/placeholder_demo
 flutter pub get
 flutter analyze
 flutter test
@@ -93,6 +93,8 @@ flutter test
 - 四个 Layer 独立存在；
 - video/audio 播放和 seek 命令不会串线；
 - opacity、rate 和 controls fade 可交互；
+- 内容旋转保持视频 Zone 尺寸，视频层旋转交换 Zone 宽高；
+- Poster 与实时视频只占用同一视觉槽，不叠加残留；
 - 页面卸载会调用 backend close。
 
 ### 3.3 内存与资源门禁
@@ -114,9 +116,9 @@ flutter test
 在已加载 Visual Studio 2022 开发者环境的终端中：
 
 ```powershell
-cd spikes/playground_ui
+cd examples/placeholder_demo
 flutter build windows --release
-.\build\windows\x64\runner\Release\facetwire_playground_ui_spike.exe
+.\build\windows\x64\runner\Release\facetwire_placeholder_demo.exe
 ```
 
 若机器存在被挂起的旧 `cl.exe`，Visual Studio Generator 可能停在 CompilerId 阶段。应先
@@ -126,18 +128,18 @@ flutter build windows --release
 ### 4.2 macOS
 
 ```bash
-cd spikes/playground_ui
+cd examples/placeholder_demo
 flutter pub get
 flutter analyze
 flutter test
 flutter build macos --release
-open build/macos/Build/Products/Release/facetwire_playground_ui_spike.app
+open build/macos/Build/Products/Release/facetwire_placeholder_demo.app
 ```
 
 ### 4.3 iOS
 
 ```bash
-cd spikes/playground_ui
+cd examples/placeholder_demo
 flutter pub get
 flutter analyze
 flutter test
@@ -151,7 +153,7 @@ flutter run -d <iPhone设备ID>
 ### 4.4 Android
 
 ```bash
-cd spikes/playground_ui
+cd examples/placeholder_demo
 flutter pub get
 flutter analyze
 flutter test
@@ -172,11 +174,12 @@ APK 默认位置：`build/app/outputs/flutter-apk/app-release.apk`。
 | ID | 检查项目 | 预期结果 | Windows 2026-08-27 | macOS | iOS | Android |
 | --- | --- | --- | --- | --- | --- | --- |
 | AV-D01 | 从基础内容页打开影片图标 | 进入“音视频渲染器 0.1”页面 | 待人工 | 待验证 | 待验证 | 待验证 |
-| AV-D02 | 视频初次加载 | poster 后显示本地视频首帧，无网络请求 | 待人工 | 待验证 | 待验证 | 待验证 |
+| AV-D02 | 视频初次加载 | poster 与视频共享变换；首帧显示后 Poster 退出，不叠图，无网络请求 | 待人工 | 待验证 | 待验证 | 待验证 |
 | AV-D03 | 视频播放/暂停 | 状态、进度和按钮同步变化 | 待人工 | 待验证 | 待验证 | 待验证 |
 | AV-D04 | 前进/回退 2 秒 | 位置受 0 与 duration 边界约束 | 待人工 | 待验证 | 待验证 | 待验证 |
 | AV-D05 | 选择 0.5×/1×/1.5×/2× | 播放速率立即更新 | 待人工 | 待验证 | 待验证 | 待验证 |
-| AV-D06 | 旋转视频 | 只改变视频画面，不移动字幕/控制层 | 待人工 | 待验证 | 待验证 | 待验证 |
+| AV-D06 | 旋转视频内容 | Zone 保持不变；90°/270° 按 9:16 contain，留白为纯黑且没有旧 Poster | 待人工 | 待验证 | 待验证 | 待验证 |
+| AV-D06B | 旋转视频层 | Zone 围绕中心交换宽高；字幕/控制层重新定位并保持正向 | 待人工 | 待验证 | 待验证 | 待验证 |
 | AV-D07 | 调整视频不透明度到 0/0.1/0.99/1 | 从完全透明连续变化到完全不透明 | 待人工 | 待验证 | 待验证 | 待验证 |
 | AV-D08 | 调整字幕位置和不透明度 | 字幕独立移动/渐隐，视频几何不变 | 待人工 | 待验证 | 待验证 | 待验证 |
 | AV-D09 | 隐藏/渐隐控制层 | 控件视觉消失，媒体 Session 不被销毁 | 待人工 | 待验证 | 待验证 | 待验证 |

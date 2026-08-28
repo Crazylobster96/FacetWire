@@ -35,6 +35,7 @@ int main(void) {
     fwui_buffer display = {0};
     fwui_buffer semantics = {0};
     fwui_buffer snapshot = {0};
+    fwui_buffer flow = {0};
     fwui_buffer second_display = {0};
     fwui_buffer second_semantics = {0};
     unsigned int iteration = 0u;
@@ -99,6 +100,33 @@ int main(void) {
     assert(read_f32_le(display.data + 52u + 20u) >= 0.0f);
     fwui_buffer_release(&display);
     fwui_buffer_release(&semantics);
+
+    assert(fwui_compose_flow_demo(context, 600.0f, 700.0f, 0u, &flow) ==
+        FWUI_STATUS_OK);
+    assert(strstr((const char *)flow.data,
+        "\"capability\":\"facetwire.layout.flow\"") != NULL);
+    assert(strstr((const char *)flow.data, "\"composeStatus\":0") != NULL);
+    assert(strstr((const char *)flow.data, "\"fragmentCount\":3") != NULL);
+    assert(strstr((const char *)flow.data, "paragraph.intro.level-1") != NULL);
+    assert(strstr((const char *)flow.data, "\"pagesBalanced\":true") != NULL);
+    fwui_buffer_release(&flow);
+
+    assert(fwui_compose_flow_demo(context, 600.0f, 700.0f, 2u, &flow) ==
+        FWUI_STATUS_OK);
+    assert(strstr((const char *)flow.data, "\"kind\":\"placeholder\"") != NULL);
+    assert(strstr((const char *)flow.data, "object.missing.level-3") != NULL);
+    fwui_buffer_release(&flow);
+
+    assert(fwui_compose_flow_demo(context, 600.0f, 700.0f, 3u, &flow) ==
+        FWUI_STATUS_OK);
+    assert(strstr((const char *)flow.data, "\"composeStatus\":11") != NULL);
+    assert(strstr((const char *)flow.data, "\"complete\":false") != NULL);
+    assert(strstr((const char *)flow.data, "\"fragmentCount\":0") != NULL);
+    fwui_buffer_release(&flow);
+
+    assert(fwui_compose_flow_demo(context, 100.0f, 700.0f, 0u, &flow) ==
+        FWUI_STATUS_INVALID_ARGUMENT);
+    assert(flow.data == NULL && flow.length == 0u);
 
     for (iteration = 0u; iteration < 1000u; ++iteration) {
         assert(fwui_render_placeholder(context, 640.0f, 360.0f, 0.75f,
