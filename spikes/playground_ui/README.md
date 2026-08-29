@@ -65,13 +65,17 @@ scaling, and allows panning when the viewport is smaller than the canvas.
 The stream icon opens a verification page backed by the real native
 org.facetwire.reference.flow-layout plugin. Its uncompressed package has three
 recursive levels. Levels 1 and 2 compose text-image-text; Level 3 proves that
-an unknown child keeps its bounds through Placeholder fallback. The page also
-tests the explicitly unsupported virtual-pages boundary, viewer opacity, fit
-mode, and fixed 1:1 mode.
+an unknown child keeps its bounds through Placeholder fallback. Recursive mode
+composes all three native-size Canvases at their cumulative child-Zone offsets
+and exposes independent per-level opacity. The page also tests content-dependent
+virtual pagination, whole-view opacity, fit mode, and fixed 1:1 mode.
 
 顶栏的流式布局图标打开 Flow Layout 0.1 验证页。该页面通过 Native Assets 调用真实
 C 插件，不是 Dart 布局模拟。三层未压缩场景依次验证图片对象、嵌套图片对象和未知对象
-Placeholder 降级；设备验收时合同区必须显示 Native PASS。完整命令与五平台验收表见
+Placeholder 降级。默认递归合成按 child Zone 的累计坐标同时显示三层，每层保持原始
+逻辑尺寸并可独立调整不透明度；“单层检查”用于隔离当前 Level。`contentCase` 与
+`pageMode` 相互独立，切换 virtual-pages 不得切换 Level，页数由当前内容决定。设备
+验收时合同区必须显示 Native PASS。完整命令与五平台验收表见
 ../../docs/guides/flow-layout-cross-platform-validation.zh-CN.md。
 ## Audio/Video Renderer demo / 音视频演示
 

@@ -31,6 +31,11 @@ typedef struct fwui_buffer {
     uint64_t length;
 } fwui_buffer;
 
+typedef enum fwui_flow_page_mode {
+    FWUI_FLOW_PAGE_CONTINUOUS = 0,
+    FWUI_FLOW_PAGE_VIRTUAL = 1
+} fwui_flow_page_mode;
+
 /* Output buffers must be zero-initialized and released before reuse. An API
  * call never overwrites a non-empty buffer. */
 
@@ -47,15 +52,22 @@ FWUI_API fwui_status fwui_render_placeholder(
     fwui_buffer *out_display_list,
     fwui_buffer *out_semantics_utf8_json);
 
-/* Composes one of the standard Flow verification cases and returns an owned
- * UTF-8 JSON Layout Plan report. Cases 0..2 correspond to recursive scene
- * levels; case 3 intentionally requests virtual pages and must report
- * FW_STATUS_UNSUPPORTED without treating it as a bridge failure. */
+/* Legacy compatibility entry point. Cases 0..2 are continuous levels and
+ * case 3 is virtual-pages level 1. New hosts must use v2 so content identity
+ * and pagination mode cannot be conflated. */
 FWUI_API fwui_status fwui_compose_flow_demo(
     fwui_context *context,
     float width,
     float height,
     uint32_t demo_case,
+    fwui_buffer *out_layout_plan_utf8_json);
+/* Composes content_case 0..2 in the requested fwui_flow_page_mode. */
+FWUI_API fwui_status fwui_compose_flow_demo_v2(
+    fwui_context *context,
+    float width,
+    float height,
+    uint32_t content_case,
+    uint32_t page_mode,
     fwui_buffer *out_layout_plan_utf8_json);
 FWUI_API void fwui_buffer_release(fwui_buffer *buffer);
 

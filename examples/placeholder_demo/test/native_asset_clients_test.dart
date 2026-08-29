@@ -14,10 +14,18 @@ void main() {
     try {
       final snapshot = await placeholder.snapshot();
       final report = jsonDecode(
-        await flow.composeFlowDemo(width: 600, height: 700, demoCase: 0),
+        await flow.composeFlowDemo(
+          width: 600,
+          height: 700,
+          contentCase: 0,
+          virtualPages: false,
+        ),
       ) as Map<String, Object?>;
 
-      expect(snapshot['pluginId'], 'org.facetwire.reference.placeholder-renderer');
+      expect(
+        snapshot['pluginId'],
+        'org.facetwire.reference.placeholder-renderer',
+      );
       expect(report['capability'], 'facetwire.layout.flow');
       expect(report['nativeRuntime'], isTrue);
       expect(report['fragmentCount'], 3);

@@ -43,6 +43,43 @@ function Invoke-Checked {
     }
 }
 
+function Ensure-NativeArchive {
+    param(
+        [Parameter(Mandatory = $true)] [string]$Url,
+        [Parameter(Mandatory = $true)] [string]$Destination,
+        [Parameter(Mandatory = $true)] [string]$Md5
+    )
+
+    if (Test-Path -LiteralPath $Destination) {
+        $actual = (Get-FileHash -LiteralPath $Destination -Algorithm MD5).Hash
+        if ($actual -ieq $Md5) {
+            Write-Host "Using verified native media archive: $Destination"
+            return
+        }
+    }
+
+    $parent = Split-Path -Parent $Destination
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    $partial = "$Destination.download"
+    if (Test-Path -LiteralPath $partial) {
+        Remove-Item -LiteralPath $partial -Force
+    }
+
+    Write-Host "Downloading native media archive: $Url"
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $partial -TimeoutSec 600
+        $actual = (Get-FileHash -LiteralPath $partial -Algorithm MD5).Hash
+        if ($actual -ine $Md5) {
+            throw "Native media archive checksum mismatch: $Destination"
+        }
+        Move-Item -LiteralPath $partial -Destination $Destination -Force
+    } finally {
+        if (Test-Path -LiteralPath $partial) {
+            Remove-Item -LiteralPath $partial -Force
+        }
+    }
+}
+
 Invoke-Checked {
     & $cmake -S $repoRoot -B $nativeBuild -G Ninja `
         "-DCMAKE_MAKE_PROGRAM=$ninja" `
@@ -78,6 +115,20 @@ try {
     Pop-Location
 }
 
+# media_kit performs synchronous downloads from its CMake configure step without
+# progress or a timeout. Fetch and verify the pinned archives first so a clean
+# Windows build cannot appear to hang indefinitely during configure.
+$mpvArchive = Join-Path $runnerBuild "mpv-dev-x86_64-20230924-git-652a1dd.7z"
+$angleArchive = Join-Path $runnerBuild "ANGLE.7z"
+Ensure-NativeArchive `
+    -Url "https://github.com/media-kit/libmpv-win32-video-build/releases/download/2023-09-24/mpv-dev-x86_64-20230924-git-652a1dd.7z" `
+    -Destination $mpvArchive `
+    -Md5 "a832ef24b3a6ff97cd2560b5b9d04cd8"
+Ensure-NativeArchive `
+    -Url "https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES/releases/download/v1.0.1/ANGLE.7z" `
+    -Destination $angleArchive `
+    -Md5 "e866f13e8d552348058afaafe869b1ed"
+
 # Flutter's Visual Studio generator can select HostX86 for CompilerId on some
 # installations. The committed CMake runner is generator-neutral, so the demo
 # uses the already verified Hostx64 + Ninja path deterministically.
@@ -112,7 +163,6 @@ function Expand-NativeArchive {
     }
 }
 
-$mpvArchive = Join-Path $runnerBuild "mpv-dev-x86_64-20230924-git-652a1dd.7z"
 $mpvRoot = Join-Path $runnerBuild "libmpv"
 Expand-NativeArchive -Archive $mpvArchive -Destination $mpvRoot `
     -Expected (Join-Path $mpvRoot "libmpv.dll.a")
@@ -130,7 +180,6 @@ if ((Test-Path -LiteralPath $mpvNestedHeaders) -and
         -Destination $mpvHeaders -Force
 }
 
-$angleArchive = Join-Path $runnerBuild "ANGLE.7z"
 $angleRoot = Join-Path $runnerBuild "ANGLE"
 Expand-NativeArchive -Archive $angleArchive -Destination $angleRoot `
     -Expected (Join-Path $angleRoot "lib\libEGL.dll.lib")

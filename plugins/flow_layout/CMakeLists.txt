@@ -1,5 +1,6 @@
 add_library(facetwire_flow_layout ${FACETWIRE_LIBRARY_TYPE}
-    src/plugin.c)
+    src/plugin.c
+    src/flow_virtual_pages.c)
 add_library(FacetWire::flow_layout ALIAS facetwire_flow_layout)
 target_compile_features(facetwire_flow_layout PRIVATE c_std_11)
 target_link_libraries(facetwire_flow_layout PUBLIC FacetWire::facetwire)

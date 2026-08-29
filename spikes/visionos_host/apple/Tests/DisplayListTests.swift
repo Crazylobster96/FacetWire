@@ -32,7 +32,7 @@ final class DisplayListTests: XCTestCase {
     }
 
     func testNativeFlowLayoutReturnsThreeBalancedFragments() throws {
-        let report = try FacetWireBridge.composeFlow(demoCase: 0)
+        let report = try FacetWireBridge.composeFlow(contentCase: 0)
 
         XCTAssertTrue(report.nativeRuntime)
         XCTAssertEqual(report.capability, "facetwire.layout.flow")
@@ -44,19 +44,27 @@ final class DisplayListTests: XCTestCase {
     }
 
     func testNativeFlowLayoutPreservesUnknownObjectAsPlaceholder() throws {
-        let report = try FacetWireBridge.composeFlow(demoCase: 2)
+        let report = try FacetWireBridge.composeFlow(contentCase: 2)
 
         XCTAssertEqual(report.composeStatus, 0)
         XCTAssertEqual(report.fragments[1].kind, "placeholder")
         XCTAssertEqual(report.fragments[1].sourceItemId, "object.missing.level-3")
     }
 
-    func testVirtualPagesBoundaryIsExplicitlyUnsupported() throws {
-        let report = try FacetWireBridge.composeFlow(demoCase: 3)
+    func testVirtualPagesProducesThreeBalancedPages() throws {
+        let report = try FacetWireBridge.composeFlow(
+            contentCase: 2,
+            virtualPages: true
+        )
 
-        XCTAssertEqual(report.composeStatus, 11)
-        XCTAssertFalse(report.complete)
-        XCTAssertEqual(report.fragmentCount, 0)
+        XCTAssertEqual(report.composeStatus, 0)
+        XCTAssertTrue(report.complete)
+        XCTAssertTrue(report.pagesBalanced)
+        XCTAssertEqual(report.pageCount, 2)
+        XCTAssertEqual(report.fragmentCount, 3)
+        XCTAssertEqual(report.fragments.map(\.pageIndex), [0, 0, 1])
+        XCTAssertEqual(report.fragments[0].sourceItemId, "paragraph.intro.level-3")
+        XCTAssertEqual(report.fragments[1].sourceItemId, "object.missing.level-3")
     }
     private func writeUInt16(_ value: UInt16, to data: inout Data, at offset: Int) {
         data[offset] = UInt8(value & 0xff)

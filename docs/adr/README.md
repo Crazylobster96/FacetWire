@@ -9,6 +9,7 @@ ADR 记录对实现有长期影响、但不应隐式写入 FacetWire C ABI 或�
 | [0003](0003-presentation-session-boundary.md) | Document、Presentation Session 与 Renderer Runtime 边界 | 接受 | Placeholder Renderer 合同与跨平台测试 |
 | [0004](0004-image-capability-tiering.md) | 基础图像渲染与专业图像合成分级 | 接受 | Core Image Renderer 与 Composition Spike |
 | [0005](0005-flow-layout-pagination-boundary.md) | 流式排版、虚拟页与内容 Renderer 边界 | 接受 | virtual pages、inline、float/overlay 与分页控制 |
+| [0006](0006-forge-compatibility-boundary.md) | FacetWire 与未来 FacetWire-Forge 的兼容边界 | 接受 | ChangeSet/Transaction 在独立仓库设计与验证 |
 
 状态含义：
 

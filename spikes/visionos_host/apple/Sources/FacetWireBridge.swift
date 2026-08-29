@@ -17,9 +17,15 @@ struct FacetWireFlowFragment: Decodable, Identifiable {
     let kind: String
     let sourceItemId: String
     let contentKind: String
+    let pageIndex: Int
     let bounds: FacetWireFlowBounds
 
-    var id: String { sourceItemId }
+    var id: String { "${sourceItemId}:page-${pageIndex}" }
+}
+
+struct FacetWireFlowSize: Decodable {
+    let width: Double
+    let height: Double
 }
 
 struct FacetWireFlowReport: Decodable {
@@ -29,6 +35,9 @@ struct FacetWireFlowReport: Decodable {
     let complete: Bool
     let pageCount: Int
     let fragmentCount: Int
+    let continuousExtent: FacetWireFlowSize
+    let pageSize: FacetWireFlowSize
+    let pageGap: Double
     let planKey: String
     let pagesBalanced: Bool
     let supportedSlice: String
@@ -87,7 +96,8 @@ enum FacetWireBridge {
     static func composeFlow(
         width: Float = 600,
         height: Float = 700,
-        demoCase: UInt32
+        contentCase: UInt32,
+        virtualPages: Bool = false
     ) throws -> FacetWireFlowReport {
         var context: OpaquePointer?
         let createStatus = fwui_context_create(&context)
@@ -98,8 +108,8 @@ enum FacetWireBridge {
 
         var output = fwui_buffer(data: nil, length: 0)
         defer { fwui_buffer_release(&output) }
-        let composeStatus = fwui_compose_flow_demo(
-            context, width, height, demoCase, &output
+        let composeStatus = fwui_compose_flow_demo_v2(
+            context, width, height, contentCase, virtualPages ? 1 : 0, &output
         )
         guard composeStatus == FWUI_STATUS_OK else {
             throw FacetWireBridgeError.compose(Int32(composeStatus.rawValue))

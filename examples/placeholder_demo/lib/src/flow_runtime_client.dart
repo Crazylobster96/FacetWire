@@ -21,6 +21,7 @@ typedef _ComposeNative = Int32 Function(
   Float,
   Float,
   Uint32,
+  Uint32,
   Pointer<_FlowNativeBuffer>,
 );
 typedef _ReleaseNative = Void Function(Pointer<_FlowNativeBuffer>);
@@ -32,14 +33,15 @@ external int _create(Pointer<Pointer<Void>> outContext);
 external void _destroy(Pointer<Void> context);
 
 @Native<_ComposeNative>(
-  symbol: 'fwui_compose_flow_demo',
+  symbol: 'fwui_compose_flow_demo_v2',
   assetId: _nativeAssetId,
 )
 external int _compose(
   Pointer<Void> context,
   double width,
   double height,
-  int demoCase,
+  int contentCase,
+  int pageMode,
   Pointer<_FlowNativeBuffer> output,
 );
 
@@ -50,7 +52,8 @@ abstract interface class NativeRuntimeClient {
   Future<String> composeFlowDemo({
     required double width,
     required double height,
-    required int demoCase,
+    required int contentCase,
+    required bool virtualPages,
   });
 
   Future<void> close();
@@ -79,14 +82,22 @@ final class NativeAssetRuntimeClient implements NativeRuntimeClient {
   Future<String> composeFlowDemo({
     required double width,
     required double height,
-    required int demoCase,
+    required int contentCase,
+    required bool virtualPages,
   }) async {
     _ensureOpen();
     final output = calloc<_FlowNativeBuffer>();
     try {
       _check(
-        _compose(_context, width, height, demoCase, output),
-        'fwui_compose_flow_demo',
+        _compose(
+          _context,
+          width,
+          height,
+          contentCase,
+          virtualPages ? 1 : 0,
+          output,
+        ),
+        'fwui_compose_flow_demo_v2',
       );
       if (output.ref.length == 0) return '';
       if (output.ref.data.address == 0) {
@@ -118,11 +129,14 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
   Future<String> composeFlowDemo({
     required double width,
     required double height,
-    required int demoCase,
+    required int contentCase,
+    required bool virtualPages,
   }) async {
-    final contentCase = demoCase == 3 ? 0 : demoCase.clamp(0, 2);
     final level = contentCase + 1;
-    final unsupported = demoCase == 3;
+    final paginated = virtualPages;
+    final pageHeight = paginated ? 240.0 : height;
+    final fallback = level == 3;
+    final pageCount = paginated ? (fallback ? 2 : 3) : 1;
     final objectId = level == 3
         ? 'object.missing.level-3'
         : 'image.hero.level-$level';
@@ -130,61 +144,64 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
       'pluginId': 'org.facetwire.reference.flow-layout',
       'capability': 'facetwire.layout.flow',
       'interfaceVersion': 1,
-      'demoCase': demoCase,
-      'composeStatus': unsupported ? 11 : 0,
-      'complete': !unsupported,
-      'pageCount': unsupported ? 0 : 1,
-      'fragmentCount': unsupported ? 0 : 3,
-      'textFragmentCount': unsupported ? 0 : 2,
-      'objectFragmentCount': unsupported ? 0 : 1,
-      'continuousExtent': {'width': width, 'height': height},
+      'demoCase': contentCase + (paginated ? 3 : 0),
+      'contentCase': contentCase,
+      'pageMode': paginated ? 1 : 0,
+      'composeStatus': 0,
+      'complete': true,
+      'pageCount': pageCount,
+      'fragmentCount': 3,
+      'textFragmentCount': 2,
+      'objectFragmentCount': 1,
+      'continuousExtent': {
+        'width': width,
+        'height': paginated ? pageHeight * pageCount : height,
+      },
+      'pageSize': {'width': width, 'height': pageHeight},
+      'pageGap': 0.0,
       'planKey': '00000000000000000000000000000000',
       'pagesBalanced': true,
-      'supportedSlice': 'continuous+block',
+      'supportedSlice': 'continuous+virtual-pages+block',
       'nativeRuntime': false,
-      'fragments': unsupported
-          ? const <Object>[]
-          : [
-              {
-                'kind': 'text',
-                'sourceItemId': 'paragraph.intro.level-$level',
-                'contentKind': '',
-                'bounds': {
-                  'x': 24.0,
-                  'y': 32.0,
-                  'width': width - 48,
-                  'height': 56.0,
-                },
-                'textStart': 0,
-                'textEnd': 52,
-              },
-              {
-                'kind': level == 3 ? 'placeholder' : 'object',
-                'sourceItemId': objectId,
-                'contentKind': level == 3 ? 'unknown' : 'image',
-                'bounds': {
-                  'x': 24.0,
-                  'y': 104.0,
-                  'width': 220.0,
-                  'height': 138.0,
-                },
-                'textStart': 0,
-                'textEnd': 0,
-              },
-              {
-                'kind': 'text',
-                'sourceItemId': 'paragraph.closing.level-$level',
-                'contentKind': '',
-                'bounds': {
-                  'x': 24.0,
-                  'y': 258.0,
-                  'width': width - 48,
-                  'height': 56.0,
-                },
-                'textStart': 0,
-                'textEnd': 58,
-              },
-            ],
+      'fragments': [
+        {
+          'kind': 'text',
+          'sourceItemId': 'paragraph.intro.level-$level',
+          'contentKind': '',
+          'pageIndex': 0,
+          'bounds': {'x': 24.0, 'y': 32.0, 'width': width - 48, 'height': 56.0},
+          'textStart': 0,
+          'textEnd': 52,
+        },
+        {
+          'kind': fallback ? 'placeholder' : 'object',
+          'sourceItemId': objectId,
+          'contentKind': fallback ? 'unknown' : 'image',
+          'pageIndex': paginated && !fallback ? 1 : 0,
+          'bounds': {
+            'x': 24.0,
+            'y': paginated && !fallback ? 40.0 : 104.0,
+            'width': fallback ? 180.0 : 240.0 - (20.0 * contentCase),
+            'height': fallback ? 112.0 : 150.0 - (15.0 * contentCase),
+          },
+          'textStart': 0,
+          'textEnd': 0,
+        },
+        {
+          'kind': 'text',
+          'sourceItemId': 'paragraph.closing.level-$level',
+          'contentKind': '',
+          'pageIndex': paginated ? (fallback ? 1 : 2) : 0,
+          'bounds': {
+            'x': 24.0,
+            'y': paginated ? 34.0 : 258.0,
+            'width': width - 48,
+            'height': 56.0,
+          },
+          'textStart': 0,
+          'textEnd': 58,
+        },
+      ],
     });
   }
 

@@ -9,11 +9,13 @@ get_filename_component(FACETWIRE_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..
 add_library(facetwire_ui_spike SHARED
     src/facetwire_ui_spike.c
     ${FACETWIRE_REPO_ROOT}/plugins/flow_layout/src/plugin.c
+    ${FACETWIRE_REPO_ROOT}/plugins/flow_layout/src/flow_virtual_pages.c
 )
 target_compile_features(facetwire_ui_spike PUBLIC c_std_11)
 target_compile_definitions(facetwire_ui_spike PRIVATE FWUI_BUILDING_LIBRARY)
 target_include_directories(facetwire_ui_spike PUBLIC
     include
+    ${FACETWIRE_REPO_ROOT}/examples/placeholder_demo/native/include
     ${FACETWIRE_REPO_ROOT}/include)
 
 if(MSVC)

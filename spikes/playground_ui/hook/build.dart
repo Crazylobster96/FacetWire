@@ -12,8 +12,13 @@ void main(List<String> args) async {
         sources: const [
           'native/src/facetwire_ui_spike.c',
           '../../plugins/flow_layout/src/plugin.c',
+          '../../plugins/flow_layout/src/flow_virtual_pages.c',
         ],
-        includes: const ['native/include', '../../include'],
+        includes: const [
+          'native/include',
+          '../../examples/placeholder_demo/native/include',
+          '../../include',
+        ],
         defines: const {'FWUI_BUILDING_LIBRARY': '1'},
       );
       await builder.run(input: input, output: output);

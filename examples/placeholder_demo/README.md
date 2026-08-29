@@ -18,7 +18,7 @@ Android 与 Linux。它保留原有成熟 Placeholder 页面和 Windows 可执�
 | Placeholder | 真实 `fwdemo_*` C ABI、三层递归、测量/语义/命中测试 | 默认首页 |
 | Rich Media Showcase / 富媒体综合演示 | Text、PNG、GIF、内联图表数据、本地 MP4、三层原始坐标、重叠与独立 opacity | 首页文章图标 |
 | Audio/Video | 本地 MP4/WAV、字幕层、控制层、音频层 | 首页媒体图标 |
-| Flow Layout | 真实 `facetwire.layout.flow`、三层布局与 fallback | 首页流式布局图标 |
+| Flow Layout | 真实 `facetwire.layout.flow`、三层递归合成、独立 opacity、分页与 fallback | 首页流式布局图标 |
 
 Desktop launch arguments may select an uncompressed Core Content package:
 
@@ -59,6 +59,11 @@ an already implemented visual treatment.
 
 当前 Renderer 合同已经接收 phase/progress/reduce-motion，但并非每个字段都已有专属
 视觉动画。界面底部展示真实 Native 合同结果，以区分“合同已支持”和“视觉已实现”。
+
+Flow Layout 页面默认递归合成三层 Canvas：子层使用描述文件中的 Zone 坐标和自身逻辑
+尺寸，不做隐式缩放；L1/L2/L3 可分别调整不透明度，以检查重叠后的下层内容。也可切换
+到“单层检查”。分页开关与 Level 选择互不影响，Native Bridge v2 使用独立的
+`contentCase` 和 `pageMode` 参数；虚拟页数量由当前内容计算，不假定固定三页。
 
 ## Package fixture / 示例包
 

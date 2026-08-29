@@ -45,12 +45,14 @@ typedef _FlowNative = Int32 Function(
   Float,
   Float,
   Uint32,
+  Uint32,
   Pointer<_NativeBuffer>,
 );
 typedef _FlowDart = int Function(
   Pointer<Void>,
   double,
   double,
+  int,
   int,
   Pointer<_NativeBuffer>,
 );
@@ -85,12 +87,16 @@ external int _assetRender(
   Pointer<_NativeBuffer> semantics,
 );
 
-@Native<_FlowNative>(symbol: 'fwui_compose_flow_demo', assetId: _nativeAssetId)
+@Native<_FlowNative>(
+  symbol: 'fwui_compose_flow_demo_v2',
+  assetId: _nativeAssetId,
+)
 external int _assetComposeFlow(
   Pointer<Void> context,
   double width,
   double height,
-  int demoCase,
+  int contentCase,
+  int pageMode,
   Pointer<_NativeBuffer> output,
 );
 
@@ -152,10 +158,18 @@ final class NativeAssetRuntimeClient implements NativeRuntimeClient {
   Future<String> composeFlowDemo({
     required double width,
     required double height,
-    required int demoCase,
+    required int contentCase,
+    required bool virtualPages,
   }) => _singleBuffer(
-    'fwui_compose_flow_demo',
-    (output) => _assetComposeFlow(_context, width, height, demoCase, output),
+    'fwui_compose_flow_demo_v2',
+    (output) => _assetComposeFlow(
+      _context,
+      width,
+      height,
+      contentCase,
+      virtualPages ? 1 : 0,
+      output,
+    ),
   );
 
   Future<String> _singleBuffer(
@@ -198,7 +212,7 @@ final class FfiNativeRuntimeClient implements NativeRuntimeClient {
         'fwui_render_placeholder',
       ),
       _flow = library.lookupFunction<_FlowNative, _FlowDart>(
-        'fwui_compose_flow_demo',
+        'fwui_compose_flow_demo_v2',
       ),
       _release = library.lookupFunction<_ReleaseNative, _ReleaseDart>(
         'fwui_buffer_release',
@@ -264,10 +278,18 @@ final class FfiNativeRuntimeClient implements NativeRuntimeClient {
   Future<String> composeFlowDemo({
     required double width,
     required double height,
-    required int demoCase,
+    required int contentCase,
+    required bool virtualPages,
   }) => _singleBuffer(
-    'fwui_compose_flow_demo',
-    (output) => _flow(_context, width, height, demoCase, output),
+    'fwui_compose_flow_demo_v2',
+    (output) => _flow(
+      _context,
+      width,
+      height,
+      contentCase,
+      virtualPages ? 1 : 0,
+      output,
+    ),
   );
 
   Future<String> _singleBuffer(

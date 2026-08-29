@@ -8,8 +8,8 @@
 同一份 C 实现通过两条平台接入路径使用：
 
 - Windows、macOS、iOS、Android：Flutter Native Assets CBuilder 自动编译并打包；
-- visionOS：XcodeGen 工程静态编译 facetwire_ui_spike.c 与
-  plugins/flow_layout/src/plugin.c。
+- visionOS：XcodeGen 工程静态编译统一 C Bridge、
+  plugins/flow_layout/src/plugin.c 与 flow_virtual_pages.c。
 
 Flutter 页面顶栏的流式布局图标打开“Flow Layout 0.1 验证”。visionOS 页面直接包含
 Flow Layout 区域。设备验收必须看到 Native PASS；Native FAIL 代表当前运行的是
@@ -29,23 +29,45 @@ examples/placeholder_demo/assets/documents/flow-layout-recursive-demo.agscene/
 | Level 1 | PNG 图片对象 | text, object, text；3 fragments |
 | Level 2 | 嵌套文档中的 PNG 图片对象 | text, object, text；3 fragments |
 | Level 3 | 未知对象类型 | text, placeholder, text；3 fragments |
-| virtual-pages 探测 | 超出 0.1 实现切片 | composeStatus=11、complete=false、0 fragments |
+| Level 1 + virtual-pages | 240 高度虚拟页 | composeStatus=0、complete=true、3 pages；对象整体移至第 2 页，后一段文字位于第 3 页 |
+| Level 2 + virtual-pages | 240 高度虚拟页 | composeStatus=0、complete=true、3 pages；对象整体移至第 2 页，后一段文字位于第 3 页 |
+| Level 3 + virtual-pages | 240 高度虚拟页 | composeStatus=0、complete=true、2 pages；Placeholder 与首段位于第 1 页，后一段文字位于第 2 页 |
 
 Level 3 的 Placeholder 必须保留对象边界，后一段文字不能坍缩到未知对象的位置。
+
+Playground Bridge v2 将内容选择与分页策略拆成两个正交参数：`contentCase`
+选择 Level 1/2/3，`pageMode` 选择 continuous 或 virtual-pages。切换分页不得改变
+当前 Level。旧 `fwui_compose_flow_demo` ABI 仅为兼容既有宿主保留；新宿主必须调用
+`fwui_compose_flow_demo_v2`。
+
+验证页默认使用“递归合成”：L1、L2、L3 按描述文件中的 child Zone 逐级累加原始坐标，
+每层保持自身 Canvas 的逻辑尺寸，不做隐式缩放。为了检查完整嵌套关系，Playground 使用
+调试展开画布并绘出 child Zone 边界；“单层检查”只显示当前选中的 Level。递归模式中的
+L1/L2/L3 分别提供独立不透明度，规则统一为 `1 = 完全不透明，0 = 完全透明`，用于
+透视上层并核对下层位置；“预览不透明度”仍作用于整个合成结果。
 
 ## 3. 通用手工验收
 
 1. 启动 App，打开“Flow Layout 0.1 验证”。
 2. 确认合同区显示 Native PASS、Complete PASS、Balanced PASS、Status 0 和
    3 fragments。
-3. 依次选择 Level 1、Level 2，确认图片位于两段文字之间。
-4. 选择 Level 3，确认中间出现橙色“Placeholder / 后备占位”。
-5. 切换“探测 virtual-pages”，确认页面明确显示 UNSUPPORTED 和状态 11；
-   关闭开关后恢复 Level 3。
-6. 拖动“预览不透明度”，确认 1 为完全不透明、0 为完全透明，片段几何不变化。
-7. 在“随窗口适配”和“固定 1:1”之间切换；固定模式保持 600 × 700 逻辑尺寸，
-   只允许平移/缩放查看，不重排 Layout Plan。
-8. 记录平台、设备/模拟器、系统版本、构建 commit、上述每项结果和截图。
+3. 保持默认“递归合成”，确认 L1、L2、L3 同时存在，逐级以 child Zone 的原始坐标
+   嵌套，Canvas 尺寸不因父级 Zone 自动缩放。选择 Level 只改变高亮和合同信息，不能
+   隐藏另外两层。
+4. 分别拖动 L1/L2/L3 不透明度；上层降低后必须看到其下层，设为 0 后该层完全透明，
+   其他层的几何与不透明度不得改变。
+5. 切换“单层检查”，依次选择 Level 1、Level 2，确认图片位于两段文字之间；选择
+   Level 3，确认中间出现橙色“Placeholder / 后备占位”。
+6. 保持 Level 1 或 Level 2，打开“使用 virtual-pages”，确认出现 3 张页面，三个片段
+   pageIndex 依次为 0、1、2。选择 Level 3 时应为 2 张页面，三个片段 pageIndex 为
+   0、0、1。对象不得被拆开，片段继续使用各自页面内的逻辑坐标。
+7. 在任意 Level 上反复开关 virtual-pages，确认当前 Level、对象类型和 sourceItemId
+   保持不变；分页开关只能改变 Layout Plan 的分页策略。
+8. 拖动“预览不透明度”，确认 1 为完全不透明、0 为完全透明，片段几何不变化。
+9. 在“随窗口适配”和“固定 1:1”之间切换；连续模式的单层逻辑尺寸为 600 × 700；
+   virtual-pages 的单层高度按实际 pageCount、页高和页间距计算。视口只允许平移或
+   等比缩放查看，不得重新排版或改变 Layout Plan。
+10. 记录平台、设备/模拟器、系统版本、构建 commit、上述每项结果和截图。
 
 ## 4. Windows
 
@@ -58,17 +80,24 @@ Level 3 的 Placeholder 必须保留对象边界，后一段文字不能坍缩�
 
     examples/placeholder_demo/build/windows-ninja/runner/facetwire_placeholder_demo.exe
 
+Windows 正式验证应使用上述脚本，不应以 `flutter build windows --release` 代替。
+Flutter 默认的 Visual Studio Generator 路径会在 `media_kit` 原生依赖配置期间长期无输出；
+项目脚本会在 CMake 配置前显式下载并校验固定版本的 libmpv 与 ANGLE（下载超时 10 分钟），
+随后固定使用 Host x64 + Ninja，并按正确顺序构建 Runner。
+
 若出现 stddef.h、stdint.h、windows.h 等 SDK 头缺失，应调用
 `msvc-build-environment` skill。脚本还会在首次构建时确定性解压 media_kit 所需的
 libmpv 与 ANGLE，避免 Ninja 在依赖文件生成前提前链接。
 
-### 当前自动验证记录（2026-08-28）
+### 当前自动验证记录（2026-08-29）
 
-- 统一原生 C Bridge CTest：PASS（4/4，其中 Playground Bridge 同时覆盖 Placeholder 与 Flow）。
+- 根项目 MSVC/Ninja CTest：PASS（14/14）。
+- Flow/Playground/Manifest/Memory 定向 CTest：PASS（4/4）。
 - Flutter analyze：PASS（0 issues）。
-- Flutter test：PASS（15/15，包含 Native Assets 双合同集成测试）。
-- Windows Release Runner：PASS。
-- Dart FFI smoke：PASS（8 commands，action=2）。
+- Flutter test：PASS（24/24，包含 Native Assets 双合同集成测试）。
+- Windows Release Runner：PASS；确定性 Ninja 构建、安装及 Dart FFI smoke 均通过，产物为
+  `examples/placeholder_demo/build/windows-ninja/runner/facetwire_placeholder_demo.exe`。
+- 手工三页视觉检查仍需在本提交收口后刷新。
 
 ## 5. Android
 
@@ -105,7 +134,9 @@ iOS 真机仍需使用本地 Apple Developer Team 签名；Native Assets 会静�
 
 - 三个平衡 fragments；
 - Level 3 未知对象降级为 Placeholder；
-- virtual-pages 返回状态 11。
+- contentCase 与 pageMode 正交；开关 virtual-pages 不得把 Level 2/3 改成 Level 1；
+- Level 1/2 的 virtual-pages 返回 3 页且 pageIndex 为 0、1、2；Level 3 返回 2 页且
+  pageIndex 为 0、0、1。
 
 在 visionOS Simulator 或 Vision Pro 真机中，Flow 区域应显示绿色
 “PASS · native Flow”。真机签名使用测试者自己的 Apple Developer Team。
@@ -117,8 +148,9 @@ iOS 真机仍需使用本地 Apple Developer Team 签名；Native Assets 会静�
 - 构建成功；
 - 自动测试成功；
 - UI 显示 Native PASS；
-- Level 1/2/3 与 virtual-pages 四个场景均符合预期；
-- 透明度、随窗口适配和固定 1:1 交互符合预期。
+- Level 1/2/3 分别在 continuous 与 virtual-pages 下符合预期；
+- 递归合成保留三层原始坐标与尺寸，单层检查只显示选中层；
+- L1/L2/L3 独立不透明度、整体预览不透明度、随窗口适配和固定 1:1 交互符合预期。
 
 仅 Dart 回退、仅 CTest、仅模拟器截图或仅旧版 Placeholder 通过，都不能替代完整平台
 验收。

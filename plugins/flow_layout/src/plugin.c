@@ -4,6 +4,8 @@
 #include <facetwire/renderer.h>
 #include <facetwire/text_fragment_service.h>
 
+#include "flow_internal.h"
+
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
@@ -23,19 +25,6 @@ typedef struct fl_context {
     fw_host_api_v1 host;
 } fl_context;
 
-typedef struct fl_budget {
-    uint32_t items;
-    uint32_t segments;
-    uint32_t pages;
-    uint32_t fragments;
-    uint32_t iterations;
-} fl_budget;
-
-typedef struct fl_hash {
-    uint64_t high;
-    uint64_t low;
-} fl_hash;
-
 static const fw_capability_descriptor_v1 fl_capabilities[] = {{
     sizeof(fw_capability_descriptor_v1),
     FW_STRING_VIEW_LITERAL(FW_FLOW_LAYOUT_CAPABILITY_ID),
@@ -54,10 +43,11 @@ static const fw_plugin_descriptor_v1 fl_descriptor = {
 
 static const char fl_parameter_schema[] =
     "{\"schemaVersion\":1,\"implementationStatus\":\"experimental\","
-    "\"supportedPageModes\":[\"continuous\"],"
+    "\"supportedPageModes\":[\"continuous\",\"virtual-pages\"],"
     "\"supportedPlacements\":[\"block\"],"
     "\"parameters\":[{\"id\":\"pageMode\",\"type\":\"enum\","
-    "\"default\":\"continuous\",\"values\":[\"continuous\"]}]}";
+    "\"default\":\"continuous\",\"values\":[\"continuous\","
+    "\"virtual-pages\"]}]}";
 
 static int fl_context_valid(fw_plugin_handle plugin) {
     const fl_context *context = (const fl_context *)plugin;
@@ -159,7 +149,7 @@ static uint32_t fl_budget_value(uint32_t value, uint32_t fallback) {
     return value == 0u ? fallback : value;
 }
 
-static fl_budget fl_resolve_budget(const fw_flow_budget_v1 *value) {
+fl_budget fl_resolve_budget(const fw_flow_budget_v1 *value) {
     fl_budget result;
     result.items = fl_budget_value(value->max_items, FL_DEFAULT_MAX_ITEMS);
     result.segments = fl_budget_value(value->max_segments,
@@ -395,12 +385,12 @@ static fw_status fl_validate_request(fw_plugin_handle plugin,
     return FW_STATUS_OK;
 }
 
-static void fl_hash_init(fl_hash *hash) {
+void fl_hash_init(fl_hash *hash) {
     hash->high = UINT64_C(1469598103934665603);
     hash->low = UINT64_C(1099511628211) ^ UINT64_C(0x9e3779b97f4a7c15);
 }
 
-static void fl_hash_bytes(fl_hash *hash, const void *data, size_t length) {
+void fl_hash_bytes(fl_hash *hash, const void *data, size_t length) {
     const unsigned char *bytes = (const unsigned char *)data;
     size_t i;
     for (i = 0u; i < length; ++i) {
@@ -411,7 +401,7 @@ static void fl_hash_bytes(fl_hash *hash, const void *data, size_t length) {
     }
 }
 
-static void fl_hash_u64(fl_hash *hash, uint64_t value) {
+void fl_hash_u64(fl_hash *hash, uint64_t value) {
     uint32_t shift;
     for (shift = 0u; shift < 64u; shift += 8u) {
         const unsigned char byte = (unsigned char)(value >> shift);
@@ -419,7 +409,7 @@ static void fl_hash_u64(fl_hash *hash, uint64_t value) {
     }
 }
 
-static void fl_hash_f32(fl_hash *hash, float value) {
+void fl_hash_f32(fl_hash *hash, float value) {
     uint32_t bits;
     uint32_t shift;
     if (value == 0.0f) value = 0.0f;
@@ -430,19 +420,19 @@ static void fl_hash_f32(fl_hash *hash, float value) {
     }
 }
 
-static void fl_hash_view(fl_hash *hash, fw_string_view value) {
+void fl_hash_view(fl_hash *hash, fw_string_view value) {
     fl_hash_u64(hash, (uint64_t)value.length);
     fl_hash_bytes(hash, value.data, value.length);
 }
 
-static void fl_hash_insets(fl_hash *hash, fw_edge_insets_f32 value) {
+void fl_hash_insets(fl_hash *hash, fw_edge_insets_f32 value) {
     fl_hash_f32(hash, value.left);
     fl_hash_f32(hash, value.top);
     fl_hash_f32(hash, value.right);
     fl_hash_f32(hash, value.bottom);
 }
 
-static fl_hash fl_request_hash(const fw_flow_layout_request_v1 *request) {
+fl_hash fl_request_hash(const fw_flow_layout_request_v1 *request) {
     fl_hash hash;
     size_t i;
     fl_hash_init(&hash);
@@ -511,21 +501,21 @@ static fl_hash fl_request_hash(const fw_flow_layout_request_v1 *request) {
     return hash;
 }
 
-static float fl_max(float left, float right) {
+float fl_max(float left, float right) {
     return left > right ? left : right;
 }
 
-static float fl_min(float left, float right) {
+float fl_min(float left, float right) {
     return left < right ? left : right;
 }
 
-static float fl_clamp_dimension(float value, float minimum, float maximum) {
+float fl_clamp_dimension(float value, float minimum, float maximum) {
     float result = fl_max(value, minimum);
     if (maximum > 0.0f) result = fl_min(result, maximum);
     return result;
 }
 
-static fw_status fl_emit(fw_flow_plan_sink_v1 const *sink,
+fw_status fl_emit(fw_flow_plan_sink_v1 const *sink,
     const fw_flow_fragment_v1 *fragment, fw_flow_layout_result_v1 *result,
     fl_hash *hash) {
     fw_status status = sink->emit_fragment(sink->user_data, fragment);
@@ -541,12 +531,24 @@ static fw_status fl_emit(fw_flow_plan_sink_v1 const *sink,
     fl_hash_f32(hash, fragment->bounds.y);
     fl_hash_f32(hash, fragment->bounds.width);
     fl_hash_f32(hash, fragment->bounds.height);
+    fl_hash_f32(hash, fragment->clip.x);
+    fl_hash_f32(hash, fragment->clip.y);
+    fl_hash_f32(hash, fragment->clip.width);
+    fl_hash_f32(hash, fragment->clip.height);
+    fl_hash_u64(hash, fragment->page_index);
+    fl_hash_u64(hash, fragment->column_index);
+    fl_hash_u64(hash, (uint64_t)(int64_t)fragment->z);
+    fl_hash_u64(hash, (uint64_t)fragment->text_start_utf8_byte);
+    fl_hash_u64(hash, (uint64_t)fragment->text_end_utf8_byte);
+    fl_hash_u64(hash, fragment->continuation_before);
+    fl_hash_u64(hash, fragment->continuation_after);
+    fl_hash_view(hash, fragment->content_kind);
     fl_hash_u64(hash, fragment->layout_fingerprint_high);
     fl_hash_u64(hash, fragment->layout_fingerprint_low);
     return FW_STATUS_OK;
 }
 
-static fw_status fl_make_fragment_id(char *buffer, size_t capacity,
+fw_status fl_make_fragment_id(char *buffer, size_t capacity,
     fw_string_view item_id, uint64_t revision, uint32_t ordinal,
     fw_string_view *out_view) {
     fl_hash item_hash;
@@ -833,6 +835,8 @@ static fw_status FW_CALL fl_compose(fw_plugin_handle plugin,
         sink == NULL || sink->struct_size < sizeof(*sink) ||
         sink->begin_page == NULL || sink->emit_fragment == NULL ||
         sink->end_page == NULL) return FW_STATUS_INVALID_ARGUMENT;
+    if (request->page_template.mode == FW_FLOW_VIRTUAL_PAGES)
+        return fl_compose_virtual_pages(request, services, sink, out_result);
     if (request->page_template.mode != FW_FLOW_CONTINUOUS)
         return FW_STATUS_UNSUPPORTED;
     for (i = 0u; i < request->item_count; ++i) {

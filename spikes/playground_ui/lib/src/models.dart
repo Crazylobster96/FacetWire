@@ -60,7 +60,8 @@ abstract interface class NativeRuntimeClient {
   Future<String> composeFlowDemo({
     required double width,
     required double height,
-    required int demoCase,
+    required int contentCase,
+    required bool virtualPages,
   });
 
   Future<void> close();

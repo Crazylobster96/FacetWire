@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -33,6 +34,10 @@ final class FlowSceneLevel {
     required this.flowId,
     required this.width,
     required this.height,
+    required this.canvasSize,
+    required this.flowBounds,
+    required this.childBounds,
+    required this.childClip,
     required this.items,
   });
 
@@ -41,6 +46,10 @@ final class FlowSceneLevel {
   final String flowId;
   final double width;
   final double height;
+  final Size canvasSize;
+  final Rect flowBounds;
+  final Rect? childBounds;
+  final bool childClip;
   final Map<String, FlowSceneItem> items;
 }
 
@@ -83,24 +92,42 @@ final class FlowSceneLoader implements FlowScenePackageLoader {
         resources[id] = asset;
       }
       final canvas = _map(root['canvas'], 'canvas');
+      final canvasSizeValue = _map(canvas['size'], 'canvas.size');
+      final canvasSize = Size(
+        _number(canvasSizeValue['width'], 'canvas.size.width'),
+        _number(canvasSizeValue['height'], 'canvas.size.height'),
+      );
       final pages = _list(canvas['pages'], 'canvas.pages');
       if (pages.isEmpty) throw const FormatException('Canvas has no page');
       final page = _map(pages.first, 'page');
       Map<String, Object?>? flow;
+      Rect? flowBounds;
       String? childSource;
+      Rect? childBounds;
+      var childClip = false;
       for (final layerValue in _list(page['layers'], 'page.layers')) {
         final layer = _map(layerValue, 'layer');
         for (final zoneValue in _list(layer['zones'], 'layer.zones')) {
           final zone = _map(zoneValue, 'zone');
           final content = _map(zone['content'], 'zone.content');
-          if (content['type'] == 'flow') flow = content;
+          final bounds = _rect(zone['bounds'], 'zone.bounds');
+          if (content['type'] == 'flow') {
+            flow = content;
+            flowBounds = bounds;
+          }
           if (content['type'] == 'document') {
             childSource =
                 '$directory/${_string(content['source'], 'document.source')}';
+            childBounds = bounds;
+            final placement = _map(content['placement'], 'document.placement');
+            childClip = placement['clip'] == true;
           }
         }
       }
       if (flow == null) throw FormatException('$current has no Flow zone');
+      if (flowBounds == null) {
+        throw FormatException('$current Flow zone has no bounds');
+      }
       final template = _map(flow['pageTemplate'], 'flow.pageTemplate');
       if (template['mode'] != 'continuous') {
         throw FormatException('$current demo must use continuous mode');
@@ -145,6 +172,10 @@ final class FlowSceneLoader implements FlowScenePackageLoader {
           flowId: _string(flow['id'], 'flow.id'),
           width: _number(size['width'], 'flow.width'),
           height: _number(size['height'], 'flow.height'),
+          canvasSize: canvasSize,
+          flowBounds: flowBounds,
+          childBounds: childBounds,
+          childClip: childClip,
           items: Map.unmodifiable(items),
         ),
       );
@@ -182,6 +213,16 @@ final class FlowSceneLoader implements FlowScenePackageLoader {
     }
     return value.toDouble();
   }
+
+  static Rect _rect(Object? value, String name) {
+    final bounds = _map(value, name);
+    return Rect.fromLTWH(
+      _number(bounds['x'], '$name.x'),
+      _number(bounds['y'], '$name.y'),
+      _number(bounds['width'], '$name.width'),
+      _number(bounds['height'], '$name.height'),
+    );
+  }
 }
 
 final class FlowPlanFragment {
@@ -189,12 +230,14 @@ final class FlowPlanFragment {
     required this.kind,
     required this.sourceItemId,
     required this.contentKind,
+    required this.pageIndex,
     required this.bounds,
   });
 
   final String kind;
   final String sourceItemId;
   final String contentKind;
+  final int pageIndex;
   final Rect bounds;
 
   factory FlowPlanFragment.fromJson(Map<String, Object?> value) {
@@ -203,6 +246,7 @@ final class FlowPlanFragment {
       kind: value['kind']! as String,
       sourceItemId: value['sourceItemId']! as String,
       contentKind: value['contentKind']! as String,
+      pageIndex: (value['pageIndex'] as num?)?.toInt() ?? 0,
       bounds: Rect.fromLTWH(
         (bounds['x']! as num).toDouble(),
         (bounds['y']! as num).toDouble(),
@@ -221,6 +265,9 @@ final class FlowPlanReport {
     required this.complete,
     required this.pageCount,
     required this.fragmentCount,
+    required this.continuousExtent,
+    required this.pageSize,
+    required this.pageGap,
     required this.planKey,
     required this.pagesBalanced,
     required this.nativeRuntime,
@@ -234,6 +281,9 @@ final class FlowPlanReport {
   final bool complete;
   final int pageCount;
   final int fragmentCount;
+  final Size continuousExtent;
+  final Size pageSize;
+  final double pageGap;
   final String planKey;
   final bool pagesBalanced;
   final bool nativeRuntime;
@@ -242,6 +292,8 @@ final class FlowPlanReport {
 
   factory FlowPlanReport.fromJson(String source) {
     final value = jsonDecode(source) as Map<String, Object?>;
+    final extent = value['continuousExtent']! as Map<String, Object?>;
+    final pageSize = value['pageSize']! as Map<String, Object?>;
     return FlowPlanReport(
       pluginId: value['pluginId']! as String,
       capability: value['capability']! as String,
@@ -249,6 +301,15 @@ final class FlowPlanReport {
       complete: value['complete']! as bool,
       pageCount: (value['pageCount']! as num).toInt(),
       fragmentCount: (value['fragmentCount']! as num).toInt(),
+      continuousExtent: Size(
+        (extent['width']! as num).toDouble(),
+        (extent['height']! as num).toDouble(),
+      ),
+      pageSize: Size(
+        (pageSize['width']! as num).toDouble(),
+        (pageSize['height']! as num).toDouble(),
+      ),
+      pageGap: (value['pageGap']! as num).toDouble(),
       planKey: value['planKey']! as String,
       pagesBalanced: value['pagesBalanced']! as bool,
       nativeRuntime: value['nativeRuntime'] as bool? ?? false,
@@ -265,6 +326,8 @@ final class FlowPlanReport {
 
 enum FlowCanvasMode { fit, actualSize }
 
+enum FlowSceneMode { recursive, single }
+
 class FlowLayoutDemoScreen extends StatefulWidget {
   const FlowLayoutDemoScreen({required this.client, this.loader, super.key});
 
@@ -277,11 +340,13 @@ class FlowLayoutDemoScreen extends StatefulWidget {
 
 class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
   FlowScenePackage? _package;
-  FlowPlanReport? _report;
+  List<FlowPlanReport>? _reports;
   Object? _error;
   var _selectedLevel = 0;
   var _virtualPagesProbe = false;
   var _opacity = 0.9;
+  var _sceneMode = FlowSceneMode.recursive;
+  final _levelOpacities = <double>[1.0, 0.78, 0.62];
   var _mode = FlowCanvasMode.fit;
   var _loading = true;
 
@@ -295,11 +360,11 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
     setState(() => _loading = true);
     try {
       final package = await (widget.loader ?? FlowSceneLoader()).load();
-      final report = await _compose(package, _selectedLevel);
+      final reports = await _composeAll(package);
       if (!mounted) return;
       setState(() {
         _package = package;
-        _report = report;
+        _reports = reports;
         _error = null;
         _loading = false;
       });
@@ -321,10 +386,17 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
     final source = await widget.client.composeFlowDemo(
       width: level.width,
       height: level.height,
-      demoCase: _virtualPagesProbe ? 3 : selected,
+      contentCase: selected,
+      virtualPages: _virtualPagesProbe,
     );
     return FlowPlanReport.fromJson(source);
   }
+
+  Future<List<FlowPlanReport>> _composeAll(FlowScenePackage package) =>
+      Future.wait([
+        for (var index = 0; index < package.levels.length; index += 1)
+          _compose(package, index),
+      ]);
 
   Future<void> _refresh({int? level, bool? virtualPages}) async {
     final package = _package;
@@ -336,10 +408,10 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
       _loading = true;
     });
     try {
-      final report = await _compose(package, selected);
+      final reports = await _composeAll(package);
       if (mounted) {
         setState(() {
-          _report = report;
+          _reports = reports;
           _error = null;
           _loading = false;
         });
@@ -364,7 +436,9 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
           preferredSize: Size.fromHeight(24),
           child: Padding(
             padding: EdgeInsets.only(bottom: 6),
-            child: Text('三层递归场景 · Native Layout Plan · continuous + block'),
+            child: Text(
+              '三层递归场景 · Native Layout Plan · continuous / virtual-pages + block',
+            ),
           ),
         ),
       ),
@@ -406,12 +480,15 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
 
   Widget _buildPreview(FlowScenePackage package) {
     final level = package.levels[_selectedLevel];
-    final report = _report;
+    final reports = _reports;
     if (_error != null) return Center(child: SelectableText('$_error'));
-    if (report == null) return const Center(child: CircularProgressIndicator());
+    if (reports == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final report = reports[_selectedLevel];
     if (!report.complete) {
       return Center(
-        key: const ValueKey('flow-unsupported-result'),
+        key: const ValueKey('flow-incomplete-result'),
         child: Card(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -420,32 +497,66 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
               children: [
                 const Icon(Icons.info_outline, size: 44),
                 const SizedBox(height: 12),
-                Text('composeStatus = ${report.composeStatus} (UNSUPPORTED)'),
-                const Text('virtual-pages 尚未进入首个实现切片；桥接与错误边界正常。'),
+                Text('composeStatus = ${report.composeStatus}'),
+                const Text('Layout Plan 未完成，当前结果不会作为完整页面发布。'),
               ],
             ),
           ),
         ),
       );
     }
+    if (_sceneMode == FlowSceneMode.recursive) {
+      return _buildRecursivePreview(package, reports);
+    }
+    final canvasWidth = _virtualPagesProbe
+        ? report.pageSize.width
+        : level.width;
+    final canvasHeight = _virtualPagesProbe
+        ? report.continuousExtent.height
+        : level.height;
     final canvas = Opacity(
       opacity: _opacity,
       child: SizedBox(
         key: const ValueKey('flow-logical-canvas'),
-        width: level.width,
-        height: level.height,
+        width: canvasWidth,
+        height: canvasHeight,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xfff8f9ff),
+            color: _virtualPagesProbe
+                ? const Color(0xffe8e9ef)
+                : const Color(0xfff8f9ff),
             border: Border.all(color: const Color(0xff6574a8), width: 2),
           ),
           child: Stack(
             clipBehavior: Clip.hardEdge,
             children: [
+              if (_virtualPagesProbe)
+                for (
+                  var pageIndex = 0;
+                  pageIndex < report.pageCount;
+                  pageIndex += 1
+                )
+                  Positioned(
+                    key: ValueKey('flow-page-$pageIndex'),
+                    left: 0,
+                    top: pageIndex * (report.pageSize.height + report.pageGap),
+                    width: report.pageSize.width,
+                    height: report.pageSize.height,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xfff8f9ff),
+                        border: Border.all(color: const Color(0xff9aa5c8)),
+                      ),
+                    ),
+                  ),
               for (final fragment in report.fragments)
                 _FlowFragmentView(
                   fragment: fragment,
                   item: level.items[fragment.sourceItemId],
+                  topOffset: _virtualPagesProbe
+                      ? fragment.pageIndex *
+                            (report.pageSize.height + report.pageGap)
+                      : 0,
                 ),
             ],
           ),
@@ -475,8 +586,121 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
     );
   }
 
+  Widget _buildRecursivePreview(
+    FlowScenePackage package,
+    List<FlowPlanReport> reports,
+  ) {
+    final origins = <Offset>[];
+    var origin = Offset.zero;
+    var extent = Size.zero;
+    for (var index = 0; index < package.levels.length; index += 1) {
+      final level = package.levels[index];
+      origins.add(origin);
+      extent = Size(
+        math.max(extent.width, origin.dx + level.canvasSize.width),
+        math.max(extent.height, origin.dy + level.canvasSize.height),
+      );
+      final child = level.childBounds;
+      if (child != null) origin += child.topLeft;
+    }
+    const colors = <Color>[
+      Color(0xffeef3ff),
+      Color(0xffeffaf2),
+      Color(0xfffff4e8),
+    ];
+    final canvas = Opacity(
+      opacity: _opacity,
+      child: SizedBox(
+        key: const ValueKey('flow-recursive-canvas'),
+        width: extent.width,
+        height: extent.height,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            for (var index = 0; index < package.levels.length; index += 1)
+              Positioned(
+                left: origins[index].dx,
+                top: origins[index].dy,
+                width: package.levels[index].canvasSize.width,
+                height: package.levels[index].canvasSize.height,
+                child: Opacity(
+                  key: ValueKey('flow-level-surface-$index'),
+                  opacity: _levelOpacities[index],
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors[index % colors.length],
+                      border: Border.all(
+                        color: _selectedLevel == index
+                            ? const Color(0xff315bd6)
+                            : const Color(0xff7582a8),
+                        width: _selectedLevel == index ? 3 : 1.5,
+                      ),
+                    ),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned(
+                          left: package.levels[index].flowBounds.left,
+                          top: package.levels[index].flowBounds.top,
+                          child: _FlowPlanSurface(
+                            levelIndex: index,
+                            level: package.levels[index],
+                            report: reports[index],
+                            virtualPages: _virtualPagesProbe,
+                          ),
+                        ),
+                        if (package.levels[index].childBounds != null)
+                          Positioned.fromRect(
+                            rect: package.levels[index].childBounds!,
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                key: ValueKey('flow-child-zone-$index'),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: const Color(0xff8a4f08),
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    return _buildViewport(canvas);
+  }
+
+  Widget _buildViewport(Widget canvas) => ColoredBox(
+    color: Theme.of(context).colorScheme.surfaceContainerLowest,
+    child: _mode == FlowCanvasMode.actualSize
+        ? InteractiveViewer(
+            key: const ValueKey('flow-actual-size'),
+            constrained: false,
+            minScale: 0.1,
+            maxScale: 4,
+            child: Padding(padding: const EdgeInsets.all(24), child: canvas),
+          )
+        : Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: FittedBox(
+                key: const ValueKey('flow-fit-viewport'),
+                fit: BoxFit.contain,
+                child: canvas,
+              ),
+            ),
+          ),
+  );
+
   Widget _buildControls(FlowScenePackage package) {
-    final report = _report;
+    final reports = _reports;
+    final report = reports == null ? null : reports[_selectedLevel];
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: ListView(
@@ -497,11 +721,38 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
                 ),
             ],
           ),
+          const SizedBox(height: 10),
+          SegmentedButton<FlowSceneMode>(
+            segments: const [
+              ButtonSegment(
+                value: FlowSceneMode.recursive,
+                label: Text('递归合成'),
+              ),
+              ButtonSegment(value: FlowSceneMode.single, label: Text('单层检查')),
+            ],
+            selected: {_sceneMode},
+            onSelectionChanged: (value) =>
+                setState(() => _sceneMode = value.single),
+          ),
+          if (_sceneMode == FlowSceneMode.recursive)
+            for (var index = 0; index < package.levels.length; index += 1) ...[
+              const SizedBox(height: 6),
+              Text(
+                'L${index + 1} opacity / 不透明度 '
+                '${(_levelOpacities[index] * 100).round()}%',
+              ),
+              Slider(
+                key: ValueKey('flow-level-opacity-$index'),
+                value: _levelOpacities[index],
+                onChanged: (value) =>
+                    setState(() => _levelOpacities[index] = value),
+              ),
+            ],
           SwitchListTile(
             key: const ValueKey('flow-virtual-pages-probe'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('探测 virtual-pages'),
-            subtitle: const Text('当前应明确返回 UNSUPPORTED'),
+            title: const Text('使用 virtual-pages'),
+            subtitle: const Text('真实分页：对象整体移页，片段使用页内逻辑坐标'),
             value: _virtualPagesProbe,
             onChanged: (value) => _refresh(virtualPages: value),
           ),
@@ -574,19 +825,92 @@ class _StatusChip extends StatelessWidget {
   );
 }
 
+class _FlowPlanSurface extends StatelessWidget {
+  const _FlowPlanSurface({
+    required this.levelIndex,
+    required this.level,
+    required this.report,
+    required this.virtualPages,
+  });
+
+  final int levelIndex;
+  final FlowSceneLevel level;
+  final FlowPlanReport report;
+  final bool virtualPages;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = virtualPages ? report.pageSize.width : level.width;
+    final height = virtualPages ? report.continuousExtent.height : level.height;
+    return SizedBox(
+      key: ValueKey('flow-level-plan-$levelIndex'),
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: virtualPages
+              ? const Color(0xffe8e9ef)
+              : const Color(0xfff8f9ff),
+          border: Border.all(color: const Color(0xff6574a8), width: 2),
+        ),
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            if (virtualPages)
+              for (
+                var pageIndex = 0;
+                pageIndex < report.pageCount;
+                pageIndex += 1
+              )
+                Positioned(
+                  key: ValueKey('flow-recursive-page-$levelIndex-$pageIndex'),
+                  left: 0,
+                  top: pageIndex * (report.pageSize.height + report.pageGap),
+                  width: report.pageSize.width,
+                  height: report.pageSize.height,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xfff8f9ff),
+                      border: Border.all(color: const Color(0xff9aa5c8)),
+                    ),
+                  ),
+                ),
+            for (final fragment in report.fragments)
+              _FlowFragmentView(
+                fragment: fragment,
+                item: level.items[fragment.sourceItemId],
+                topOffset: virtualPages
+                    ? fragment.pageIndex *
+                          (report.pageSize.height + report.pageGap)
+                    : 0,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FlowFragmentView extends StatelessWidget {
-  const _FlowFragmentView({required this.fragment, required this.item});
+  const _FlowFragmentView({
+    required this.fragment,
+    required this.item,
+    required this.topOffset,
+  });
 
   final FlowPlanFragment fragment;
   final FlowSceneItem? item;
+  final double topOffset;
 
   @override
   Widget build(BuildContext context) {
     final bounds = fragment.bounds;
     return Positioned(
-      key: ValueKey('flow-fragment:${fragment.sourceItemId}'),
+      key: ValueKey(
+        'flow-fragment:${fragment.sourceItemId}:page-${fragment.pageIndex}',
+      ),
       left: bounds.left,
-      top: bounds.top,
+      top: bounds.top + topOffset,
       width: bounds.width,
       height: bounds.height,
       child: Semantics(

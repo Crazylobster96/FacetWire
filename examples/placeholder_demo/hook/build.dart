@@ -14,6 +14,7 @@ void main(List<String> args) async {
         'native/src/facetwire_playground_bridge.c',
         'native/src/facetwire_placeholder_plugin_embed.c',
         'native/src/facetwire_flow_layout_plugin_embed.c',
+        'native/src/facetwire_flow_virtual_pages_embed.c',
       ],
       includes: const ['native/include', '../../include'],
       defines: const {

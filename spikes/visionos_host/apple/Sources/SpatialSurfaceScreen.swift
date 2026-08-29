@@ -88,7 +88,7 @@ struct SpatialSurfaceScreen: View {
                 VStack(alignment: .leading) {
                     Text("Flow Layout 0.1")
                         .font(.headline)
-                    Text("Three recursive cases · continuous + block")
+                    Text("Three recursive cases · continuous / virtual-pages + block")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -101,7 +101,7 @@ struct SpatialSurfaceScreen: View {
                 .frame(maxWidth: 360)
             }
 
-            Toggle("Probe virtual-pages (expect UNSUPPORTED)", isOn: $virtualPagesProbe)
+            Toggle("Use virtual-pages", isOn: $virtualPagesProbe)
 
             Group {
                 if let report = flowReport, report.complete {
@@ -124,7 +124,13 @@ struct SpatialSurfaceScreen: View {
                     )
                 }
             }
-            .aspectRatio(600 / 700, contentMode: .fit)
+            .aspectRatio(
+                CGFloat(
+                    (flowReport?.continuousExtent.width ?? 600) /
+                        (flowReport?.continuousExtent.height ?? 700)
+                ),
+                contentMode: .fit
+            )
             .frame(maxHeight: 520)
             .glassBackgroundEffect()
 
@@ -168,13 +174,16 @@ struct SpatialSurfaceScreen: View {
 
     private func reloadFlow() {
         do {
-            let demoCase = virtualPagesProbe ? UInt32(3) : UInt32(selectedLevel)
-            let report = try FacetWireBridge.composeFlow(demoCase: demoCase)
+            let report = try FacetWireBridge.composeFlow(
+                contentCase: UInt32(selectedLevel),
+                virtualPages: virtualPagesProbe
+            )
             flowReport = report
             if virtualPagesProbe {
-                flowDiagnostic = report.composeStatus == 11 && !report.complete
-                    ? "PASS · virtual-pages boundary returned UNSUPPORTED (11)"
-                    : "FAIL · virtual-pages boundary contract changed"
+                flowDiagnostic = report.nativeRuntime && report.complete &&
+                    report.pageCount == 3 && report.pagesBalanced
+                    ? "PASS · native virtual-pages · 3 balanced pages"
+                    : "FAIL · native virtual-pages contract incomplete"
             } else {
                 flowDiagnostic = report.nativeRuntime && report.complete
                     ? "PASS · native Flow · Level \(selectedLevel + 1) · \(report.fragmentCount) fragments"
@@ -221,29 +230,35 @@ private struct FlowLayoutSurface: View {
 
     var body: some View {
         Canvas { context, size in
-            let logicalWidth = 600.0
-            let logicalHeight = 700.0
+            let logicalWidth = CGFloat(report.continuousExtent.width)
+            let logicalHeight = CGFloat(report.continuousExtent.height)
             let scale = min(size.width / logicalWidth, size.height / logicalHeight)
             let offsetX = (size.width - logicalWidth * scale) / 2
             let offsetY = (size.height - logicalHeight * scale) / 2
-            let page = CGRect(
-                x: offsetX,
-                y: offsetY,
-                width: logicalWidth * scale,
-                height: logicalHeight * scale
-            )
-            var pagePath = Path()
-            pagePath.addRect(page)
-            context.fill(pagePath, with: .color(.white.opacity(0.82)))
-            context.stroke(pagePath, with: .color(.indigo), lineWidth: 2)
+            for pageIndex in 0..<report.pageCount {
+                let pageTop = CGFloat(pageIndex) *
+                    CGFloat(report.pageSize.height + report.pageGap)
+                let page = CGRect(
+                    x: offsetX,
+                    y: offsetY + pageTop * scale,
+                    width: CGFloat(report.pageSize.width) * scale,
+                    height: CGFloat(report.pageSize.height) * scale
+                )
+                var pagePath = Path()
+                pagePath.addRect(page)
+                context.fill(pagePath, with: .color(.white.opacity(0.82)))
+                context.stroke(pagePath, with: .color(.indigo), lineWidth: 2)
+            }
 
             for fragment in report.fragments {
                 let bounds = fragment.bounds
+                let pageTop = CGFloat(fragment.pageIndex) *
+                    CGFloat(report.pageSize.height + report.pageGap)
                 let rect = CGRect(
-                    x: offsetX + bounds.x * scale,
-                    y: offsetY + bounds.y * scale,
-                    width: bounds.width * scale,
-                    height: bounds.height * scale
+                    x: offsetX + CGFloat(bounds.x) * scale,
+                    y: offsetY + (pageTop + CGFloat(bounds.y)) * scale,
+                    width: CGFloat(bounds.width) * scale,
+                    height: CGFloat(bounds.height) * scale
                 )
                 let color: Color
                 switch fragment.kind {

@@ -32,6 +32,7 @@ typedef struct fwui_flow_fragment_record {
     fw_flow_fragment_kind kind;
     char source_item_id[96];
     char content_kind[48];
+    uint32_t page_index;
     fw_rect_f32 bounds;
     size_t text_start;
     size_t text_end;
@@ -42,6 +43,7 @@ typedef struct fwui_flow_sink_state {
     uint32_t end_count;
     uint32_t fragment_count;
     fw_flow_page_v1 page;
+    float page_gap;
     fwui_flow_fragment_record fragments[FWUI_FLOW_MAX_FRAGMENTS];
 } fwui_flow_sink_state;
 
@@ -191,10 +193,11 @@ static fw_status FW_CALL flow_begin_page(
     void *user_data,
     const fw_flow_page_v1 *page) {
     fwui_flow_sink_state *state = (fwui_flow_sink_state *)user_data;
-    if (state == NULL || page == NULL || state->begin_count != 0u)
+    if (state == NULL || page == NULL ||
+        page->page_index != state->begin_count)
         return FW_STATUS_SINK_REJECTED;
     state->page = *page;
-    state->begin_count = 1u;
+    ++state->begin_count;
     return FW_STATUS_OK;
 }
 
@@ -217,6 +220,7 @@ static fw_status FW_CALL flow_emit_fragment(
     }
     record = &state->fragments[state->fragment_count++];
     record->kind = fragment->kind;
+    record->page_index = fragment->page_index;
     copy_view(record->source_item_id, sizeof(record->source_item_id),
         fragment->source_item_id);
     copy_view(record->content_kind, sizeof(record->content_kind),
@@ -229,9 +233,10 @@ static fw_status FW_CALL flow_emit_fragment(
 
 static fw_status FW_CALL flow_end_page(void *user_data, uint32_t page_index) {
     fwui_flow_sink_state *state = (fwui_flow_sink_state *)user_data;
-    if (state == NULL || page_index != 0u || state->begin_count != 1u ||
-        state->end_count != 0u) return FW_STATUS_SINK_REJECTED;
-    state->end_count = 1u;
+    if (state == NULL || page_index != state->end_count ||
+        state->end_count >= state->begin_count)
+        return FW_STATUS_SINK_REJECTED;
+    ++state->end_count;
     return FW_STATUS_OK;
 }
 
@@ -259,7 +264,8 @@ static const char *fragment_kind_name(fw_flow_fragment_kind kind) {
 }
 
 static fwui_status serialize_flow_report(
-    uint32_t demo_case,
+    uint32_t content_case,
+    uint32_t page_mode,
     fw_status compose_status,
     const fw_flow_layout_result_v1 *result,
     const fwui_flow_sink_state *sink,
@@ -270,17 +276,23 @@ static fwui_status serialize_flow_report(
     if (!append_json(json, sizeof(json), &offset,
         "{\"pluginId\":\"org.facetwire.reference.flow-layout\","
         "\"capability\":\"facetwire.layout.flow\","
-        "\"interfaceVersion\":1,\"demoCase\":%u,\"composeStatus\":%u,"
+        "\"interfaceVersion\":1,\"demoCase\":%u,"
+        "\"contentCase\":%u,\"pageMode\":%u,\"composeStatus\":%u,"
         "\"complete\":%s,\"pageCount\":%u,\"fragmentCount\":%u,"
         "\"textFragmentCount\":%u,\"objectFragmentCount\":%u,"
         "\"continuousExtent\":{\"width\":%.3f,\"height\":%.3f},"
+        "\"pageSize\":{\"width\":%.3f,\"height\":%.3f},"
+        "\"pageGap\":%.3f,"
         "\"planKey\":\"%016llx%016llx\",\"pagesBalanced\":%s,"
-        "\"supportedSlice\":\"continuous+block\",\"nativeRuntime\":true,\"fragments\":[",
-        demo_case, (unsigned int)compose_status,
+        "\"supportedSlice\":\"continuous+virtual-pages+block\","
+        "\"nativeRuntime\":true,\"fragments\":[",
+        content_case + (page_mode * 3u), content_case, page_mode,
+        (unsigned int)compose_status,
         result->complete != 0u ? "true" : "false", result->page_count,
         result->fragment_count, result->text_fragment_count,
         result->object_fragment_count, result->continuous_extent.width,
         result->continuous_extent.height,
+        sink->page.size.width, sink->page.size.height, sink->page_gap,
         (unsigned long long)result->plan_key_high,
         (unsigned long long)result->plan_key_low,
         sink->begin_count == sink->end_count ? "true" : "false")) {
@@ -290,11 +302,13 @@ static fwui_status serialize_flow_report(
         const fwui_flow_fragment_record *fragment = &sink->fragments[index];
         if (!append_json(json, sizeof(json), &offset,
             "%s{\"kind\":\"%s\",\"sourceItemId\":\"%s\","
-            "\"contentKind\":\"%s\",\"bounds\":{\"x\":%.3f,"
+            "\"contentKind\":\"%s\",\"pageIndex\":%u,"
+            "\"bounds\":{\"x\":%.3f,"
             "\"y\":%.3f,\"width\":%.3f,\"height\":%.3f},"
             "\"textStart\":%llu,\"textEnd\":%llu}",
             index == 0u ? "" : ",", fragment_kind_name(fragment->kind),
             fragment->source_item_id, fragment->content_kind,
+            fragment->page_index,
             fragment->bounds.x, fragment->bounds.y, fragment->bounds.width,
             fragment->bounds.height,
             (unsigned long long)fragment->text_start,
@@ -361,7 +375,7 @@ fwui_status fwui_runtime_snapshot(
         "\"placeholder\",\"flow-layout\"],"
         "\"flowCapability\":\"facetwire.layout.flow\","
         "\"flowInterfaceVersion\":1,"
-        "\"flowSupportedSlice\":\"continuous+block\"}";
+        "\"flowSupportedSlice\":\"continuous+virtual-pages+block\"}";
     if (context == NULL || context->flow == NULL ||
         !buffer_available(out_utf8_json) || context->abi_version != 1u) {
         return FWUI_STATUS_INVALID_ARGUMENT;
@@ -422,11 +436,12 @@ fwui_status fwui_render_placeholder(
     return FWUI_STATUS_OK;
 }
 
-fwui_status fwui_compose_flow_demo(
+fwui_status fwui_compose_flow_demo_v2(
     fwui_context *context,
     float width,
     float height,
-    uint32_t demo_case,
+    uint32_t content_case,
+    uint32_t page_mode,
     fwui_buffer *out_layout_plan_utf8_json) {
     static const char *const paragraph_ids[3] = {
         "paragraph.intro.level-1",
@@ -463,15 +478,13 @@ fwui_status fwui_compose_flow_demo(
     fw_flow_plan_sink_v1 sink;
     fw_flow_layout_result_v1 result;
     fw_status status;
-    uint32_t content_case;
     uint32_t index;
     if (context == NULL || context->flow == NULL ||
         !buffer_available(out_layout_plan_utf8_json) ||
         !isfinite(width) || !isfinite(height) || width < 240.0f ||
-        height < 320.0f || demo_case > 3u) {
+        height < 320.0f || content_case > 2u || page_mode > 1u) {
         return FWUI_STATUS_INVALID_ARGUMENT;
     }
-    content_case = demo_case == 3u ? 0u : demo_case;
     case_state.demo_case = content_case;
     memset(&intro_segment, 0, sizeof(intro_segment));
     intro_segment.struct_size = sizeof(intro_segment);
@@ -525,16 +538,17 @@ fwui_status fwui_compose_flow_demo(
     items[2].placement.margins.bottom = 6.0f;
     memset(&request, 0, sizeof(request));
     request.struct_size = sizeof(request);
-    request.request_id = UINT64_C(1000) + demo_case;
+    request.request_id = UINT64_C(1000) + (content_case * 2u) + page_mode;
     request.flow_id = string_view(content_case == 0u ? "flow.level-1" :
         (content_case == 1u ? "flow.level-2" : "flow.level-3"));
     request.items = items;
     request.item_count = 3u;
     request.page_template.struct_size = sizeof(request.page_template);
-    request.page_template.mode = demo_case == 3u ?
+    request.page_template.mode = page_mode == FWUI_FLOW_PAGE_VIRTUAL ?
         FW_FLOW_VIRTUAL_PAGES : FW_FLOW_CONTINUOUS;
     request.page_template.page_size.width = width;
-    request.page_template.page_size.height = height;
+    request.page_template.page_size.height =
+        page_mode == FWUI_FLOW_PAGE_VIRTUAL ? 240.0f : height;
     request.page_template.margins.left = 24.0f;
     request.page_template.margins.top = 24.0f;
     request.page_template.margins.right = 24.0f;
@@ -548,7 +562,7 @@ fwui_status fwui_compose_flow_demo(
     request.target.medium = FW_RENDER_MEDIUM_SCREEN;
     request.target.supports_alpha = 1u;
     request.document_revision = 1u;
-    request.layout_revision = 1u + demo_case;
+    request.layout_revision = 1u + (content_case * 2u) + page_mode;
     request.profile_key = string_view("playground-flow-demo");
     memset(&text_service, 0, sizeof(text_service));
     text_service.struct_size = sizeof(text_service);
@@ -564,6 +578,7 @@ fwui_status fwui_compose_flow_demo(
     services.text = &text_service;
     services.children = &child_service;
     memset(&sink_state, 0, sizeof(sink_state));
+    sink_state.page_gap = request.page_template.page_gap;
     memset(&sink, 0, sizeof(sink));
     sink.struct_size = sizeof(sink);
     sink.user_data = &sink_state;
@@ -574,7 +589,21 @@ fwui_status fwui_compose_flow_demo(
     result.struct_size = sizeof(result);
     status = context->flow->compose(context->flow_handle, &request, &services,
         &sink, &result);
-    return serialize_flow_report(demo_case, status, &result, &sink_state,
+    return serialize_flow_report(content_case, page_mode, status, &result,
+        &sink_state,
+        out_layout_plan_utf8_json);
+}
+
+fwui_status fwui_compose_flow_demo(
+    fwui_context *context,
+    float width,
+    float height,
+    uint32_t demo_case,
+    fwui_buffer *out_layout_plan_utf8_json) {
+    if (demo_case > 3u) return FWUI_STATUS_INVALID_ARGUMENT;
+    return fwui_compose_flow_demo_v2(context, width, height,
+        demo_case == 3u ? 0u : demo_case,
+        demo_case == 3u ? FWUI_FLOW_PAGE_VIRTUAL : FWUI_FLOW_PAGE_CONTINUOUS,
         out_layout_plan_utf8_json);
 }
 

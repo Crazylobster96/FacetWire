@@ -239,74 +239,83 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
   Future<String> composeFlowDemo({
     required double width,
     required double height,
-    required int demoCase,
+    required int contentCase,
+    required bool virtualPages,
   }) async {
-    final contentCase = demoCase == 3 ? 0 : demoCase;
     final prefixes = ['level-1', 'level-2', 'level-3'];
     final prefix = prefixes[contentCase];
     final fallback = contentCase == 2;
-    final unsupported = demoCase == 3;
+    final paginated = virtualPages;
+    final pageHeight = paginated ? 240.0 : height;
+    final pageCount = paginated ? (fallback ? 2 : 3) : 1;
     return jsonEncode({
       'pluginId': 'org.facetwire.reference.flow-layout',
       'capability': 'facetwire.layout.flow',
       'interfaceVersion': 1,
-      'demoCase': demoCase,
-      'composeStatus': unsupported ? 11 : 0,
-      'complete': !unsupported,
-      'pageCount': unsupported ? 0 : 1,
-      'fragmentCount': unsupported ? 0 : 3,
-      'textFragmentCount': unsupported ? 0 : 2,
-      'objectFragmentCount': unsupported ? 0 : 1,
-      'continuousExtent': {'width': width, 'height': 384.0},
+      'demoCase': contentCase + (paginated ? 3 : 0),
+      'contentCase': contentCase,
+      'pageMode': paginated ? 1 : 0,
+      'composeStatus': 0,
+      'complete': true,
+      'pageCount': pageCount,
+      'fragmentCount': 3,
+      'textFragmentCount': 2,
+      'objectFragmentCount': 1,
+      'continuousExtent': {
+        'width': width,
+        'height': paginated ? pageHeight * pageCount : 384.0,
+      },
+      'pageSize': {'width': width, 'height': pageHeight},
+      'pageGap': 0.0,
       'planKey': 'demo0000000000000000000000000001',
       'pagesBalanced': true,
-      'supportedSlice': 'continuous+block',
+      'supportedSlice': 'continuous+virtual-pages+block',
       'nativeRuntime': false,
-      'fragments': unsupported
-          ? <Object?>[]
-          : <Object?>[
-              {
-                'kind': 'text',
-                'sourceItemId': 'paragraph.intro.$prefix',
-                'contentKind': '',
-                'bounds': {
-                  'x': 24.0,
-                  'y': 32.0,
-                  'width': width - 48,
-                  'height': 56.0,
-                },
-                'textStart': 0,
-                'textEnd': 48,
-              },
-              {
-                'kind': fallback ? 'placeholder' : 'object',
-                'sourceItemId': fallback
-                    ? 'object.missing.$prefix'
-                    : 'image.hero.$prefix',
-                'contentKind': fallback ? 'unknown' : 'image',
-                'bounds': {
-                  'x': 24.0,
-                  'y': 104.0,
-                  'width': fallback ? 180.0 : 240.0 - 20 * contentCase,
-                  'height': fallback ? 112.0 : 150.0 - 15 * contentCase,
-                },
-                'textStart': 0,
-                'textEnd': 0,
-              },
-              {
-                'kind': 'text',
-                'sourceItemId': 'paragraph.closing.$prefix',
-                'contentKind': '',
-                'bounds': {
-                  'x': 24.0,
-                  'y': fallback ? 228.0 : 266.0 - 15 * contentCase,
-                  'width': width - 48,
-                  'height': 56.0,
-                },
-                'textStart': 0,
-                'textEnd': 48,
-              },
-            ],
+      'fragments': <Object?>[
+        {
+          'kind': 'text',
+          'sourceItemId': 'paragraph.intro.$prefix',
+          'contentKind': '',
+          'pageIndex': 0,
+          'bounds': {'x': 24.0, 'y': 32.0, 'width': width - 48, 'height': 56.0},
+          'textStart': 0,
+          'textEnd': 48,
+        },
+        {
+          'kind': fallback ? 'placeholder' : 'object',
+          'sourceItemId': fallback
+              ? 'object.missing.$prefix'
+              : 'image.hero.$prefix',
+          'contentKind': fallback ? 'unknown' : 'image',
+          'pageIndex': paginated && !fallback ? 1 : 0,
+          'bounds': {
+            'x': 24.0,
+            'y': paginated && !fallback ? 40.0 : 104.0,
+            'width': fallback ? 180.0 : 240.0 - 20 * contentCase,
+            'height': fallback ? 112.0 : 150.0 - 15 * contentCase,
+          },
+          'textStart': 0,
+          'textEnd': 0,
+        },
+        {
+          'kind': 'text',
+          'sourceItemId': 'paragraph.closing.$prefix',
+          'contentKind': '',
+          'pageIndex': paginated ? (fallback ? 1 : 2) : 0,
+          'bounds': {
+            'x': 24.0,
+            'y': paginated
+                ? 34.0
+                : fallback
+                ? 228.0
+                : 266.0 - 15 * contentCase,
+            'width': width - 48,
+            'height': 56.0,
+          },
+          'textStart': 0,
+          'textEnd': 48,
+        },
+      ],
     });
   }
 

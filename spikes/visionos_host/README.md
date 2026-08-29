@@ -38,13 +38,14 @@ Apple 目录保存 XcodeGen 工程定义，避免把自动生成的 Xcode 工程
 
 ## Flow Layout 0.1 增量验证
 
-Apple 宿主现会静态编译 plugins/flow_layout/src/plugin.c，并通过同一
+Apple 宿主现会静态编译 plugins/flow_layout/src/plugin.c 与
+plugins/flow_layout/src/flow_virtual_pages.c，并通过同一
 fwui_compose_flow_demo C ABI 显示三层 Flow Layout Plan。运行
 scripts/validate-visionos-spike-macos.sh 后，还需在 Simulator 或真机检查：
 
 1. Level 1、Level 2 均显示三个片段，顺序为文本、对象、文本。
 2. Level 3 中间显示橙色 Placeholder，后一段文字保持在其后。
-3. virtual-pages 开关显示 composeStatus 11。
+3. virtual-pages 开关显示 3 个平衡页面，composeStatus 0。
 4. Flow 诊断为绿色 PASS · native Flow；不接受模拟回退。
 5. Viewer opacity 的 1 与 0 分别表示完全不透明和完全透明。
 
