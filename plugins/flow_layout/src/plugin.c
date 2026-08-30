@@ -8,6 +8,7 @@
 
 #include <float.h>
 #include <math.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -255,6 +256,7 @@ static fw_status fl_validate_request(fw_plugin_handle plugin,
     for (i = 0u; i < request->item_count; ++i) {
         const fw_flow_item_v1 *item = &request->items[i];
         size_t j;
+        size_t paragraph_bytes = 0u;
         if (item->struct_size < sizeof(*item) ||
             item->placement.struct_size < sizeof(item->placement) ||
             item->break_policy.struct_size < sizeof(item->break_policy) ||
@@ -357,6 +359,11 @@ static fw_status fl_validate_request(fw_plugin_handle plugin,
                     *out_key = "flow.invalid_text_segment";
                     return FW_STATUS_INVALID_ARGUMENT;
                 }
+                if (segment->text.length > SIZE_MAX - paragraph_bytes) {
+                    *out_key = "flow.paragraph_bytes_exceeded";
+                    return FW_STATUS_RESOURCE_LIMIT;
+                }
+                paragraph_bytes += segment->text.length;
             } else {
                 const fw_flow_item_v1 *referenced;
                 if (segment->text.length != 0u ||
@@ -617,7 +624,8 @@ static fw_status fl_compose_paragraph(const fw_flow_layout_request_v1 *request,
     uint32_t iterations = 0u;
     uint32_t continuation = 0u;
     const size_t total_bytes = fl_paragraph_text_bytes(item);
-    if (text == NULL || text->struct_size < sizeof(*text) ||
+    if (text == NULL ||
+        text->struct_size < offsetof(fw_text_fragment_service_v1, flags) ||
         text->measure_next == NULL) return FW_STATUS_INVALID_ARGUMENT;
     for (;;) {
         fw_text_fragment_request_v1 measure_request;
@@ -647,7 +655,9 @@ static fw_status fl_compose_paragraph(const fw_flow_layout_request_v1 *request,
         status = text->measure_next(text->user_data, &measure_request,
             &metrics);
         if (status != FW_STATUS_OK) return status;
-        if (metrics.struct_size < sizeof(metrics) ||
+        if (metrics.struct_size <
+                offsetof(fw_text_fragment_metrics_v1,
+                    end_inline_object_index) ||
             !fl_bool(metrics.reached_end) ||
             !fl_finite(metrics.used_bounds.x) ||
             !fl_finite(metrics.used_bounds.y) ||
@@ -854,6 +864,20 @@ static fw_status FW_CALL fl_compose(fw_plugin_handle plugin,
         return fl_compose_virtual_pages(request, services, sink, out_result);
     if (request->page_template.mode == FW_FLOW_COLUMNS)
         return fl_compose_columns(request, services, sink, out_result);
+    if (request->page_template.mode == FW_FLOW_CONTINUOUS) {
+        for (i = 0u; i < request->item_count; ++i) {
+            size_t segment_index;
+            const fw_flow_item_v1 *candidate = &request->items[i];
+            if (candidate->kind != FW_FLOW_ITEM_PARAGRAPH) continue;
+            for (segment_index = 0u;
+                 segment_index < candidate->segment_count; ++segment_index) {
+                if (candidate->segments[segment_index].kind ==
+                    FW_FLOW_SEGMENT_OBJECT)
+                    return fl_compose_continuous(request, services, sink,
+                        out_result);
+            }
+        }
+    }
     if (request->page_template.mode != FW_FLOW_CONTINUOUS)
         return FW_STATUS_UNSUPPORTED;
     for (i = 0u; i < request->item_count; ++i) {

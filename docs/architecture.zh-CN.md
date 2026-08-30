@@ -108,7 +108,7 @@ Skia / Metal / Direct2D / Vulkan / WebGPU / 平台 UI
 2. **已实现：** Manifest Schema、精确路径原生动态加载和确定性能力路由。
 3. **已实现：** DisplayList、共享 Semantics、宿主服务协议和 Placeholder 参考能力。
 4. **已实现：** 文本、图片、动态图片、视频和音频核心内容规范，以及 Placeholder、Text、Core Image、Core Media 四个参考插件。
-5. **部分实现：** Flow Layout 0.1 已落地公共 ABI、Manifest、确定性 Layout Plan，以及 `continuous + block`、`virtual-pages + block` 与 `columns + block`；已支持文本跨区域连续范围和不可拆对象整体移至下一栏或下一页。下一门禁是 inline object、float/overlay 和分页控制。
+5. **部分实现：** Flow Layout 0.1 已落地公共 ABI、Manifest、确定性 Layout Plan，以及 continuous、virtual-pages、columns 三种模式下的 block/inline 排版；已支持文本/行内对象跨区域续排、不可拆 replacement object、四种 baseline、RTL 定位和对象整体移至下一栏或下一页。下一门禁是 float/overlay 和分页控制。
 6. 定义并实现 Subtitle/Cue Renderer 与 Media Controls/Interaction Profile。
 7. 定义结构化数据源层，先支持 CSV，再通过独立适配器支持 Excel。
 8. 在结构化数据源之上定义 Chart Model 与 Chart Renderer。

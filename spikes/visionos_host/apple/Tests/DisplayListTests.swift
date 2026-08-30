@@ -39,6 +39,7 @@ final class DisplayListTests: XCTestCase {
         XCTAssertEqual(report.composeStatus, 0)
         XCTAssertTrue(report.complete)
         XCTAssertTrue(report.pagesBalanced)
+        XCTAssertFalse(report.inlineObjects)
         XCTAssertEqual(report.fragmentCount, 3)
         XCTAssertEqual(report.fragments.map(\.kind), ["text", "object", "text"])
     }
@@ -83,6 +84,42 @@ final class DisplayListTests: XCTestCase {
         XCTAssertEqual(report.fragments[1].kind, "placeholder")
         XCTAssertEqual(report.fragments[1].sourceItemId, "object.missing.level-3")
     }
+
+    func testInlineObjectIsAtomicAndPreservesTextRanges() throws {
+        let report = try FacetWireBridge.composeFlow(contentCase: 3)
+
+        XCTAssertEqual(report.composeStatus, 0)
+        XCTAssertTrue(report.complete)
+        XCTAssertTrue(report.inlineObjects)
+        XCTAssertEqual(report.fragmentCount, 3)
+        XCTAssertEqual(report.fragments.map(\.kind), ["text", "object", "text"])
+        XCTAssertEqual(report.fragments[0].sourceItemId, "paragraph.inline.level-1")
+        XCTAssertEqual(report.fragments[1].sourceItemId, "image.inline.level-1")
+        XCTAssertEqual(report.fragments[0].textStart, 0)
+        XCTAssertEqual(report.fragments[0].textEnd, 7)
+        XCTAssertEqual(report.fragments[2].textStart, 7)
+        XCTAssertEqual(report.fragments[2].textEnd, 21)
+    }
+
+    func testInlineFallbackWorksAcrossColumns() throws {
+        let report = try FacetWireBridge.composeFlow(
+            contentCase: 5,
+            pageMode: .columns
+        )
+
+        XCTAssertEqual(report.composeStatus, 0)
+        XCTAssertTrue(report.complete)
+        XCTAssertTrue(report.inlineObjects)
+        XCTAssertEqual(report.pageCount, 1)
+        XCTAssertEqual(report.columnCount, 2)
+        XCTAssertEqual(report.fragmentCount, 3)
+        XCTAssertEqual(report.fragments[1].kind, "placeholder")
+        XCTAssertEqual(
+            report.fragments[1].sourceItemId,
+            "object.inline-missing.level-3"
+        )
+    }
+
     private func writeUInt16(_ value: UInt16, to data: inout Data, at offset: Int) {
         data[offset] = UInt8(value & 0xff)
         data[offset + 1] = UInt8((value >> 8) & 0xff)

@@ -19,10 +19,12 @@ struct FacetWireFlowFragment: Decodable, Identifiable {
     let contentKind: String
     let pageIndex: Int
     let columnIndex: Int
+    let textStart: Int
+    let textEnd: Int
     let bounds: FacetWireFlowBounds
 
     var id: String {
-        "\(sourceItemId):page-\(pageIndex):column-\(columnIndex)"
+        "\(sourceItemId):page-\(pageIndex):column-\(columnIndex):range-\(textStart)-\(textEnd)"
     }
 }
 
@@ -47,6 +49,7 @@ struct FacetWireFlowReport: Decodable {
     let contentBounds: FacetWireFlowBounds
     let planKey: String
     let pagesBalanced: Bool
+    let inlineObjects: Bool
     let supportedSlice: String
     let nativeRuntime: Bool
     let fragments: [FacetWireFlowFragment]
@@ -56,6 +59,13 @@ enum FacetWireFlowPageMode: UInt32, CaseIterable, Identifiable {
     case continuous = 0
     case virtualPages = 1
     case columns = 2
+
+    var id: UInt32 { rawValue }
+}
+
+enum FacetWireFlowParagraphMode: UInt32, CaseIterable, Identifiable {
+    case block = 0
+    case inline = 1
 
     var id: UInt32 { rawValue }
 }

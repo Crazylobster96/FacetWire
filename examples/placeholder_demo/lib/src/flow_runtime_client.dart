@@ -125,13 +125,17 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
     required int contentCase,
     required int pageMode,
   }) async {
-    final level = contentCase + 1;
+    final inlineObjects = contentCase >= 3;
+    final baseCase = contentCase % 3;
+    final level = baseCase + 1;
     final virtualPages = pageMode == 1;
     final columns = pageMode == 2;
     final paginated = virtualPages || columns;
     final pageHeight = virtualPages ? 240.0 : (columns ? 300.0 : height);
     final fallback = level == 3;
-    final pageCount = virtualPages ? (fallback ? 2 : 3) : 1;
+    final pageCount = inlineObjects
+        ? 1
+        : (virtualPages ? (fallback ? 2 : 3) : 1);
     final columnCount = columns ? 2 : 1;
     final columnGap = columns ? 24.0 : 0.0;
     final contentWidth = width - 48.0;
@@ -144,9 +148,10 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
       'pluginId': 'org.facetwire.reference.flow-layout',
       'capability': 'facetwire.layout.flow',
       'interfaceVersion': 1,
-      'demoCase': contentCase + (pageMode * 3),
+      'demoCase': contentCase + (pageMode * 6),
       'contentCase': contentCase,
       'pageMode': pageMode,
+      'inlineObjects': inlineObjects,
       'composeStatus': 0,
       'complete': true,
       'pageCount': pageCount,
@@ -169,55 +174,95 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
       },
       'planKey': '00000000000000000000000000000000',
       'pagesBalanced': true,
-      'supportedSlice': 'continuous+virtual-pages+columns+block',
+      'supportedSlice': 'continuous+virtual-pages+columns+block+inline',
       'nativeRuntime': false,
-      'fragments': [
-        {
-          'kind': 'text',
-          'sourceItemId': 'paragraph.intro.level-$level',
-          'contentKind': '',
-          'pageIndex': 0,
-          'columnIndex': 0,
-          'bounds': {
-            'x': 24.0,
-            'y': 32.0,
-            'width': columns ? columnWidth : contentWidth,
-            'height': 56.0,
-          },
-          'textStart': 0,
-          'textEnd': 52,
-        },
-        {
-          'kind': fallback ? 'placeholder' : 'object',
-          'sourceItemId': objectId,
-          'contentKind': fallback ? 'unknown' : 'image',
-          'pageIndex': virtualPages && !fallback ? 1 : 0,
-          'columnIndex': 0,
-          'bounds': {
-            'x': 24.0,
-            'y': virtualPages && !fallback ? 40.0 : 104.0,
-            'width': fallback ? 180.0 : 240.0 - (20.0 * contentCase),
-            'height': fallback ? 112.0 : 150.0 - (15.0 * contentCase),
-          },
-          'textStart': 0,
-          'textEnd': 0,
-        },
-        {
-          'kind': 'text',
-          'sourceItemId': 'paragraph.closing.level-$level',
-          'contentKind': '',
-          'pageIndex': virtualPages ? (fallback ? 1 : 2) : 0,
-          'columnIndex': columns ? 1 : 0,
-          'bounds': {
-            'x': columns ? 24.0 + columnWidth + columnGap : 24.0,
-            'y': paginated ? 34.0 : 258.0,
-            'width': columns ? columnWidth : contentWidth,
-            'height': 56.0,
-          },
-          'textStart': 0,
-          'textEnd': 58,
-        },
-      ],
+      'fragments': inlineObjects
+          ? [
+              {
+                'kind': 'text',
+                'sourceItemId': 'paragraph.inline.level-$level',
+                'contentKind': '',
+                'pageIndex': 0,
+                'columnIndex': 0,
+                'bounds': {'x': 24.0, 'y': 32.0, 'width': 42.0, 'height': 56.0},
+                'textStart': 0,
+                'textEnd': 7,
+              },
+              {
+                'kind': fallback ? 'placeholder' : 'object',
+                'sourceItemId': fallback
+                    ? 'object.inline-missing.level-3'
+                    : 'image.inline.level-$level',
+                'contentKind': fallback ? 'unknown' : 'image',
+                'pageIndex': 0,
+                'columnIndex': 0,
+                'bounds': {'x': 69.0, 'y': 42.0, 'width': 72.0, 'height': 36.0},
+                'textStart': 0,
+                'textEnd': 0,
+              },
+              {
+                'kind': 'text',
+                'sourceItemId': 'paragraph.inline.level-$level',
+                'contentKind': '',
+                'pageIndex': 0,
+                'columnIndex': 0,
+                'bounds': {
+                  'x': 144.0,
+                  'y': 32.0,
+                  'width': 84.0,
+                  'height': 56.0,
+                },
+                'textStart': 7,
+                'textEnd': 21,
+              },
+            ]
+          : [
+              {
+                'kind': 'text',
+                'sourceItemId': 'paragraph.intro.level-$level',
+                'contentKind': '',
+                'pageIndex': 0,
+                'columnIndex': 0,
+                'bounds': {
+                  'x': 24.0,
+                  'y': 32.0,
+                  'width': columns ? columnWidth : contentWidth,
+                  'height': 56.0,
+                },
+                'textStart': 0,
+                'textEnd': 52,
+              },
+              {
+                'kind': fallback ? 'placeholder' : 'object',
+                'sourceItemId': objectId,
+                'contentKind': fallback ? 'unknown' : 'image',
+                'pageIndex': virtualPages && !fallback ? 1 : 0,
+                'columnIndex': 0,
+                'bounds': {
+                  'x': 24.0,
+                  'y': virtualPages && !fallback ? 40.0 : 104.0,
+                  'width': fallback ? 180.0 : 240.0 - (20.0 * baseCase),
+                  'height': fallback ? 112.0 : 150.0 - (15.0 * baseCase),
+                },
+                'textStart': 0,
+                'textEnd': 0,
+              },
+              {
+                'kind': 'text',
+                'sourceItemId': 'paragraph.closing.level-$level',
+                'contentKind': '',
+                'pageIndex': virtualPages ? (fallback ? 1 : 2) : 0,
+                'columnIndex': columns ? 1 : 0,
+                'bounds': {
+                  'x': columns ? 24.0 + columnWidth + columnGap : 24.0,
+                  'y': paginated ? 34.0 : 258.0,
+                  'width': columns ? columnWidth : contentWidth,
+                  'height': 56.0,
+                },
+                'textStart': 0,
+                'textEnd': 58,
+              },
+            ],
     });
   }
 

@@ -10,6 +10,7 @@ struct SpatialSurfaceScreen: View {
     @State private var placeholderDiagnostic = "Loading FacetWire C bridge..."
     @State private var selectedLevel = 0
     @State private var flowPageMode = FacetWireFlowPageMode.continuous
+    @State private var flowParagraphMode = FacetWireFlowParagraphMode.block
     @State private var flowOpacity = 0.9
     @State private var flowReport: FacetWireFlowReport?
     @State private var flowDiagnostic = "Loading Flow Layout 0.1..."
@@ -28,6 +29,7 @@ struct SpatialSurfaceScreen: View {
         .onChange(of: opacity) { _, _ in reloadPlaceholder() }
         .onChange(of: selectedLevel) { _, _ in reloadFlow() }
         .onChange(of: flowPageMode) { _, _ in reloadFlow() }
+        .onChange(of: flowParagraphMode) { _, _ in reloadFlow() }
     }
 
     private var header: some View {
@@ -88,7 +90,7 @@ struct SpatialSurfaceScreen: View {
                 VStack(alignment: .leading) {
                     Text("Flow Layout 0.1")
                         .font(.headline)
-                    Text("Three recursive cases · continuous / virtual-pages / columns + block")
+                    Text("Three recursive cases · continuous / virtual-pages / columns · block / inline")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -105,6 +107,12 @@ struct SpatialSurfaceScreen: View {
                 Text("Continuous").tag(FacetWireFlowPageMode.continuous)
                 Text("Virtual pages").tag(FacetWireFlowPageMode.virtualPages)
                 Text("Two columns").tag(FacetWireFlowPageMode.columns)
+            }
+            .pickerStyle(.segmented)
+
+            Picker("Paragraph content", selection: $flowParagraphMode) {
+                Text("Block object").tag(FacetWireFlowParagraphMode.block)
+                Text("Inline object").tag(FacetWireFlowParagraphMode.inline)
             }
             .pickerStyle(.segmented)
 
@@ -180,11 +188,20 @@ struct SpatialSurfaceScreen: View {
     private func reloadFlow() {
         do {
             let report = try FacetWireBridge.composeFlow(
-                contentCase: UInt32(selectedLevel),
+                contentCase: UInt32(selectedLevel) +
+                    (flowParagraphMode == .inline ? 3 : 0),
                 pageMode: flowPageMode
             )
             flowReport = report
-            if flowPageMode == .virtualPages {
+            if flowParagraphMode == .inline {
+                let expectedKind = selectedLevel == 2 ? "placeholder" : "object"
+                flowDiagnostic = report.nativeRuntime && report.complete &&
+                    report.inlineObjects && report.fragmentCount == 3 &&
+                    report.fragments.count == 3 &&
+                    report.fragments[1].kind == expectedKind
+                    ? "PASS · native inline object · atomic text/object/text"
+                    : "FAIL · native inline object contract incomplete"
+            } else if flowPageMode == .virtualPages {
                 let expectedPages = selectedLevel == 2 ? 2 : 3
                 flowDiagnostic = report.nativeRuntime && report.complete &&
                     report.pageCount == expectedPages && report.pagesBalanced

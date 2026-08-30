@@ -215,6 +215,36 @@ typedef struct fw_text_exclusion_rect_v1 {
     uint32_t flags;
 } fw_text_exclusion_rect_v1;
 
+typedef uint32_t fw_text_fragment_part_kind;
+#define FW_TEXT_FRAGMENT_PART_TEXT 1u
+#define FW_TEXT_FRAGMENT_PART_OBJECT 2u
+
+#define FW_TEXT_FRAGMENT_SERVICE_INLINE_PARTS (1u << 0)
+
+typedef struct fw_text_inline_object_v1 {
+    uint32_t struct_size;
+    fw_string_view item_id;
+    size_t text_offset_utf8_byte;
+    fw_size_f32 size;
+    fw_edge_insets_f32 margins;
+    float offset_x;
+    float offset_y;
+    fw_flow_baseline_mode baseline_mode;
+    uint64_t layout_fingerprint_high;
+    uint64_t layout_fingerprint_low;
+    uint32_t flags;
+} fw_text_inline_object_v1;
+
+typedef struct fw_text_fragment_part_v1 {
+    uint32_t struct_size;
+    fw_text_fragment_part_kind kind;
+    size_t inline_object_index; /* OBJECT only */
+    fw_rect_f32 bounds;
+    size_t text_start_utf8_byte; /* TEXT only */
+    size_t text_end_utf8_byte;   /* TEXT only */
+    uint32_t flags;
+} fw_text_fragment_part_v1;
+
 typedef struct fw_text_fragment_request_v1 {
     uint32_t struct_size;
     fw_string_view paragraph_id;
@@ -228,6 +258,11 @@ typedef struct fw_text_fragment_request_v1 {
     size_t exclusion_count;
     uint32_t max_lines; /* 0 = fit region */
     uint32_t flags;
+    const fw_text_inline_object_v1 *inline_objects;
+    size_t inline_object_count;
+    size_t start_inline_object_index;
+    fw_text_fragment_part_v1 *parts; /* caller-owned output buffer */
+    size_t part_capacity;
 } fw_text_fragment_request_v1;
 
 typedef struct fw_text_fragment_metrics_v1 {
@@ -240,6 +275,8 @@ typedef struct fw_text_fragment_metrics_v1 {
     uint64_t fingerprint_high;
     uint64_t fingerprint_low;
     uint32_t flags;
+    size_t end_inline_object_index;
+    size_t part_count;
 } fw_text_fragment_metrics_v1;
 
 typedef struct fw_text_fragment_service_v1 {
@@ -254,16 +291,29 @@ typedef struct fw_text_fragment_service_v1 {
         const fw_text_fragment_request_v1 *request,
         const fw_text_fragment_metrics_v1 *expected,
         const fw_display_list_sink_v1 *display_list);
+    uint32_t flags;
 } fw_text_fragment_service_v1;
 ```
 
 `measure_next` 返回能完整放入 region/exclusions 的最大前缀。未结束时必须消费至少一个
-UTF-8 字节或返回明确错误；端点必须是合法标量/Segment 边界。`draw_exact` 重新塑形并
-验证 fingerprint/end/used bounds；不一致返回 `INVALID_STATE`，宿主废弃 Plan 后 reflow。
+UTF-8 字节、一个 inline object，或返回明确错误；端点必须是合法标量/Segment 边界。
+Block-only Service 可保持旧结构尺寸且不声明能力；含 Object Segment 的请求要求完整结构
+尺寸并声明 `FW_TEXT_FRAGMENT_SERVICE_INLINE_PARTS`，否则 compose 在打开 Page 前返回
+`UNSUPPORTED`。
+
+Flow 先通过 Child Measure Service 测量每个 inline Object，把确定尺寸、margin、baseline、
+offset 和 fingerprint 传给 Text Service。Text Service 是行内塑形、BiDi、换行和 baseline
+几何的唯一所有者，并在调用方提供的有界 `parts` 缓冲区中返回本次前缀的有序 Text/Object
+部件。Flow 校验 byte range、object index、顺序、bounds、尺寸和进度后，再把部件转换成统一
+Fragment Plan。对象部件允许在不消费 UTF-8 字节时推进 `end_inline_object_index`，因此不会
+被错误判定为零进展。`draw_exact` 重新塑形并验证 fingerprint/end/used bounds；不一致返回
+`INVALID_STATE`，宿主废弃 Plan 后 reflow。
 
 ### 本章检查
 
-- 测量结果不保存平台 layout handle。
+- 测量结果不保存平台 layout handle，所有输出缓冲区由调用方拥有。
+- block-only 旧 Service 与 inline-capable Service 可通过结构尺寸和 flags 明确协商。
+- 行内对象的几何所有权唯一，Flow 不复制一套近似文字排版算法。
 - 绘制阶段能够检测字体或后端变化导致的漂移。
 
 ## 7. Child Measure Service
@@ -425,11 +475,18 @@ initialize page/column cursor and active float exclusions
 for each top-level item in source order, excluding placement=inline object definitions:
   apply breakBefore and keep-chain lookahead within budget
   if paragraph:
-    while not reached_end:
+    premeasure referenced inline objects once through Child Measure Service
+    require Text Service INLINE_PARTS when object segments are present
+    while text bytes or inline objects remain:
       region = remaining column minus active exclusions
-      metrics = text.measure_next(paragraph, offset, region, exclusions)
+      metrics, parts = text.measure_next(
+          paragraph, byte_offset, inline_object_index, region,
+          exclusions, measured_inline_objects)
       if no progress: advance below nearest float or open next column/page
-      emit text fragment; offset = metrics.end
+      validate ordered text ranges/object indexes/bounds/fingerprints
+      emit one text/object/placeholder fragment for each part
+      byte_offset = metrics.end_utf8_byte
+      inline_object_index = metrics.end_inline_object_index
       enforce orphan/widow with bounded rollback
   if object block/float/overlay:
     child = children.measure_child(...)
@@ -442,6 +499,11 @@ finish page, compute counts and plan key
 
 Margin 0.1 规则：相邻 block 的垂直 margin 取最大值，不处理负 margin；inline 不参与 block
 margin；float margin 属于 exclusion bounds；overlay margin 不改变 cursor。
+
+inline 0.1 规则：Object 是不可拆 replacement segment；空间不足时 Text Service 必须把完整
+对象留给下一行/区域。continuous 不得隐式新增页，virtual-pages/columns 按“下一栏后下一页”
+推进。baseline 支持 alphabetic、middle、text-top、text-bottom；LTR/RTL 的视觉坐标由 Text
+Service 决定，Fragment 的 source/文本 byte range 仍按逻辑顺序输出。
 
 ### 本章检查
 
@@ -492,6 +554,12 @@ Sink 记录精确回调序列并可在第 N 次拒绝。
 
 - `flow_block_preserves_source_order`
 - `flow_inline_object_participates_in_baseline_and_wrap`
+- `flow_inline_object_supports_four_baselines`
+- `flow_inline_object_rtl_preserves_logical_order`
+- `flow_inline_object_crosses_pages_and_columns_atomically`
+- `flow_inline_object_requires_service_capability`
+- `flow_inline_object_rejects_invalid_parts`
+- `flow_legacy_block_text_service_tail_is_compatible`
 - `flow_float_start_resolves_against_rtl`
 - `flow_text_moves_below_too_narrow_float`
 - `flow_overlay_does_not_advance_cursor`
@@ -517,10 +585,11 @@ Sink 记录精确回调序列并可在第 N 次拒绝。
 3. 实现 validate/graph ownership；
 4. 实现 Fake Services/Sink；
 5. 实现 continuous block layout；
-6. 迭代 virtual pages、inline、float、overlay；
-7. 加入 keep/widow/orphan 和预算；
-8. Playground 展示源 Item、Virtual Page、Fragment 与降级；
-9. Windows/Linux 动态与 Apple/Android 静态注册验证。
+6. 实现 virtual pages 与 columns；
+7. 实现 inline object、Text Service 能力协商和跨区域续排；
+8. 迭代 float、overlay 与 keep/widow/orphan；
+9. Playground 展示源 Item、Virtual Page、Fragment 与降级；
+10. Windows/Linux 动态与 Apple/Android 静态注册验证。
 
 ### 本章检查
 

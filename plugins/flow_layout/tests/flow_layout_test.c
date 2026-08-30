@@ -20,6 +20,10 @@ typedef struct fake_text_state {
     uint32_t zero_progress;
     size_t max_bytes_per_fragment;
     float minimum_region_height;
+    size_t max_inline_parts_per_fragment;
+    uint32_t disable_inline_parts;
+    uint32_t invalid_inline_part;
+    uint32_t legacy_block_abi;
 } fake_text_state;
 
 typedef struct fake_child_state {
@@ -47,7 +51,7 @@ typedef struct fake_sink_state {
 } fake_sink_state;
 
 typedef struct flow_fixture {
-    fw_flow_segment_v1 first_segments[1];
+    fw_flow_segment_v1 first_segments[3];
     fw_flow_segment_v1 last_segments[1];
     fw_flow_item_v1 items[3];
     fw_flow_layout_request_v1 request;
@@ -68,6 +72,118 @@ static size_t paragraph_bytes(const fw_text_fragment_request_v1 *request) {
     return result;
 }
 
+static void include_bounds(fw_rect_f32 *used, uint32_t *has_bounds,
+    fw_rect_f32 value) {
+    if (*has_bounds == 0u) {
+        *used = value;
+        *has_bounds = 1u;
+    } else {
+        const float right = fmaxf(used->x + used->width,
+            value.x + value.width);
+        const float bottom = fmaxf(used->y + used->height,
+            value.y + value.height);
+        used->x = fminf(used->x, value.x);
+        used->y = fminf(used->y, value.y);
+        used->width = right - used->x;
+        used->height = bottom - used->y;
+    }
+}
+
+static fw_status fake_measure_inline_text(fake_text_state *state,
+    const fw_text_fragment_request_v1 *request,
+    fw_text_fragment_metrics_v1 *out_metrics, size_t total) {
+    size_t text_cursor = request->start_utf8_byte;
+    size_t object_cursor = request->start_inline_object_index;
+    size_t part_count = 0u;
+    const size_t part_limit = state->max_inline_parts_per_fragment == 0u ?
+        request->part_capacity : state->max_inline_parts_per_fragment;
+    const float line_height = 24.0f;
+    const float baseline = 18.0f;
+    const float left = request->region.x;
+    const float right = request->region.x + request->region.width;
+    float cursor = request->direction == FW_TEXT_DIRECTION_RTL ? right : left;
+    uint32_t has_bounds = 0u;
+    if (request->parts == NULL || request->part_capacity == 0u ||
+        request->start_inline_object_index > request->inline_object_count ||
+        request->region.height < line_height)
+        return FW_STATUS_INVALID_ARGUMENT;
+    while ((text_cursor < total ||
+            object_cursor < request->inline_object_count) &&
+           part_count < request->part_capacity && part_count < part_limit) {
+        const size_t next_object_offset =
+            object_cursor < request->inline_object_count ?
+            request->inline_objects[object_cursor].text_offset_utf8_byte :
+            total;
+        fw_text_fragment_part_v1 *part = &request->parts[part_count];
+        if (text_cursor < next_object_offset) {
+            const float width = (float)(next_object_offset - text_cursor) *
+                8.0f;
+            if ((request->direction == FW_TEXT_DIRECTION_RTL &&
+                 cursor - width < left) ||
+                (request->direction != FW_TEXT_DIRECTION_RTL &&
+                 cursor + width > right))
+                return FW_STATUS_RESOURCE_LIMIT;
+            part->kind = FW_TEXT_FRAGMENT_PART_TEXT;
+            part->text_start_utf8_byte = text_cursor;
+            part->text_end_utf8_byte = next_object_offset;
+            part->bounds.x = request->direction == FW_TEXT_DIRECTION_RTL ?
+                cursor - width : cursor;
+            part->bounds.y = request->region.y;
+            part->bounds.width = width;
+            part->bounds.height = line_height;
+            cursor += request->direction == FW_TEXT_DIRECTION_RTL ?
+                -width : width;
+            text_cursor = next_object_offset;
+        } else {
+            const fw_text_inline_object_v1 *object =
+                &request->inline_objects[object_cursor];
+            const float occupied = object->margins.left + object->size.width +
+                object->margins.right;
+            float object_y;
+            if ((request->direction == FW_TEXT_DIRECTION_RTL &&
+                 cursor - occupied < left) ||
+                (request->direction != FW_TEXT_DIRECTION_RTL &&
+                 cursor + occupied > right))
+                return FW_STATUS_RESOURCE_LIMIT;
+            part->kind = FW_TEXT_FRAGMENT_PART_OBJECT;
+            part->inline_object_index = object_cursor;
+            part->bounds.x = request->direction == FW_TEXT_DIRECTION_RTL ?
+                cursor - object->margins.right - object->size.width :
+                cursor + object->margins.left;
+            if (object->baseline_mode == FW_FLOW_BASELINE_BASELINE)
+                object_y = request->region.y + baseline - object->size.height;
+            else if (object->baseline_mode == FW_FLOW_BASELINE_MIDDLE)
+                object_y = request->region.y +
+                    (line_height - object->size.height) * 0.5f;
+            else if (object->baseline_mode == FW_FLOW_BASELINE_TEXT_BOTTOM)
+                object_y = request->region.y + line_height -
+                    object->size.height;
+            else
+                object_y = request->region.y;
+            part->bounds.y = object_y + object->offset_y;
+            part->bounds.x += object->offset_x;
+            part->bounds.width = object->size.width;
+            part->bounds.height = object->size.height;
+            cursor += request->direction == FW_TEXT_DIRECTION_RTL ?
+                -occupied : occupied;
+            ++object_cursor;
+        }
+        include_bounds(&out_metrics->used_bounds, &has_bounds, part->bounds);
+        ++part_count;
+    }
+    if (state->invalid_inline_part != 0u && part_count != 0u)
+        request->parts[0].text_start_utf8_byte += 1u;
+    out_metrics->end_utf8_byte = text_cursor;
+    out_metrics->end_inline_object_index = object_cursor;
+    out_metrics->part_count = part_count;
+    out_metrics->line_count = 1u;
+    out_metrics->reached_end = text_cursor == total &&
+        object_cursor == request->inline_object_count;
+    out_metrics->fingerprint_high = UINT64_C(0x1111222233334444);
+    out_metrics->fingerprint_low = (uint64_t)total ^ (uint64_t)object_cursor;
+    return FW_STATUS_OK;
+}
+
 static fw_status FW_CALL fake_measure_text(void *user_data,
     const fw_text_fragment_request_v1 *request,
     fw_text_fragment_metrics_v1 *out_metrics) {
@@ -78,6 +194,8 @@ static fw_status FW_CALL fake_measure_text(void *user_data,
     if (out_metrics == NULL || out_metrics->struct_size < sizeof(*out_metrics) ||
         request->start_utf8_byte > total)
         return FW_STATUS_INVALID_ARGUMENT;
+    if (request->inline_object_count != 0u)
+        return fake_measure_inline_text(state, request, out_metrics, total);
     if (request->region.height < (state->minimum_region_height > 0.0f ?
         state->minimum_region_height : 24.0f)) {
         return state->minimum_region_height > 0.0f ?
@@ -96,6 +214,9 @@ static fw_status FW_CALL fake_measure_text(void *user_data,
     out_metrics->reached_end = state->zero_progress == 0u && end == total;
     out_metrics->fingerprint_high = UINT64_C(0x1111222233334444);
     out_metrics->fingerprint_low = (uint64_t)total;
+    if (state->legacy_block_abi != 0u)
+        out_metrics->struct_size = offsetof(fw_text_fragment_metrics_v1,
+            end_inline_object_index);
     return FW_STATUS_OK;
 }
 
@@ -284,15 +405,45 @@ static void make_fixture(flow_fixture *fixture, const char *flow_id,
     fixture->request.profile_key = view_of("desktop-600");
 }
 
+static void make_inline_fixture(flow_fixture *fixture,
+    fw_flow_baseline_mode baseline_mode) {
+    make_fixture(fixture, "inline", "paragraph.inline", "badge.inline",
+        "unused", "Hi", "unused");
+    fixture->first_segments[0].text = view_of("Hi");
+    fixture->first_segments[1].struct_size =
+        sizeof(fixture->first_segments[1]);
+    fixture->first_segments[1].kind = FW_FLOW_SEGMENT_OBJECT;
+    fixture->first_segments[1].object_item_id =
+        fixture->items[1].id;
+    fixture->first_segments[1].baseline_mode = baseline_mode;
+    fixture->first_segments[2].struct_size =
+        sizeof(fixture->first_segments[2]);
+    fixture->first_segments[2].kind = FW_FLOW_SEGMENT_TEXT;
+    fixture->first_segments[2].text = view_of("OK");
+    fixture->items[0].segments = fixture->first_segments;
+    fixture->items[0].segment_count = 3u;
+    fixture->items[1].placement.mode = FW_FLOW_PLACE_INLINE;
+    fixture->items[1].placement.requested_width = 24.0f;
+    fixture->items[1].placement.requested_height = 16.0f;
+    fixture->items[1].placement.margins.left = 1.0f;
+    fixture->items[1].placement.margins.top = 0.0f;
+    fixture->items[1].placement.margins.right = 2.0f;
+    fixture->items[1].placement.margins.bottom = 0.0f;
+    fixture->request.item_count = 2u;
+}
+
 static fw_flow_layout_services_v1 make_services(fake_text_state *text_state,
     fake_child_state *child_state, fw_text_fragment_service_v1 *text,
     fw_child_measure_service_v1 *children) {
     fw_flow_layout_services_v1 services;
     memset(text, 0, sizeof(*text));
-    text->struct_size = sizeof(*text);
+    text->struct_size = text_state->legacy_block_abi != 0u ?
+        offsetof(fw_text_fragment_service_v1, flags) : sizeof(*text);
     text->user_data = text_state;
     text->measure_next = fake_measure_text;
     text->draw_exact = fake_draw_text;
+    text->flags = text_state->disable_inline_parts == 0u ?
+        FW_TEXT_FRAGMENT_SERVICE_INLINE_PARTS : 0u;
     memset(children, 0, sizeof(*children));
     children->struct_size = sizeof(*children);
     children->user_data = child_state;
@@ -655,6 +806,181 @@ static int test_invalid_column_geometry(const fw_flow_layout_api_v1 *api,
     return 1;
 }
 
+static int test_inline_object_continuous_order(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_inline_fixture(&fixture, FW_FLOW_BASELINE_BASELINE);
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.complete == 1u && result.page_count == 1u);
+    CHECK(result.fragment_count == 3u && result.text_fragment_count == 2u);
+    CHECK(result.object_fragment_count == 1u);
+    CHECK(sink_state.kinds[0] == FW_FLOW_FRAGMENT_TEXT &&
+        sink_state.kinds[1] == FW_FLOW_FRAGMENT_OBJECT &&
+        sink_state.kinds[2] == FW_FLOW_FRAGMENT_TEXT);
+    CHECK(strcmp(sink_state.source_ids[0], "paragraph.inline") == 0);
+    CHECK(strcmp(sink_state.source_ids[1], "badge.inline") == 0);
+    CHECK(strcmp(sink_state.source_ids[2], "paragraph.inline") == 0);
+    CHECK(sink_state.text_starts[0] == 0u &&
+        sink_state.text_ends[0] == 2u);
+    CHECK(sink_state.text_starts[2] == 2u &&
+        sink_state.text_ends[2] == 4u);
+    CHECK(fabsf(sink_state.bounds[0].x - 20.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].x - 37.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].y - 26.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[2].x - 63.0f) < 0.001f);
+    CHECK(text_state.calls == 1u && child_state.calls == 1u);
+    return 1;
+}
+
+static int test_legacy_block_text_service_abi(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "legacy-block", "paragraph.first", "image.hero",
+        "paragraph.last", "first", "last");
+    text_state.legacy_block_abi = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.complete == 1u && result.fragment_count == 3u);
+    memset(&text_state, 0, sizeof(text_state));
+    memset(&child_state, 0, sizeof(child_state));
+    memset(&sink_state, 0, sizeof(sink_state));
+    memset(&result, 0, sizeof(result));
+    text_state.legacy_block_abi = 1u;
+    fixture.request.page_template.mode = FW_FLOW_VIRTUAL_PAGES;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.complete == 1u && result.fragment_count == 3u);
+    return 1;
+}
+
+static int test_inline_baseline_modes(const fw_flow_layout_api_v1 *api,
+    fw_plugin_handle handle) {
+    const fw_flow_baseline_mode modes[4] = {
+        FW_FLOW_BASELINE_BASELINE, FW_FLOW_BASELINE_MIDDLE,
+        FW_FLOW_BASELINE_TEXT_TOP, FW_FLOW_BASELINE_TEXT_BOTTOM};
+    const float expected_y[4] = {26.0f, 28.0f, 24.0f, 32.0f};
+    size_t index;
+    for (index = 0u; index < 4u; ++index) {
+        flow_fixture fixture;
+        fake_text_state text_state = {0};
+        fake_child_state child_state = {0};
+        fake_sink_state sink_state = {0};
+        fw_flow_layout_result_v1 result = {0};
+        make_inline_fixture(&fixture, modes[index]);
+        CHECK(compose_fixture(api, handle, &fixture, &text_state,
+            &child_state, &sink_state, &result) == FW_STATUS_OK);
+        CHECK(fabsf(sink_state.bounds[1].y - expected_y[index]) < 0.001f);
+    }
+    return 1;
+}
+
+static int test_inline_rtl_geometry(const fw_flow_layout_api_v1 *api,
+    fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_inline_fixture(&fixture, FW_FLOW_BASELINE_MIDDLE);
+    fixture.items[0].direction = FW_TEXT_DIRECTION_RTL;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(fabsf(sink_state.bounds[0].x - 564.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].x - 538.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[2].x - 521.0f) < 0.001f);
+    CHECK(strcmp(sink_state.source_ids[0], "paragraph.inline") == 0 &&
+        strcmp(sink_state.source_ids[1], "badge.inline") == 0 &&
+        strcmp(sink_state.source_ids[2], "paragraph.inline") == 0);
+    return 1;
+}
+
+static int test_inline_parts_cross_pages_and_columns(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_inline_fixture(&fixture, FW_FLOW_BASELINE_BASELINE);
+    fixture.request.page_template.mode = FW_FLOW_VIRTUAL_PAGES;
+    fixture.request.page_template.page_size.height = 100.0f;
+    text_state.max_inline_parts_per_fragment = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.page_count == 3u && result.fragment_count == 3u);
+    CHECK(sink_state.page_indices[0] == 0u &&
+        sink_state.page_indices[1] == 1u &&
+        sink_state.page_indices[2] == 2u);
+    CHECK(sink_state.kinds[1] == FW_FLOW_FRAGMENT_OBJECT);
+    memset(&text_state, 0, sizeof(text_state));
+    memset(&child_state, 0, sizeof(child_state));
+    memset(&sink_state, 0, sizeof(sink_state));
+    memset(&result, 0, sizeof(result));
+    fixture.request.page_template.mode = FW_FLOW_COLUMNS;
+    fixture.request.page_template.column_count = 2u;
+    fixture.request.page_template.column_gap = 20.0f;
+    text_state.max_inline_parts_per_fragment = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.page_count == 2u && result.fragment_count == 3u);
+    CHECK(sink_state.page_indices[0] == 0u &&
+        sink_state.page_indices[1] == 0u &&
+        sink_state.page_indices[2] == 1u);
+    CHECK(sink_state.column_indices[0] == 0u &&
+        sink_state.column_indices[1] == 1u &&
+        sink_state.column_indices[2] == 0u);
+    return 1;
+}
+
+static int test_inline_capability_and_part_validation(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_inline_fixture(&fixture, FW_FLOW_BASELINE_BASELINE);
+    text_state.disable_inline_parts = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_UNSUPPORTED);
+    CHECK(sink_state.begin_count == 0u && sink_state.end_count == 0u);
+    memset(&text_state, 0, sizeof(text_state));
+    memset(&sink_state, 0, sizeof(sink_state));
+    memset(&result, 0, sizeof(result));
+    text_state.invalid_inline_part = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_INVALID_STATE);
+    CHECK(result.complete == 0u);
+    CHECK(sink_state.begin_count == 1u && sink_state.end_count == 1u);
+    return 1;
+}
+
+static int test_inline_fallback_preserves_slot(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_inline_fixture(&fixture, FW_FLOW_BASELINE_MIDDLE);
+    child_state.fallback = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(sink_state.kinds[1] == FW_FLOW_FRAGMENT_PLACEHOLDER);
+    CHECK(fabsf(sink_state.bounds[1].width - 24.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].height - 16.0f) < 0.001f);
+    return 1;
+}
+
 static int test_unsupported_slice(const fw_flow_layout_api_v1 *api,
     fw_plugin_handle handle) {
     flow_fixture fixture;
@@ -701,6 +1027,13 @@ int main(void) {
     passed &= test_paragraph_ranges_cross_columns_and_pages(api, handle);
     passed &= test_columns_page_budget_is_balanced(api, handle);
     passed &= test_invalid_column_geometry(api, handle);
+    passed &= test_inline_object_continuous_order(api, handle);
+    passed &= test_legacy_block_text_service_abi(api, handle);
+    passed &= test_inline_baseline_modes(api, handle);
+    passed &= test_inline_rtl_geometry(api, handle);
+    passed &= test_inline_parts_cross_pages_and_columns(api, handle);
+    passed &= test_inline_capability_and_part_validation(api, handle);
+    passed &= test_inline_fallback_preserves_slot(api, handle);
     passed &= test_unsupported_slice(api, handle);
     plugin->unload(handle);
     if (!passed) return 1;

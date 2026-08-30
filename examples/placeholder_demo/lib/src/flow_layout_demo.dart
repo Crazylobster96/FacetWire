@@ -233,6 +233,8 @@ final class FlowPlanFragment {
     required this.pageIndex,
     required this.columnIndex,
     required this.bounds,
+    required this.textStart,
+    required this.textEnd,
   });
 
   final String kind;
@@ -241,6 +243,8 @@ final class FlowPlanFragment {
   final int pageIndex;
   final int columnIndex;
   final Rect bounds;
+  final int textStart;
+  final int textEnd;
 
   factory FlowPlanFragment.fromJson(Map<String, Object?> value) {
     final bounds = value['bounds']! as Map<String, Object?>;
@@ -256,6 +260,8 @@ final class FlowPlanFragment {
         (bounds['width']! as num).toDouble(),
         (bounds['height']! as num).toDouble(),
       ),
+      textStart: (value['textStart'] as num?)?.toInt() ?? 0,
+      textEnd: (value['textEnd'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -272,6 +278,7 @@ final class FlowPlanReport {
     required this.pageSize,
     required this.pageGap,
     required this.pageMode,
+    required this.inlineObjects,
     required this.columnCount,
     required this.columnGap,
     required this.contentBounds,
@@ -292,6 +299,7 @@ final class FlowPlanReport {
   final Size pageSize;
   final double pageGap;
   final int pageMode;
+  final bool inlineObjects;
   final int columnCount;
   final double columnGap;
   final Rect contentBounds;
@@ -330,6 +338,7 @@ final class FlowPlanReport {
       ),
       pageGap: (value['pageGap']! as num).toDouble(),
       pageMode: (value['pageMode'] as num?)?.toInt() ?? 0,
+      inlineObjects: value['inlineObjects'] == true,
       columnCount: (value['columnCount'] as num?)?.toInt() ?? 1,
       columnGap: (value['columnGap'] as num?)?.toDouble() ?? 0,
       contentBounds: Rect.fromLTWH(
@@ -358,6 +367,8 @@ enum FlowSceneMode { recursive, single }
 
 enum FlowPageMode { continuous, virtualPages, columns }
 
+enum FlowParagraphMode { block, inline }
+
 class FlowLayoutDemoScreen extends StatefulWidget {
   const FlowLayoutDemoScreen({required this.client, this.loader, super.key});
 
@@ -374,6 +385,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
   Object? _error;
   var _selectedLevel = 0;
   var _pageMode = FlowPageMode.continuous;
+  var _paragraphMode = FlowParagraphMode.block;
   var _opacity = 0.9;
   var _sceneMode = FlowSceneMode.recursive;
   final _levelOpacities = <double>[1.0, 0.78, 0.62];
@@ -416,7 +428,8 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
     final source = await widget.client.composeFlowDemo(
       width: level.width,
       height: level.height,
-      contentCase: selected,
+      contentCase:
+          selected + (_paragraphMode == FlowParagraphMode.inline ? 3 : 0),
       pageMode: _pageMode.index,
     );
     return FlowPlanReport.fromJson(source);
@@ -428,13 +441,18 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
           _compose(package, index),
       ]);
 
-  Future<void> _refresh({int? level, FlowPageMode? pageMode}) async {
+  Future<void> _refresh({
+    int? level,
+    FlowPageMode? pageMode,
+    FlowParagraphMode? paragraphMode,
+  }) async {
     final package = _package;
     if (package == null) return;
     final selected = level ?? _selectedLevel;
     setState(() {
       _selectedLevel = selected;
       if (pageMode != null) _pageMode = pageMode;
+      if (paragraphMode != null) _paragraphMode = paragraphMode;
       _loading = true;
     });
     try {
@@ -466,9 +484,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
           preferredSize: Size.fromHeight(24),
           child: Padding(
             padding: EdgeInsets.only(bottom: 6),
-            child: Text(
-              '三层递归场景 · Native Layout Plan · continuous / virtual-pages / columns + block',
-            ),
+            child: Text('三层递归 · Native Plan · 3 种页面模式 × block/inline'),
           ),
         ),
       ),
@@ -808,6 +824,25 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
             selected: {_pageMode},
             onSelectionChanged: (value) => _refresh(pageMode: value.single),
           ),
+          const SizedBox(height: 10),
+          Text(
+            'Paragraph content / 段落内容',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 6),
+          SegmentedButton<FlowParagraphMode>(
+            key: const ValueKey('flow-paragraph-mode'),
+            segments: const [
+              ButtonSegment(value: FlowParagraphMode.block, label: Text('块对象')),
+              ButtonSegment(
+                value: FlowParagraphMode.inline,
+                label: Text('行内对象'),
+              ),
+            ],
+            selected: {_paragraphMode},
+            onSelectionChanged: (value) =>
+                _refresh(paragraphMode: value.single),
+          ),
           Text('Viewer opacity / 预览不透明度 ${(_opacity * 100).round()}%'),
           Slider(
             key: const ValueKey('flow-preview-opacity'),
@@ -840,6 +875,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
                 _StatusChip('Complete', report.complete),
                 _StatusChip('Balanced', report.pagesBalanced),
                 Chip(label: Text('${report.columnCount} columns')),
+                Chip(label: Text(report.inlineObjects ? 'Inline' : 'Block')),
                 Chip(label: Text('Status ${report.composeStatus}')),
                 Chip(label: Text('${report.fragmentCount} fragments')),
               ],
@@ -1010,9 +1046,14 @@ class _FlowFragmentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bounds = fragment.bounds;
+    final text = _fragmentText();
+    final baseKey =
+        'flow-fragment:${fragment.sourceItemId}:page-${fragment.pageIndex}';
     return Positioned(
       key: ValueKey(
-        'flow-fragment:${fragment.sourceItemId}:page-${fragment.pageIndex}',
+        fragment.kind == 'text' && fragment.textStart != 0
+            ? '$baseKey:range-${fragment.textStart}-${fragment.textEnd}'
+            : baseKey,
       ),
       left: bounds.left,
       top: bounds.top + topOffset,
@@ -1021,14 +1062,29 @@ class _FlowFragmentView extends StatelessWidget {
       child: Semantics(
         container: true,
         label: fragment.kind == 'text'
-            ? item?.text ?? fragment.sourceItemId
+            ? text
             : 'Flow ${fragment.kind}: ${fragment.sourceItemId}',
-        child: _content(context),
+        child: _content(context, text),
       ),
     );
   }
 
-  Widget _content(BuildContext context) {
+  String _fragmentText() {
+    final value = item?.text ?? fragment.sourceItemId;
+    final bytes = utf8.encode(value);
+    if (fragment.textEnd <= fragment.textStart ||
+        fragment.textStart < 0 ||
+        fragment.textEnd > bytes.length) {
+      return value;
+    }
+    try {
+      return utf8.decode(bytes.sublist(fragment.textStart, fragment.textEnd));
+    } on FormatException {
+      return value;
+    }
+  }
+
+  Widget _content(BuildContext context, String text) {
     if (fragment.kind == 'text') {
       return DecoratedBox(
         decoration: BoxDecoration(
@@ -1037,24 +1093,28 @@ class _FlowFragmentView extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Text(item?.text ?? fragment.sourceItemId),
+          child: Text(text),
         ),
       );
     }
     if (fragment.kind == 'placeholder') {
+      final compact =
+          fragment.bounds.width < 128 || fragment.bounds.height < 72;
       return DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xfffff3dc),
           border: Border.all(color: const Color(0xffd28b16), width: 2),
         ),
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.extension_off_outlined),
-              Text('Placeholder / 后备占位'),
-            ],
-          ),
+        child: Center(
+          child: compact
+              ? const Icon(Icons.extension_off_outlined, size: 20)
+              : const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.extension_off_outlined),
+                    Text('Placeholder / 后备占位'),
+                  ],
+                ),
         ),
       );
     }

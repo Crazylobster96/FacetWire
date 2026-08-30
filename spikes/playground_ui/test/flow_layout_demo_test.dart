@@ -14,7 +14,7 @@ void main() {
     expect(package.levels[0].flowId, 'flow.level-1');
     expect(package.levels[1].flowId, 'flow.level-2');
     expect(package.levels[2].flowId, 'flow.level-3');
-    expect(package.levels.every((level) => level.items.length == 3), isTrue);
+    expect(package.levels.every((level) => level.items.length == 5), isTrue);
     expect(
       package.levels[2].items['object.missing.level-3']!.contentType,
       'unknown',
@@ -41,6 +41,7 @@ void main() {
     expect(report.complete, isTrue);
     expect(report.fragmentCount, 3);
     expect(report.columnCount, 1);
+    expect(report.inlineObjects, isFalse);
     expect(report.fragments.map((fragment) => fragment.kind), [
       'text',
       'object',
@@ -70,7 +71,6 @@ void main() {
       expect(find.byKey(const ValueKey('flow-level-0')), findsOneWidget);
       expect(find.byKey(const ValueKey('flow-level-1')), findsOneWidget);
       expect(find.byKey(const ValueKey('flow-level-2')), findsOneWidget);
-      expect(find.text('3 fragments'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('flow-recursive-canvas')),
         findsOneWidget,
@@ -185,11 +185,36 @@ void main() {
       );
       expect(find.text('2 columns'), findsOneWidget);
 
-      final layerOpacity = find.byKey(const ValueKey('flow-level-opacity-2'));
+      final paragraphMode = find.byKey(const ValueKey('flow-paragraph-mode'));
       await tester.scrollUntilVisible(
-        layerOpacity,
+        paragraphMode,
         180,
         scrollable: controlsScrollable,
+      );
+      await tester.tap(find.text('行内对象'));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Inline'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('flow-fragment:object.inline-missing.level-3:page-0'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey(
+            'flow-fragment:paragraph.inline.level-3:page-0:range-7-21',
+          ),
+        ),
+        findsOneWidget,
+      );
+
+      final controlsList = find.byKey(const ValueKey('flow-layout-controls'));
+      final layerOpacity = find.byKey(const ValueKey('flow-level-opacity-2'));
+      await tester.dragUntilVisible(
+        layerOpacity,
+        controlsList,
+        const Offset(0, 180),
       );
       tester.widget<Slider>(layerOpacity).onChanged!(0.25);
       await tester.pump();
@@ -200,10 +225,10 @@ void main() {
         0.25,
       );
 
-      await tester.scrollUntilVisible(
+      await tester.dragUntilVisible(
         pageMode,
-        -180,
-        scrollable: controlsScrollable,
+        controlsList,
+        const Offset(0, -180),
       );
       await tester.tap(find.text('连续'));
       await tester.pump(const Duration(seconds: 1));
@@ -231,6 +256,9 @@ final class _MemoryFlowScenePackageLoader implements FlowScenePackageLoader {
         final objectId = level == 3
             ? 'object.missing.$prefix'
             : 'image.hero.$prefix';
+        final inlineObjectId = level == 3
+            ? 'object.inline-missing.$prefix'
+            : 'image.inline.$prefix';
         return FlowSceneLevel(
           documentId: 'document:$prefix',
           title: 'Flow Level $level',
@@ -261,6 +289,20 @@ final class _MemoryFlowScenePackageLoader implements FlowScenePackageLoader {
               kind: 'paragraph',
               text: 'Level $level closing',
               contentType: '',
+              resourceAsset: null,
+            ),
+            'paragraph.inline.$prefix': FlowSceneItem(
+              id: 'paragraph.inline.$prefix',
+              kind: 'paragraph',
+              text: 'Inline  stays atomic.',
+              contentType: '',
+              resourceAsset: null,
+            ),
+            inlineObjectId: FlowSceneItem(
+              id: inlineObjectId,
+              kind: 'object',
+              text: '',
+              contentType: level == 3 ? 'unknown' : 'image',
               resourceAsset: null,
             ),
           },

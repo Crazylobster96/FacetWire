@@ -16,7 +16,9 @@
           "items": [
             {"id": "paragraph.intro.level-1", "kind": "paragraph", "style": {"fontSize": 20, "fontWeight": 600, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "Level 1 / 根 Flow：真实插件生成连续 block Layout Plan。"}], "placement": {"mode": "block", "margins": {"top": 8, "bottom": 8}}},
             {"id": "image.hero.level-1", "kind": "object", "content": {"type": "image", "resource": "image:hero", "alt": "FacetWire blue geometry"}, "placement": {"mode": "block", "margins": {"top": 16, "bottom": 12}, "fallbackSize": {"width": 180, "height": 112}}},
-            {"id": "paragraph.closing.level-1", "kind": "paragraph", "style": {"fontSize": 16, "fontWeight": 400, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "图片占据流空间，后一段必须位于图片之后。"}], "placement": {"mode": "block", "margins": {"top": 10, "bottom": 6}}}
+            {"id": "paragraph.closing.level-1", "kind": "paragraph", "style": {"fontSize": 16, "fontWeight": 400, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "图片占据流空间，后一段必须位于图片之后。"}], "placement": {"mode": "block", "margins": {"top": 10, "bottom": 6}}},
+            {"id": "paragraph.inline.level-1", "kind": "paragraph", "style": {"fontSize": 20, "fontWeight": 600, "lineHeightMultiplier": 1.35}, "segments": [{"type": "text", "text": "Inline "}, {"type": "object", "item": "image.inline.level-1", "baseline": "middle"}, {"type": "text", "text": " stays atomic."}], "placement": {"mode": "block", "margins": {"top": 8, "bottom": 8}}},
+            {"id": "image.inline.level-1", "kind": "object", "content": {"type": "image", "resource": "image:hero", "alt": "Inline FacetWire geometry"}, "placement": {"mode": "inline", "width": 72, "height": 36, "margins": {"left": 3, "right": 3}, "fallbackSize": {"width": 72, "height": 36}}}
           ]
         }
       }]},

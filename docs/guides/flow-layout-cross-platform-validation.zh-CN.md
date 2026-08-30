@@ -22,7 +22,7 @@ Dart 测试回退，不能记为平台通过。
 examples/placeholder_demo/assets/documents/flow-layout-recursive-demo.agscene/
 
 它使用相对路径形成三层递归文档。每层包含一个 continuous Flow，逻辑页面为
-600 × 700，顺序均为“文本—对象—文本”。
+600 × 700，并同时提供“文本—块对象—文本”和“文本—行内对象—文本”两组内容关系。
 
 | 场景 | 对象行为 | 期望 Layout Plan |
 |---|---|---|
@@ -33,13 +33,21 @@ examples/placeholder_demo/assets/documents/flow-layout-recursive-demo.agscene/
 | Level 2 + virtual-pages | 240 高度虚拟页 | composeStatus=0、complete=true、3 pages；对象整体移至第 2 页，后一段文字位于第 3 页 |
 | Level 3 + virtual-pages | 240 高度虚拟页 | composeStatus=0、complete=true、2 pages；Placeholder 与首段位于第 1 页，后一段文字位于第 2 页 |
 | Level 1/2/3 + columns | 2 个等宽栏，栏间距 24 | composeStatus=0、complete=true、1 page；前两个片段位于第 1 栏，末段位于第 2 栏；内容类型和 sourceItemId 不变 |
+| Level 1/2 + inline | PNG 作为不可拆 replacement segment | text, object, text；3 fragments；文本 byte range 为 0..7、7..21；对象为 72 × 36 |
+| Level 3 + inline | 未知行内对象类型 | text, placeholder, text；3 fragments；Placeholder 保留 72 × 36 边界 |
+| inline + virtual-pages/columns | 同一行内内容切换区域策略 | 对象不可拆；text/object 游标连续；page/column 变化不改变 sourceItemId、byte range 或对象尺寸 |
 
 Level 3 的 Placeholder 必须保留对象边界，后一段文字不能坍缩到未知对象的位置。
 
-Playground Bridge v2 将内容选择与分页策略拆成两个正交参数：`contentCase`
-选择 Level 1/2/3，`pageMode` 选择 continuous、virtual-pages 或 columns。切换排版模式不得改变
-当前 Level。旧 `fwui_compose_flow_demo` ABI 仅为兼容既有宿主保留；新宿主必须调用
+Playground Bridge v2 将内容选择与分页策略拆成两个正交参数：`contentCase` 的 0..2
+选择 Level 1/2/3 块对象，3..5 选择对应 Level 的行内对象；`pageMode` 选择 continuous、
+virtual-pages 或 columns。切换排版模式或段落内容关系不得改变当前 Level。旧
+`fwui_compose_flow_demo` ABI 仅为兼容既有宿主保留；新宿主必须调用
 `fwui_compose_flow_demo_v2`。
+
+行内对象首先通过 Child Measure Service 得到精确尺寸，再由声明 `INLINE_PARTS` 能力的
+Text Fragment Service 统一决定文字、对象、baseline、BiDi 和换行几何。Flow 插件只校验
+有序部件并输出 Fragment；它不得自行估算字体位置或调用 Image/Placeholder Renderer。
 
 columns 是 Flow Layout Plan 的真实排版模式，不是 Playground 的视觉分栏。Native Bridge
 必须报告 `columnCount`、`columnGap`、`contentBounds` 和每个 Fragment 的
@@ -71,11 +79,14 @@ L1/L2/L3 分别提供独立不透明度，规则统一为 `1 = 完全不透明�
    `columnIndex` 应为 0、0、1，仍位于同一页；Level 3 中间项仍是 Placeholder。
 8. 在任意 Level 上反复切换 continuous、virtual-pages 和 columns，确认当前 Level、
    对象类型和 sourceItemId 保持不变；模式控件只能改变 Layout Plan 的排版策略。
-9. 拖动“预览不透明度”，确认 1 为完全不透明、0 为完全透明，片段几何不变化。
-10. 在“随窗口适配”和“固定 1:1”之间切换；连续模式的单层逻辑尺寸为 600 × 700；
+9. 切换“行内对象”，确认合同区显示 Inline；每层显示 text/object/text，同一段落的两个
+   Text Fragment 分别只显示 `Inline ` 与 ` stays atomic.`。Level 3 中间应显示紧凑的橙色
+   Placeholder，不能溢出 72 × 36 边界。在三种页面模式间切换，对象不得被切开或重复。
+10. 拖动“预览不透明度”，确认 1 为完全不透明、0 为完全透明，片段几何不变化。
+11. 在“随窗口适配”和“固定 1:1”之间切换；连续模式的单层逻辑尺寸为 600 × 700；
    virtual-pages 的单层高度按实际 pageCount、页高和页间距计算。视口只允许平移或
    等比缩放查看，不得重新排版或改变 Layout Plan。
-11. 记录平台、设备/模拟器、系统版本、构建 commit、上述每项结果和截图。
+12. 记录平台、设备/模拟器、系统版本、构建 commit、上述每项结果和截图。
 
 ## 4. Windows
 
@@ -99,14 +110,17 @@ libmpv 与 ANGLE，避免 Ninja 在依赖文件生成前提前链接。
 
 ### 当前自动验证记录（2026-08-30）
 
-- 根项目 MSVC/Ninja CTest：PASS（12/12）。
-- Flow/Playground/Manifest/Memory 定向 CTest：PASS（4/4）。
-- Flutter analyze：PASS（0 issues）。
-- Flutter test：PASS（24/24，包含 Native Assets columns 合同和三模式 UI 集成测试）。
+- 根项目 MSVC/Ninja CTest：PASS（14/14）。
+- Flow/Playground/Memory 定向 CTest：PASS（3/3）；独立 Spike Bridge：PASS（1/1）。
+- 正式与 Spike Flutter analyze：PASS（均为 0 issues）。
+- 正式 Flutter test：PASS（24/24）；Spike Flutter test：PASS（12/12）。
+- MSVC ASan Spike Bridge：PASS（1/1）；通过开发者环境解析
+  `clang_rt.asan_dynamic-x86_64.dll` 后未发现 sanitizer 错误。
 - Windows Release Runner：PASS；确定性 Ninja 构建、安装及 Dart FFI smoke 均通过，产物为
   `examples/placeholder_demo/build/windows-ninja/runner/facetwire_placeholder_demo.exe`。
-- 本次自动验证确认 columns 的 2 栏推进、`columnIndex`、内容身份稳定和非法栏宽拒绝；
-  三模式最终视觉结果仍按第 3 节在各目标设备记录截图。
+- 本次自动验证确认 columns 的 2 栏推进、`columnIndex`、内容身份稳定和非法栏宽拒绝，
+  以及 inline 的三模式续排、四种 baseline、RTL、能力协商、旧 block-only ABI 兼容、
+  精确 byte range、Fallback 边界和 ASan。Apple 最终视觉结果仍按第 3 节记录截图。
 
 ## 5. Android
 
@@ -131,7 +145,7 @@ ABI，因此即使目标是 arm64 也会触发该网络请求。失败发生在 
 该脚本依次运行根 C/CTest（含统一 Playground Bridge）、Flutter analyze/test、
 macOS Debug 和 iOS Simulator Debug 构建。随后分别启动 macOS App 与 iOS Simulator
 App，执行第 3 节手工验收。可直接把
-[`../prompts/macos-ios-flow-columns-incremental-validation.md`](../prompts/macos-ios-flow-columns-incremental-validation.md)
+[`../prompts/macos-ios-visionos-flow-inline-incremental-validation.md`](../prompts/macos-ios-visionos-flow-inline-incremental-validation.md)
 交给 Mac 上已经存在的 FacetWire Codex 项目；该提示词只补验本次共享 C/Flutter/Swift
 变更，不会把既有验证项目误当成新项目重建。
 
@@ -150,6 +164,9 @@ iOS 真机仍需使用本地 Apple Developer Team 签名；Native Assets 会静�
 - Level 1/2 的 virtual-pages 返回 3 页且 pageIndex 为 0、1、2；Level 3 返回 2 页且
   pageIndex 为 0、0、1。
 - columns 返回 1 页、2 栏，末段 columnIndex 为 1，并保留 Level 3 Placeholder 身份。
+- contentCase 3 的 inline 返回 text/object/text、byte range 0..7 与 7..21；
+- contentCase 5 在 columns 下保留 72 × 36 的 inline Placeholder，且报告
+  `inlineObjects=true`。
 
 在 visionOS Simulator 或 Vision Pro 真机中，Flow 区域应显示绿色
 “PASS · native Flow”。真机签名使用测试者自己的 Apple Developer Team。
@@ -161,7 +178,7 @@ iOS 真机仍需使用本地 Apple Developer Team 签名；Native Assets 会静�
 - 构建成功；
 - 自动测试成功；
 - UI 显示 Native PASS；
-- Level 1/2/3 分别在 continuous、virtual-pages 与 columns 下符合预期；
+- Level 1/2/3 的 block/inline 分别在 continuous、virtual-pages 与 columns 下符合预期；
 - 递归合成保留三层原始坐标与尺寸，单层检查只显示选中层；
 - L1/L2/L3 独立不透明度、整体预览不透明度、随窗口适配和固定 1:1 交互符合预期。
 

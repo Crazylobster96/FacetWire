@@ -52,6 +52,10 @@ int main(void) {
     static const char *const expected_last_page[3] = {
         "\"pageIndex\":2", "\"pageIndex\":2", "\"pageIndex\":1"
     };
+    static const char *const expected_inline_object[3] = {
+        "image.inline.level-1", "image.inline.level-2",
+        "object.inline-missing.level-3"
+    };
 
     assert(fwui_context_create(NULL) == FWUI_STATUS_INVALID_ARGUMENT);
     assert(fwui_context_create(&context) == FWUI_STATUS_OK);
@@ -170,7 +174,29 @@ int main(void) {
             fwui_buffer_release(&flow);
         }
     }
-    assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 3u,
+    for (content_case = 0u; content_case < 3u; ++content_case) {
+        for (page_mode = 0u; page_mode < 3u; ++page_mode) {
+            assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f,
+                content_case + 3u, page_mode, &flow) == FWUI_STATUS_OK);
+            assert(strstr((const char *)flow.data,
+                "\"inlineObjects\":true") != NULL);
+            assert(strstr((const char *)flow.data,
+                "continuous+virtual-pages+columns+block+inline") != NULL);
+            assert(strstr((const char *)flow.data,
+                "paragraph.inline.level-") != NULL);
+            assert(strstr((const char *)flow.data,
+                expected_inline_object[content_case]) != NULL);
+            assert(strstr((const char *)flow.data,
+                "\"fragmentCount\":3") != NULL);
+            assert(strstr((const char *)flow.data,
+                "\"pageCount\":1") != NULL);
+            if (content_case == 2u)
+                assert(strstr((const char *)flow.data,
+                    "\"kind\":\"placeholder\"") != NULL);
+            fwui_buffer_release(&flow);
+        }
+    }
+    assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 6u,
         FWUI_FLOW_PAGE_CONTINUOUS, &flow) == FWUI_STATUS_INVALID_ARGUMENT);
     assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 0u, 3u,
         &flow) == FWUI_STATUS_INVALID_ARGUMENT);

@@ -29,6 +29,14 @@ void main() {
           pageMode: 2,
         ),
       ) as Map<String, Object?>;
+      final inline = jsonDecode(
+        await flow.composeFlowDemo(
+          width: 600,
+          height: 700,
+          contentCase: 3,
+          pageMode: 0,
+        ),
+      ) as Map<String, Object?>;
 
       expect(
         snapshot['pluginId'],
@@ -42,10 +50,16 @@ void main() {
       expect(columns['pageCount'], 1);
       expect(columns['columnCount'], 2);
       final columnFragments = columns['fragments']! as List<Object?>;
+      expect((columnFragments.last! as Map<String, Object?>)['columnIndex'], 1);
+      expect(inline['nativeRuntime'], isTrue);
+      expect(inline['inlineObjects'], isTrue);
+      expect(inline['fragmentCount'], 3);
+      final inlineFragments = inline['fragments']! as List<Object?>;
       expect(
-        (columnFragments.last! as Map<String, Object?>)['columnIndex'],
-        1,
+        (inlineFragments[1]! as Map<String, Object?>)['sourceItemId'],
+        'image.inline.level-1',
       );
+      expect((inlineFragments.last! as Map<String, Object?>)['textStart'], 7);
     } finally {
       await placeholder.close();
       await flow.close();
