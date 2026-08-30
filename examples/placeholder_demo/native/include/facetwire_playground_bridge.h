@@ -33,7 +33,8 @@ typedef struct fwui_buffer {
 
 typedef enum fwui_flow_page_mode {
     FWUI_FLOW_PAGE_CONTINUOUS = 0,
-    FWUI_FLOW_PAGE_VIRTUAL = 1
+    FWUI_FLOW_PAGE_VIRTUAL = 1,
+    FWUI_FLOW_PAGE_COLUMNS = 2
 } fwui_flow_page_mode;
 
 /* Output buffers must be zero-initialized and released before reuse. An API

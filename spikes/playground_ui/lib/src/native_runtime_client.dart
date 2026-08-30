@@ -159,7 +159,7 @@ final class NativeAssetRuntimeClient implements NativeRuntimeClient {
     required double width,
     required double height,
     required int contentCase,
-    required bool virtualPages,
+    required int pageMode,
   }) => _singleBuffer(
     'fwui_compose_flow_demo_v2',
     (output) => _assetComposeFlow(
@@ -167,7 +167,7 @@ final class NativeAssetRuntimeClient implements NativeRuntimeClient {
       width,
       height,
       contentCase,
-      virtualPages ? 1 : 0,
+      pageMode,
       output,
     ),
   );
@@ -279,17 +279,10 @@ final class FfiNativeRuntimeClient implements NativeRuntimeClient {
     required double width,
     required double height,
     required int contentCase,
-    required bool virtualPages,
+    required int pageMode,
   }) => _singleBuffer(
     'fwui_compose_flow_demo_v2',
-    (output) => _flow(
-      _context,
-      width,
-      height,
-      contentCase,
-      virtualPages ? 1 : 0,
-      output,
-    ),
+    (output) => _flow(_context, width, height, contentCase, pageMode, output),
   );
 
   Future<String> _singleBuffer(

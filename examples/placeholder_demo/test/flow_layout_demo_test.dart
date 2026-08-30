@@ -31,7 +31,7 @@ void main() {
       width: 600,
       height: 700,
       contentCase: 0,
-      virtualPages: false,
+      pageMode: 0,
     );
 
     final report = FlowPlanReport.fromJson(source);
@@ -40,6 +40,7 @@ void main() {
     expect(report.composeStatus, 0);
     expect(report.complete, isTrue);
     expect(report.fragmentCount, 3);
+    expect(report.columnCount, 1);
     expect(report.fragments.map((fragment) => fragment.kind), [
       'text',
       'object',
@@ -119,13 +120,13 @@ void main() {
       findsOneWidget,
     );
 
-    final virtualPages = find.byKey(const ValueKey('flow-virtual-pages-probe'));
+    final pageMode = find.byKey(const ValueKey('flow-page-mode'));
     await tester.scrollUntilVisible(
-      virtualPages,
+      pageMode,
       180,
       scrollable: controlsScrollable,
     );
-    await tester.tap(virtualPages);
+    await tester.tap(find.text('虚拟页'));
     await tester.pump(const Duration(seconds: 1));
     expect(
       find.byKey(const ValueKey('flow-recursive-page-2-0')),
@@ -157,6 +158,18 @@ void main() {
     );
     expect(find.text('3 fragments'), findsOneWidget);
 
+    await tester.tap(find.text('双栏'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byKey(const ValueKey('flow-column-0-0')), findsNWidgets(3));
+    expect(find.byKey(const ValueKey('flow-column-0-1')), findsNWidgets(3));
+    expect(
+      find.byKey(
+        const ValueKey('flow-fragment:paragraph.closing.level-3:page-0'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('2 columns'), findsOneWidget);
+
     final layerOpacity = find.byKey(const ValueKey('flow-level-opacity-2'));
     await tester.scrollUntilVisible(
       layerOpacity,
@@ -173,11 +186,11 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
-      virtualPages,
+      pageMode,
       -180,
       scrollable: controlsScrollable,
     );
-    await tester.tap(virtualPages);
+    await tester.tap(find.text('连续'));
     await tester.pump(const Duration(seconds: 1));
     await tester.tap(find.text('固定 1:1'));
     await tester.pump();

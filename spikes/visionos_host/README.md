@@ -45,9 +45,11 @@ scripts/validate-visionos-spike-macos.sh 后，还需在 Simulator 或真机检�
 
 1. Level 1、Level 2 均显示三个片段，顺序为文本、对象、文本。
 2. Level 3 中间显示橙色 Placeholder，后一段文字保持在其后。
-3. virtual-pages 开关显示 3 个平衡页面，composeStatus 0。
-4. Flow 诊断为绿色 PASS · native Flow；不接受模拟回退。
-5. Viewer opacity 的 1 与 0 分别表示完全不透明和完全透明。
+3. Level 1/2 的 virtual-pages 显示 3 个页面，Level 3 显示 2 个页面，composeStatus 0。
+4. 切换到“双栏”后保持同一内容身份，报告 `columnCount = 2`，末段位于第 2 栏；
+   栏边界来自 Native Layout Plan，不由 SwiftUI 猜测。
+5. Flow 诊断为绿色 PASS · native Flow；不接受模拟回退。
+6. Viewer opacity 的 1 与 0 分别表示完全不透明和完全透明。
 
 完整五平台步骤见 docs/guides/flow-layout-cross-platform-validation.zh-CN.md。
 ## 验收边界

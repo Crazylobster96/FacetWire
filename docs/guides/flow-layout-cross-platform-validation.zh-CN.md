@@ -32,13 +32,19 @@ examples/placeholder_demo/assets/documents/flow-layout-recursive-demo.agscene/
 | Level 1 + virtual-pages | 240 高度虚拟页 | composeStatus=0、complete=true、3 pages；对象整体移至第 2 页，后一段文字位于第 3 页 |
 | Level 2 + virtual-pages | 240 高度虚拟页 | composeStatus=0、complete=true、3 pages；对象整体移至第 2 页，后一段文字位于第 3 页 |
 | Level 3 + virtual-pages | 240 高度虚拟页 | composeStatus=0、complete=true、2 pages；Placeholder 与首段位于第 1 页，后一段文字位于第 2 页 |
+| Level 1/2/3 + columns | 2 个等宽栏，栏间距 24 | composeStatus=0、complete=true、1 page；前两个片段位于第 1 栏，末段位于第 2 栏；内容类型和 sourceItemId 不变 |
 
 Level 3 的 Placeholder 必须保留对象边界，后一段文字不能坍缩到未知对象的位置。
 
 Playground Bridge v2 将内容选择与分页策略拆成两个正交参数：`contentCase`
-选择 Level 1/2/3，`pageMode` 选择 continuous 或 virtual-pages。切换分页不得改变
+选择 Level 1/2/3，`pageMode` 选择 continuous、virtual-pages 或 columns。切换排版模式不得改变
 当前 Level。旧 `fwui_compose_flow_demo` ABI 仅为兼容既有宿主保留；新宿主必须调用
 `fwui_compose_flow_demo_v2`。
+
+columns 是 Flow Layout Plan 的真实排版模式，不是 Playground 的视觉分栏。Native Bridge
+必须报告 `columnCount`、`columnGap`、`contentBounds` 和每个 Fragment 的
+`columnIndex`。推进顺序固定为“当前栏 → 下一栏 → 下一页”；不可拆对象空间不足时整体
+移至下一栏或下一页，不得被裁成两段。栏宽非法或不足最小文本宽度时必须明确拒绝。
 
 验证页默认使用“递归合成”：L1、L2、L3 按描述文件中的 child Zone 逐级累加原始坐标，
 每层保持自身 Canvas 的逻辑尺寸，不做隐式缩放。为了检查完整嵌套关系，Playground 使用
@@ -58,16 +64,18 @@ L1/L2/L3 分别提供独立不透明度，规则统一为 `1 = 完全不透明�
    其他层的几何与不透明度不得改变。
 5. 切换“单层检查”，依次选择 Level 1、Level 2，确认图片位于两段文字之间；选择
    Level 3，确认中间出现橙色“Placeholder / 后备占位”。
-6. 保持 Level 1 或 Level 2，打开“使用 virtual-pages”，确认出现 3 张页面，三个片段
+6. 保持 Level 1 或 Level 2，选择“虚拟页”，确认出现 3 张页面，三个片段
    pageIndex 依次为 0、1、2。选择 Level 3 时应为 2 张页面，三个片段 pageIndex 为
    0、0、1。对象不得被拆开，片段继续使用各自页面内的逻辑坐标。
-7. 在任意 Level 上反复开关 virtual-pages，确认当前 Level、对象类型和 sourceItemId
-   保持不变；分页开关只能改变 Layout Plan 的分页策略。
-8. 拖动“预览不透明度”，确认 1 为完全不透明、0 为完全透明，片段几何不变化。
-9. 在“随窗口适配”和“固定 1:1”之间切换；连续模式的单层逻辑尺寸为 600 × 700；
+7. 切换到“双栏”，确认出现两个真实栏边界且报告 `columnCount = 2`。三个片段的
+   `columnIndex` 应为 0、0、1，仍位于同一页；Level 3 中间项仍是 Placeholder。
+8. 在任意 Level 上反复切换 continuous、virtual-pages 和 columns，确认当前 Level、
+   对象类型和 sourceItemId 保持不变；模式控件只能改变 Layout Plan 的排版策略。
+9. 拖动“预览不透明度”，确认 1 为完全不透明、0 为完全透明，片段几何不变化。
+10. 在“随窗口适配”和“固定 1:1”之间切换；连续模式的单层逻辑尺寸为 600 × 700；
    virtual-pages 的单层高度按实际 pageCount、页高和页间距计算。视口只允许平移或
    等比缩放查看，不得重新排版或改变 Layout Plan。
-10. 记录平台、设备/模拟器、系统版本、构建 commit、上述每项结果和截图。
+11. 记录平台、设备/模拟器、系统版本、构建 commit、上述每项结果和截图。
 
 ## 4. Windows
 
@@ -89,15 +97,16 @@ Flutter 默认的 Visual Studio Generator 路径会在 `media_kit` 原生依赖�
 `msvc-build-environment` skill。脚本还会在首次构建时确定性解压 media_kit 所需的
 libmpv 与 ANGLE，避免 Ninja 在依赖文件生成前提前链接。
 
-### 当前自动验证记录（2026-08-29）
+### 当前自动验证记录（2026-08-30）
 
-- 根项目 MSVC/Ninja CTest：PASS（14/14）。
+- 根项目 MSVC/Ninja CTest：PASS（12/12）。
 - Flow/Playground/Manifest/Memory 定向 CTest：PASS（4/4）。
 - Flutter analyze：PASS（0 issues）。
-- Flutter test：PASS（24/24，包含 Native Assets 双合同集成测试）。
+- Flutter test：PASS（24/24，包含 Native Assets columns 合同和三模式 UI 集成测试）。
 - Windows Release Runner：PASS；确定性 Ninja 构建、安装及 Dart FFI smoke 均通过，产物为
   `examples/placeholder_demo/build/windows-ninja/runner/facetwire_placeholder_demo.exe`。
-- 手工三页视觉检查仍需在本提交收口后刷新。
+- 本次自动验证确认 columns 的 2 栏推进、`columnIndex`、内容身份稳定和非法栏宽拒绝；
+  三模式最终视觉结果仍按第 3 节在各目标设备记录截图。
 
 ## 5. Android
 
@@ -121,7 +130,10 @@ ABI，因此即使目标是 arm64 也会触发该网络请求。失败发生在 
 
 该脚本依次运行根 C/CTest（含统一 Playground Bridge）、Flutter analyze/test、
 macOS Debug 和 iOS Simulator Debug 构建。随后分别启动 macOS App 与 iOS Simulator
-App，执行第 3 节手工验收。
+App，执行第 3 节手工验收。可直接把
+[`../prompts/macos-ios-flow-columns-incremental-validation.md`](../prompts/macos-ios-flow-columns-incremental-validation.md)
+交给 Mac 上已经存在的 FacetWire Codex 项目；该提示词只补验本次共享 C/Flutter/Swift
+变更，不会把既有验证项目误当成新项目重建。
 
 iOS 真机仍需使用本地 Apple Developer Team 签名；Native Assets 会静态链接同一 C
 实现，不依赖任意外部动态插件加载。
@@ -137,6 +149,7 @@ iOS 真机仍需使用本地 Apple Developer Team 签名；Native Assets 会静�
 - contentCase 与 pageMode 正交；开关 virtual-pages 不得把 Level 2/3 改成 Level 1；
 - Level 1/2 的 virtual-pages 返回 3 页且 pageIndex 为 0、1、2；Level 3 返回 2 页且
   pageIndex 为 0、0、1。
+- columns 返回 1 页、2 栏，末段 columnIndex 为 1，并保留 Level 3 Placeholder 身份。
 
 在 visionOS Simulator 或 Vision Pro 真机中，Flow 区域应显示绿色
 “PASS · native Flow”。真机签名使用测试者自己的 Apple Developer Team。
@@ -148,7 +161,7 @@ iOS 真机仍需使用本地 Apple Developer Team 签名；Native Assets 会静�
 - 构建成功；
 - 自动测试成功；
 - UI 显示 Native PASS；
-- Level 1/2/3 分别在 continuous 与 virtual-pages 下符合预期；
+- Level 1/2/3 分别在 continuous、virtual-pages 与 columns 下符合预期；
 - 递归合成保留三层原始坐标与尺寸，单层检查只显示选中层；
 - L1/L2/L3 独立不透明度、整体预览不透明度、随窗口适配和固定 1:1 交互符合预期。
 

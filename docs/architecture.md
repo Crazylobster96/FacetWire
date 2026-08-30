@@ -133,9 +133,9 @@ decisions.
 4. **Implemented:** Core Content for text, image, animated image, video, and
    audio, with Placeholder, Text, Core Image, and Core Media reference plugins.
 5. **Partially implemented:** Flow Layout 0.1 now has its public ABI, manifest,
-   deterministic Layout Plan, continuous + block and virtual-pages + block
-   slices, including cross-page text ranges and whole-object page advancement.
-   The next gate is columns, inline objects, float/overlay, and pagination
+   deterministic Layout Plan, and continuous, virtual-pages, and columns block
+   slices, including cross-region text ranges and whole-object region
+   advancement. The next gate is inline objects, float/overlay, and pagination
    controls.
 6. Define and implement Subtitle/Cue rendering and Media Controls/Interaction.
 7. Define structured data sources, starting with CSV and adding Excel through

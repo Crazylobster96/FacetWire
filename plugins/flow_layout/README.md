@@ -9,20 +9,21 @@
 - `facetwire.layout.flow.v1` 公共 C ABI 与静态/动态查询入口；
 - `continuous` 单页连续区域与 `block` Paragraph/Object；
 - `virtual-pages` 多页区域、页内逻辑坐标、不可拆对象整体移页；
-- 文本片段跨页连续范围、continuation 标记和页/片段预算；
+- `columns` 等宽多栏区域、栏间距、先换栏后换页与每片段 `columnIndex`；
+- 文本片段跨栏/跨页连续范围、continuation 标记和页/片段预算；
 - Text Fragment Service 和 Child Measure Service；
 - 相邻 block 垂直 margin 取最大值；
 - Page/Fragment Sink 的成功、拒绝和失败平衡；
 - 稳定派生 ID、与指针地址无关的 128-bit Plan Key；
 - 预算、UTF-8、唯一 ID、inline 单一所有权和结构范围验证。
 
-尚未支持：columns、inline object 实际排版、float、overlay、break/keep/widow/orphan 控制。相关合法请求返回 `FW_STATUS_UNSUPPORTED`。Playground 已提供三页 virtual-pages 原生验证场景。
+尚未支持：inline object 实际排版、float、overlay、break/keep/widow/orphan 控制。相关合法请求返回 `FW_STATUS_UNSUPPORTED`。Playground 已提供 continuous、virtual-pages 和双栏 columns 三种原生验证场景；页数由输入内容计算，不作为固定合同。
 
 ## English
 
 `org.facetwire.reference.flow-layout` composes host-owned Flow Items, a Page Template, and bounded measurement services into a stable, cacheable Layout Plan. It does not parse ASP/JSON, access resources, shape fonts, or call image, media, or chart renderers.
 
-The current experimental slice supports the public `facetwire.layout.flow.v1` C ABI, continuous and virtual-page block layout, cross-page text ranges, whole-object page advancement, Text Fragment and Child Measure services, adjacent vertical margin collapse, balanced Page/Fragment sink calls, stable derived IDs, pointer-independent 128-bit Plan Keys, and bounded structural validation. Columns, inline object layout, floats, overlays, and break/keep/widow/orphan rules remain pending and return `FW_STATUS_UNSUPPORTED`. The Playground includes a native three-page verification case.
+The current experimental slice supports the public `facetwire.layout.flow.v1` C ABI; continuous, virtual-page, and multi-column block layout; cross-region text ranges; whole-object column/page advancement; Text Fragment and Child Measure services; adjacent vertical margin collapse; balanced Page/Fragment sink calls; stable derived IDs; pointer-independent 128-bit Plan Keys; and bounded structural validation. Inline object layout, floats, overlays, and break/keep/widow/orphan rules remain pending and return `FW_STATUS_UNSUPPORTED`. The Playground exposes continuous, virtual-pages, and two-column native verification modes; page count is content-dependent rather than a fixed contract.
 
 ## Build and test / 构建与测试
 

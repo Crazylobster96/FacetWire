@@ -37,6 +37,8 @@ typedef struct fake_sink_state {
     char source_ids[16][32];
     char page_ids[16][96];
     uint32_t page_indices[16];
+    uint32_t column_indices[16];
+    uint32_t page_column_counts[16];
     size_t text_starts[16];
     size_t text_ends[16];
     uint32_t continuation_before[16];
@@ -138,8 +140,9 @@ static fw_status FW_CALL fake_begin_page(void *user_data,
     fake_sink_state *state = (fake_sink_state *)user_data;
     size_t copy_length;
     if (page == NULL || page->page_index != state->begin_count ||
-        page->column_count != 1u || state->begin_count >= 16u)
+        page->column_count == 0u || state->begin_count >= 16u)
         return FW_STATUS_PLUGIN_ERROR;
+    state->page_column_counts[state->begin_count] = page->column_count;
     copy_length = page->derived_page_id.length;
     if (copy_length >= sizeof(state->page_ids[state->begin_count]))
         copy_length = sizeof(state->page_ids[state->begin_count]) - 1u;
@@ -161,6 +164,7 @@ static fw_status FW_CALL fake_emit_fragment(void *user_data,
     state->kinds[index] = fragment->kind;
     state->bounds[index] = fragment->bounds;
     state->page_indices[index] = fragment->page_index;
+    state->column_indices[index] = fragment->column_index;
     state->text_starts[index] = fragment->text_start_utf8_byte;
     state->text_ends[index] = fragment->text_end_utf8_byte;
     state->continuation_before[index] = fragment->continuation_before;
@@ -334,6 +338,7 @@ static int test_descriptor_and_validation(const fw_plugin_api_v1 *plugin,
     CHECK(api->get_parameter_schema(handle, &schema) == FW_STATUS_OK);
     CHECK(schema.data != NULL && strstr(schema.data, "continuous") != NULL);
     CHECK(strstr(schema.data, "virtual-pages") != NULL);
+    CHECK(strstr(schema.data, "columns") != NULL);
     make_fixture(&fixture, "demo", "p1", "hero", "p2", "Hello", "World");
     memset(&result, 0, sizeof(result));
     result.struct_size = sizeof(result);
@@ -547,7 +552,7 @@ static int test_virtual_page_rejects_zero_sized_object(
     return 1;
 }
 
-static int test_unsupported_slice(const fw_flow_layout_api_v1 *api,
+static int test_columns_block_progression(const fw_flow_layout_api_v1 *api,
     fw_plugin_handle handle) {
     flow_fixture fixture;
     fake_text_state text_state = {0};
@@ -557,6 +562,108 @@ static int test_unsupported_slice(const fw_flow_layout_api_v1 *api,
     make_fixture(&fixture, "demo", "p1", "hero", "p2", "Hello", "World");
     fixture.request.page_template.mode = FW_FLOW_COLUMNS;
     fixture.request.page_template.column_count = 2u;
+    fixture.request.page_template.column_gap = 20.0f;
+    fixture.request.page_template.page_size.height = 160.0f;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.complete == 1u && result.page_count == 1u);
+    CHECK(result.fragment_count == 3u);
+    CHECK(sink_state.begin_count == 1u && sink_state.end_count == 1u);
+    CHECK(sink_state.page_column_counts[0] == 2u);
+    CHECK(sink_state.page_indices[0] == 0u &&
+        sink_state.page_indices[1] == 0u &&
+        sink_state.page_indices[2] == 0u);
+    CHECK(sink_state.column_indices[0] == 0u &&
+        sink_state.column_indices[1] == 0u &&
+        sink_state.column_indices[2] == 1u);
+    CHECK(fabsf(sink_state.bounds[0].x - 20.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[2].x - 310.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[2].y - 22.0f) < 0.001f);
+    return 1;
+}
+
+static int test_paragraph_ranges_cross_columns_and_pages(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "columns", "p1", "hero", "p2", "abcdef", "unused");
+    fixture.request.item_count = 1u;
+    fixture.request.page_template.mode = FW_FLOW_COLUMNS;
+    fixture.request.page_template.column_count = 2u;
+    fixture.request.page_template.column_gap = 20.0f;
+    text_state.max_bytes_per_fragment = 2u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.complete == 1u && result.page_count == 2u);
+    CHECK(result.text_fragment_count == 3u);
+    CHECK(sink_state.page_column_counts[0] == 2u &&
+        sink_state.page_column_counts[1] == 2u);
+    CHECK(sink_state.page_indices[0] == 0u &&
+        sink_state.page_indices[1] == 0u &&
+        sink_state.page_indices[2] == 1u);
+    CHECK(sink_state.column_indices[0] == 0u &&
+        sink_state.column_indices[1] == 1u &&
+        sink_state.column_indices[2] == 0u);
+    CHECK(sink_state.text_starts[0] == 0u &&
+        sink_state.text_ends[0] == 2u);
+    CHECK(sink_state.text_starts[1] == 2u &&
+        sink_state.text_ends[1] == 4u);
+    CHECK(sink_state.text_starts[2] == 4u &&
+        sink_state.text_ends[2] == 6u);
+    return 1;
+}
+
+static int test_columns_page_budget_is_balanced(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "columns", "p1", "hero", "p2", "abcdef", "unused");
+    fixture.request.item_count = 1u;
+    fixture.request.page_template.mode = FW_FLOW_COLUMNS;
+    fixture.request.page_template.column_count = 2u;
+    fixture.request.page_template.column_gap = 20.0f;
+    fixture.request.budget.max_pages = 1u;
+    text_state.max_bytes_per_fragment = 2u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_RESOURCE_LIMIT);
+    CHECK(result.complete == 0u && result.page_count == 1u);
+    CHECK(sink_state.begin_count == 1u && sink_state.end_count == 1u);
+    CHECK(sink_state.fragment_count == 2u);
+    return 1;
+}
+
+static int test_invalid_column_geometry(const fw_flow_layout_api_v1 *api,
+    fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fw_flow_validation_result_v1 result = {0};
+    make_fixture(&fixture, "columns", "p1", "hero", "p2", "Hello", "World");
+    fixture.request.page_template.mode = FW_FLOW_COLUMNS;
+    fixture.request.page_template.column_count = 2u;
+    fixture.request.page_template.column_gap = 500.0f;
+    result.struct_size = sizeof(result);
+    CHECK(api->validate(handle, &fixture.request, &result) ==
+        FW_STATUS_INVALID_ARGUMENT);
+    CHECK(result.diagnostic_key.length == strlen("flow.invalid_column_geometry"));
+    CHECK(memcmp(result.diagnostic_key.data, "flow.invalid_column_geometry",
+        result.diagnostic_key.length) == 0);
+    return 1;
+}
+
+static int test_unsupported_slice(const fw_flow_layout_api_v1 *api,
+    fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "demo", "p1", "hero", "p2", "Hello", "World");
+    fixture.items[1].placement.mode = FW_FLOW_PLACE_FLOAT_START;
     CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
         &sink_state, &result) == FW_STATUS_UNSUPPORTED);
     CHECK(sink_state.begin_count == 0u);
@@ -590,6 +697,10 @@ int main(void) {
     passed &= test_virtual_page_budget_is_balanced(api, handle);
     passed &= test_virtual_page_retries_text_on_fresh_page(api, handle);
     passed &= test_virtual_page_rejects_zero_sized_object(api, handle);
+    passed &= test_columns_block_progression(api, handle);
+    passed &= test_paragraph_ranges_cross_columns_and_pages(api, handle);
+    passed &= test_columns_page_budget_is_balanced(api, handle);
+    passed &= test_invalid_column_geometry(api, handle);
     passed &= test_unsupported_slice(api, handle);
     plugin->unload(handle);
     if (!passed) return 1;

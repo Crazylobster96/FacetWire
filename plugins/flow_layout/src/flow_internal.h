@@ -46,4 +46,10 @@ fw_status fl_compose_virtual_pages(
     const fw_flow_plan_sink_v1 *sink,
     fw_flow_layout_result_v1 *out_result);
 
+fw_status fl_compose_columns(
+    const fw_flow_layout_request_v1 *request,
+    const fw_flow_layout_services_v1 *services,
+    const fw_flow_plan_sink_v1 *sink,
+    fw_flow_layout_result_v1 *out_result);
+
 #endif

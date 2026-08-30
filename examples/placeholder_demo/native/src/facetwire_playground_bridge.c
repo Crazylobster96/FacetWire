@@ -33,6 +33,7 @@ typedef struct fwui_flow_fragment_record {
     char source_item_id[96];
     char content_kind[48];
     uint32_t page_index;
+    uint32_t column_index;
     fw_rect_f32 bounds;
     size_t text_start;
     size_t text_end;
@@ -221,6 +222,7 @@ static fw_status FW_CALL flow_emit_fragment(
     record = &state->fragments[state->fragment_count++];
     record->kind = fragment->kind;
     record->page_index = fragment->page_index;
+    record->column_index = fragment->column_index;
     copy_view(record->source_item_id, sizeof(record->source_item_id),
         fragment->source_item_id);
     copy_view(record->content_kind, sizeof(record->content_kind),
@@ -282,9 +284,11 @@ static fwui_status serialize_flow_report(
         "\"textFragmentCount\":%u,\"objectFragmentCount\":%u,"
         "\"continuousExtent\":{\"width\":%.3f,\"height\":%.3f},"
         "\"pageSize\":{\"width\":%.3f,\"height\":%.3f},"
-        "\"pageGap\":%.3f,"
+        "\"pageGap\":%.3f,\"columnCount\":%u,\"columnGap\":%.3f,"
+        "\"contentBounds\":{\"x\":%.3f,\"y\":%.3f,"
+        "\"width\":%.3f,\"height\":%.3f},"
         "\"planKey\":\"%016llx%016llx\",\"pagesBalanced\":%s,"
-        "\"supportedSlice\":\"continuous+virtual-pages+block\","
+        "\"supportedSlice\":\"continuous+virtual-pages+columns+block\","
         "\"nativeRuntime\":true,\"fragments\":[",
         content_case + (page_mode * 3u), content_case, page_mode,
         (unsigned int)compose_status,
@@ -293,6 +297,10 @@ static fwui_status serialize_flow_report(
         result->object_fragment_count, result->continuous_extent.width,
         result->continuous_extent.height,
         sink->page.size.width, sink->page.size.height, sink->page_gap,
+        sink->page.column_count,
+        page_mode == FWUI_FLOW_PAGE_COLUMNS ? 24.0 : 0.0,
+        sink->page.content_bounds.x, sink->page.content_bounds.y,
+        sink->page.content_bounds.width, sink->page.content_bounds.height,
         (unsigned long long)result->plan_key_high,
         (unsigned long long)result->plan_key_low,
         sink->begin_count == sink->end_count ? "true" : "false")) {
@@ -303,12 +311,13 @@ static fwui_status serialize_flow_report(
         if (!append_json(json, sizeof(json), &offset,
             "%s{\"kind\":\"%s\",\"sourceItemId\":\"%s\","
             "\"contentKind\":\"%s\",\"pageIndex\":%u,"
+            "\"columnIndex\":%u,"
             "\"bounds\":{\"x\":%.3f,"
             "\"y\":%.3f,\"width\":%.3f,\"height\":%.3f},"
             "\"textStart\":%llu,\"textEnd\":%llu}",
             index == 0u ? "" : ",", fragment_kind_name(fragment->kind),
             fragment->source_item_id, fragment->content_kind,
-            fragment->page_index,
+            fragment->page_index, fragment->column_index,
             fragment->bounds.x, fragment->bounds.y, fragment->bounds.width,
             fragment->bounds.height,
             (unsigned long long)fragment->text_start,
@@ -375,7 +384,7 @@ fwui_status fwui_runtime_snapshot(
         "\"placeholder\",\"flow-layout\"],"
         "\"flowCapability\":\"facetwire.layout.flow\","
         "\"flowInterfaceVersion\":1,"
-        "\"flowSupportedSlice\":\"continuous+virtual-pages+block\"}";
+        "\"flowSupportedSlice\":\"continuous+virtual-pages+columns+block\"}";
     if (context == NULL || context->flow == NULL ||
         !buffer_available(out_utf8_json) || context->abi_version != 1u) {
         return FWUI_STATUS_INVALID_ARGUMENT;
@@ -482,7 +491,8 @@ fwui_status fwui_compose_flow_demo_v2(
     if (context == NULL || context->flow == NULL ||
         !buffer_available(out_layout_plan_utf8_json) ||
         !isfinite(width) || !isfinite(height) || width < 240.0f ||
-        height < 320.0f || content_case > 2u || page_mode > 1u) {
+        height < 320.0f || content_case > 2u ||
+        page_mode > FWUI_FLOW_PAGE_COLUMNS) {
         return FWUI_STATUS_INVALID_ARGUMENT;
     }
     case_state.demo_case = content_case;
@@ -538,22 +548,27 @@ fwui_status fwui_compose_flow_demo_v2(
     items[2].placement.margins.bottom = 6.0f;
     memset(&request, 0, sizeof(request));
     request.struct_size = sizeof(request);
-    request.request_id = UINT64_C(1000) + (content_case * 2u) + page_mode;
+    request.request_id = UINT64_C(1000) + (content_case * 3u) + page_mode;
     request.flow_id = string_view(content_case == 0u ? "flow.level-1" :
         (content_case == 1u ? "flow.level-2" : "flow.level-3"));
     request.items = items;
     request.item_count = 3u;
     request.page_template.struct_size = sizeof(request.page_template);
     request.page_template.mode = page_mode == FWUI_FLOW_PAGE_VIRTUAL ?
-        FW_FLOW_VIRTUAL_PAGES : FW_FLOW_CONTINUOUS;
+        FW_FLOW_VIRTUAL_PAGES : (page_mode == FWUI_FLOW_PAGE_COLUMNS ?
+            FW_FLOW_COLUMNS : FW_FLOW_CONTINUOUS);
     request.page_template.page_size.width = width;
     request.page_template.page_size.height =
-        page_mode == FWUI_FLOW_PAGE_VIRTUAL ? 240.0f : height;
+        page_mode == FWUI_FLOW_PAGE_VIRTUAL ? 240.0f :
+            (page_mode == FWUI_FLOW_PAGE_COLUMNS ? 300.0f : height);
     request.page_template.margins.left = 24.0f;
     request.page_template.margins.top = 24.0f;
     request.page_template.margins.right = 24.0f;
     request.page_template.margins.bottom = 24.0f;
-    request.page_template.column_count = 1u;
+    request.page_template.column_count =
+        page_mode == FWUI_FLOW_PAGE_COLUMNS ? 2u : 1u;
+    request.page_template.column_gap =
+        page_mode == FWUI_FLOW_PAGE_COLUMNS ? 24.0f : 0.0f;
     request.page_template.minimum_text_width = 120.0f;
     request.budget.struct_size = sizeof(request.budget);
     request.target.struct_size = sizeof(request.target);
@@ -562,7 +577,7 @@ fwui_status fwui_compose_flow_demo_v2(
     request.target.medium = FW_RENDER_MEDIUM_SCREEN;
     request.target.supports_alpha = 1u;
     request.document_revision = 1u;
-    request.layout_revision = 1u + (content_case * 2u) + page_mode;
+    request.layout_revision = 1u + (content_case * 3u) + page_mode;
     request.profile_key = string_view("playground-flow-demo");
     memset(&text_service, 0, sizeof(text_service));
     text_service.struct_size = sizeof(text_service);

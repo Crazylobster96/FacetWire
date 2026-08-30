@@ -14,13 +14,18 @@ typedef struct fl_virtual_context {
     fl_hash page_seed;
     fl_hash plan_hash;
     fw_rect_f32 content;
+    fw_rect_f32 region;
     uint32_t page_index;
+    uint32_t column_index;
+    uint32_t column_count;
     uint32_t ordinal;
     uint32_t iterations;
     uint32_t page_open;
     uint32_t page_has_fragments;
+    uint32_t column_has_fragments;
     float cursor_y;
     float previous_bottom;
+    float column_gap;
 } fl_virtual_context;
 
 static int fl_vp_bool(uint32_t value) {
@@ -61,6 +66,21 @@ static int fl_vp_offset_boundary(const fw_flow_item_v1 *item, size_t offset) {
     return offset == cursor;
 }
 
+static void fl_vp_reset_column(fl_virtual_context *context) {
+    const float gaps = (float)(context->column_count - 1u) *
+        context->column_gap;
+    const float width = (context->content.width - gaps) /
+        (float)context->column_count;
+    context->region.x = context->content.x +
+        (float)context->column_index * (width + context->column_gap);
+    context->region.y = context->content.y;
+    context->region.width = width;
+    context->region.height = context->content.height;
+    context->cursor_y = context->region.y;
+    context->previous_bottom = 0.0f;
+    context->column_has_fragments = 0u;
+}
+
 static fw_status fl_vp_open_page(fl_virtual_context *context) {
     fw_flow_page_v1 page;
     char page_id[96];
@@ -83,13 +103,13 @@ static fw_status fl_vp_open_page(fl_virtual_context *context) {
     page.derived_page_id.length = (size_t)length;
     page.size = context->request->page_template.page_size;
     page.content_bounds = context->content;
-    page.column_count = 1u;
+    page.column_count = context->column_count;
     status = context->sink->begin_page(context->sink->user_data, &page);
     if (status != FW_STATUS_OK) return FW_STATUS_SINK_REJECTED;
     context->page_open = 1u;
     context->page_has_fragments = 0u;
-    context->cursor_y = context->content.y;
-    context->previous_bottom = 0.0f;
+    context->column_index = 0u;
+    fl_vp_reset_column(context);
     ++context->result->page_count;
     fl_hash_u64(&context->plan_hash, context->page_index);
     return FW_STATUS_OK;
@@ -111,11 +131,23 @@ static fw_status fl_vp_next_page(fl_virtual_context *context) {
     return fl_vp_open_page(context);
 }
 
+static fw_status fl_vp_next_region(fl_virtual_context *context) {
+    if (context->column_index + 1u < context->column_count) {
+        ++context->column_index;
+        fl_vp_reset_column(context);
+        return FW_STATUS_OK;
+    }
+    return fl_vp_next_page(context);
+}
+
 static fw_status fl_vp_emit(fl_virtual_context *context,
     const fw_flow_fragment_v1 *fragment) {
     const fw_status status = fl_emit(context->sink, fragment,
         context->result, &context->plan_hash);
-    if (status == FW_STATUS_OK) context->page_has_fragments = 1u;
+    if (status == FW_STATUS_OK) {
+        context->page_has_fragments = 1u;
+        context->column_has_fragments = 1u;
+    }
     return status;
 }
 
@@ -157,7 +189,7 @@ static fw_status fl_vp_compose_paragraph(fl_virtual_context *context,
         fw_flow_fragment_v1 fragment;
         char id[256];
         fw_status status;
-        float remaining = context->content.y + context->content.height -
+        float remaining = context->region.y + context->region.height -
             context->cursor_y;
         const float line_height = item->text_style.font_size *
             item->text_style.line_height_multiplier;
@@ -165,13 +197,13 @@ static fw_status fl_vp_compose_paragraph(fl_virtual_context *context,
             context->result->fragment_count >= context->budget.fragments)
             return FW_STATUS_RESOURCE_LIMIT;
         if (remaining + 0.0001f < line_height) {
-            if (context->page_has_fragments == 0u)
+            if (context->column_has_fragments == 0u)
                 return FW_STATUS_RESOURCE_LIMIT;
-            status = fl_vp_next_page(context);
+            status = fl_vp_next_region(context);
             if (status != FW_STATUS_OK) return status;
             if (continuation == 0u)
                 context->cursor_y += item->placement.margins.top;
-            remaining = context->content.y + context->content.height -
+            remaining = context->region.y + context->region.height -
                 context->cursor_y;
         }
         memset(&request, 0, sizeof(request));
@@ -182,17 +214,17 @@ static fw_status fl_vp_compose_paragraph(fl_virtual_context *context,
         request.start_utf8_byte = start;
         request.style = item->text_style;
         request.direction = item->direction;
-        request.region.x = context->content.x;
+        request.region.x = context->region.x;
         request.region.y = context->cursor_y;
-        request.region.width = context->content.width;
+        request.region.width = context->region.width;
         request.region.height = remaining;
         memset(&metrics, 0, sizeof(metrics));
         metrics.struct_size = sizeof(metrics);
         status = text->measure_next(text->user_data, &request, &metrics);
         if (status == FW_STATUS_RESOURCE_LIMIT &&
-            context->page_has_fragments != 0u &&
-            request.region.height + 0.0001f < context->content.height) {
-            status = fl_vp_next_page(context);
+            context->column_has_fragments != 0u &&
+            request.region.height + 0.0001f < context->region.height) {
+            status = fl_vp_next_region(context);
             if (status != FW_STATUS_OK) return status;
             if (continuation == 0u)
                 context->cursor_y += item->placement.margins.top;
@@ -210,8 +242,9 @@ static fw_status fl_vp_compose_paragraph(fl_virtual_context *context,
         if (status != FW_STATUS_OK) return status;
         fragment.source_item_id = item->id;
         fragment.page_index = context->page_index;
+        fragment.column_index = context->column_index;
         fragment.bounds = metrics.used_bounds;
-        fragment.clip = context->content;
+        fragment.clip = context->region;
         fragment.z = item->placement.z;
         fragment.text_start_utf8_byte = start;
         fragment.text_end_utf8_byte = metrics.end_utf8_byte;
@@ -226,7 +259,7 @@ static fw_status fl_vp_compose_paragraph(fl_virtual_context *context,
         start = metrics.end_utf8_byte;
         if (metrics.reached_end != 0u) return FW_STATUS_OK;
         continuation = 1u;
-        status = fl_vp_next_page(context);
+        status = fl_vp_next_region(context);
         if (status != FW_STATUS_OK) return status;
     }
 }
@@ -249,12 +282,12 @@ static fw_status fl_vp_measure_object(fl_virtual_context *context,
     request.constraints.struct_size = sizeof(request.constraints);
     request.constraints.min_width = item->placement.min_width;
     request.constraints.max_width = item->placement.max_width == 0.0f ?
-        context->content.width :
-        fl_min(item->placement.max_width, context->content.width);
+        context->region.width :
+        fl_min(item->placement.max_width, context->region.width);
     request.constraints.min_height = item->placement.min_height;
     request.constraints.max_height = item->placement.max_height == 0.0f ?
-        context->content.height :
-        fl_min(item->placement.max_height, context->content.height);
+        context->region.height :
+        fl_min(item->placement.max_height, context->region.height);
     request.constraints.em_size = item->text_style.font_size;
     request.constraints.line_height = item->text_style.font_size *
         item->text_style.line_height_multiplier;
@@ -334,22 +367,22 @@ static fw_status fl_vp_compose_object(fl_virtual_context *context,
     float remaining;
     if (++context->iterations > context->budget.iterations ||
         context->result->fragment_count >= context->budget.fragments ||
-        item->placement.min_width > context->content.width)
+        item->placement.min_width > context->region.width)
         return FW_STATUS_RESOURCE_LIMIT;
     status = fl_vp_measure_object(context, item, &measured, &size);
     if (status != FW_STATUS_OK) return status;
-    remaining = context->content.y + context->content.height -
+    remaining = context->region.y + context->region.height -
         context->cursor_y;
-    if (size.width > context->content.width || size.height > remaining) {
-        if (context->page_has_fragments != 0u) {
-            status = fl_vp_next_page(context);
+    if (size.width > context->region.width || size.height > remaining) {
+        if (context->column_has_fragments != 0u) {
+            status = fl_vp_next_region(context);
             if (status != FW_STATUS_OK) return status;
             context->cursor_y += item->placement.margins.top;
-            remaining = context->content.y + context->content.height -
+            remaining = context->region.y + context->region.height -
                 context->cursor_y;
         }
     }
-    status = fl_vp_fit_object(item, &size, context->content.width, remaining);
+    status = fl_vp_fit_object(item, &size, context->region.width, remaining);
     if (status != FW_STATUS_OK) return status;
     memset(&fragment, 0, sizeof(fragment));
     fragment.struct_size = sizeof(fragment);
@@ -362,11 +395,12 @@ static fw_status fl_vp_compose_object(fl_virtual_context *context,
     fragment.source_item_id = item->id;
     fragment.content_kind = item->content_kind;
     fragment.page_index = context->page_index;
-    fragment.bounds.x = context->content.x + item->placement.offset_x;
+    fragment.column_index = context->column_index;
+    fragment.bounds.x = context->region.x + item->placement.offset_x;
     fragment.bounds.y = context->cursor_y + item->placement.offset_y;
     fragment.bounds.width = size.width;
     fragment.bounds.height = size.height;
-    fragment.clip = context->content;
+    fragment.clip = context->region;
     fragment.z = item->placement.z;
     fragment.layout_fingerprint_high = measured.fingerprint_high;
     fragment.layout_fingerprint_low = measured.fingerprint_low;
@@ -400,7 +434,7 @@ static fw_status fl_vp_supported_slice(
     return FW_STATUS_OK;
 }
 
-fw_status fl_compose_virtual_pages(
+static fw_status fl_compose_paged_blocks(
     const fw_flow_layout_request_v1 *request,
     const fw_flow_layout_services_v1 *services,
     const fw_flow_plan_sink_v1 *sink,
@@ -419,6 +453,10 @@ fw_status fl_compose_virtual_pages(
     context.budget = fl_resolve_budget(&request->budget);
     context.page_seed = fl_request_hash(request);
     context.plan_hash = context.page_seed;
+    context.column_count = request->page_template.mode == FW_FLOW_COLUMNS ?
+        request->page_template.column_count : 1u;
+    context.column_gap = request->page_template.mode == FW_FLOW_COLUMNS ?
+        request->page_template.column_gap : 0.0f;
     context.content.x = request->page_template.margins.left;
     context.content.y = request->page_template.margins.top;
     context.content.width = request->page_template.page_size.width -
@@ -459,4 +497,24 @@ fw_status fl_compose_virtual_pages(
     out_result->plan_key_low = context.plan_hash.low;
     out_result->complete = status == FW_STATUS_OK;
     return status;
+}
+
+fw_status fl_compose_virtual_pages(
+    const fw_flow_layout_request_v1 *request,
+    const fw_flow_layout_services_v1 *services,
+    const fw_flow_plan_sink_v1 *sink,
+    fw_flow_layout_result_v1 *out_result) {
+    if (request == NULL || request->page_template.mode != FW_FLOW_VIRTUAL_PAGES)
+        return FW_STATUS_INVALID_ARGUMENT;
+    return fl_compose_paged_blocks(request, services, sink, out_result);
+}
+
+fw_status fl_compose_columns(
+    const fw_flow_layout_request_v1 *request,
+    const fw_flow_layout_services_v1 *services,
+    const fw_flow_plan_sink_v1 *sink,
+    fw_flow_layout_result_v1 *out_result) {
+    if (request == NULL || request->page_template.mode != FW_FLOW_COLUMNS)
+        return FW_STATUS_INVALID_ARGUMENT;
+    return fl_compose_paged_blocks(request, services, sink, out_result);
 }

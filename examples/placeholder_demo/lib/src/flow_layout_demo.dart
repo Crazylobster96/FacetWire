@@ -231,6 +231,7 @@ final class FlowPlanFragment {
     required this.sourceItemId,
     required this.contentKind,
     required this.pageIndex,
+    required this.columnIndex,
     required this.bounds,
   });
 
@@ -238,6 +239,7 @@ final class FlowPlanFragment {
   final String sourceItemId;
   final String contentKind;
   final int pageIndex;
+  final int columnIndex;
   final Rect bounds;
 
   factory FlowPlanFragment.fromJson(Map<String, Object?> value) {
@@ -247,6 +249,7 @@ final class FlowPlanFragment {
       sourceItemId: value['sourceItemId']! as String,
       contentKind: value['contentKind']! as String,
       pageIndex: (value['pageIndex'] as num?)?.toInt() ?? 0,
+      columnIndex: (value['columnIndex'] as num?)?.toInt() ?? 0,
       bounds: Rect.fromLTWH(
         (bounds['x']! as num).toDouble(),
         (bounds['y']! as num).toDouble(),
@@ -268,6 +271,10 @@ final class FlowPlanReport {
     required this.continuousExtent,
     required this.pageSize,
     required this.pageGap,
+    required this.pageMode,
+    required this.columnCount,
+    required this.columnGap,
+    required this.contentBounds,
     required this.planKey,
     required this.pagesBalanced,
     required this.nativeRuntime,
@@ -284,6 +291,10 @@ final class FlowPlanReport {
   final Size continuousExtent;
   final Size pageSize;
   final double pageGap;
+  final int pageMode;
+  final int columnCount;
+  final double columnGap;
+  final Rect contentBounds;
   final String planKey;
   final bool pagesBalanced;
   final bool nativeRuntime;
@@ -294,6 +305,14 @@ final class FlowPlanReport {
     final value = jsonDecode(source) as Map<String, Object?>;
     final extent = value['continuousExtent']! as Map<String, Object?>;
     final pageSize = value['pageSize']! as Map<String, Object?>;
+    final contentBounds =
+        value['contentBounds'] as Map<String, Object?>? ??
+        <String, Object?>{
+          'x': 24.0,
+          'y': 24.0,
+          'width': (pageSize['width']! as num).toDouble() - 48.0,
+          'height': (pageSize['height']! as num).toDouble() - 48.0,
+        };
     return FlowPlanReport(
       pluginId: value['pluginId']! as String,
       capability: value['capability']! as String,
@@ -310,6 +329,15 @@ final class FlowPlanReport {
         (pageSize['height']! as num).toDouble(),
       ),
       pageGap: (value['pageGap']! as num).toDouble(),
+      pageMode: (value['pageMode'] as num?)?.toInt() ?? 0,
+      columnCount: (value['columnCount'] as num?)?.toInt() ?? 1,
+      columnGap: (value['columnGap'] as num?)?.toDouble() ?? 0,
+      contentBounds: Rect.fromLTWH(
+        (contentBounds['x']! as num).toDouble(),
+        (contentBounds['y']! as num).toDouble(),
+        (contentBounds['width']! as num).toDouble(),
+        (contentBounds['height']! as num).toDouble(),
+      ),
       planKey: value['planKey']! as String,
       pagesBalanced: value['pagesBalanced']! as bool,
       nativeRuntime: value['nativeRuntime'] as bool? ?? false,
@@ -328,6 +356,8 @@ enum FlowCanvasMode { fit, actualSize }
 
 enum FlowSceneMode { recursive, single }
 
+enum FlowPageMode { continuous, virtualPages, columns }
+
 class FlowLayoutDemoScreen extends StatefulWidget {
   const FlowLayoutDemoScreen({required this.client, this.loader, super.key});
 
@@ -343,7 +373,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
   List<FlowPlanReport>? _reports;
   Object? _error;
   var _selectedLevel = 0;
-  var _virtualPagesProbe = false;
+  var _pageMode = FlowPageMode.continuous;
   var _opacity = 0.9;
   var _sceneMode = FlowSceneMode.recursive;
   final _levelOpacities = <double>[1.0, 0.78, 0.62];
@@ -387,7 +417,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
       width: level.width,
       height: level.height,
       contentCase: selected,
-      virtualPages: _virtualPagesProbe,
+      pageMode: _pageMode.index,
     );
     return FlowPlanReport.fromJson(source);
   }
@@ -398,13 +428,13 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
           _compose(package, index),
       ]);
 
-  Future<void> _refresh({int? level, bool? virtualPages}) async {
+  Future<void> _refresh({int? level, FlowPageMode? pageMode}) async {
     final package = _package;
     if (package == null) return;
     final selected = level ?? _selectedLevel;
     setState(() {
       _selectedLevel = selected;
-      if (virtualPages != null) _virtualPagesProbe = virtualPages;
+      if (pageMode != null) _pageMode = pageMode;
       _loading = true;
     });
     try {
@@ -437,7 +467,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
           child: Padding(
             padding: EdgeInsets.only(bottom: 6),
             child: Text(
-              '三层递归场景 · Native Layout Plan · continuous / virtual-pages + block',
+              '三层递归场景 · Native Layout Plan · continuous / virtual-pages / columns + block',
             ),
           ),
         ),
@@ -508,12 +538,9 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
     if (_sceneMode == FlowSceneMode.recursive) {
       return _buildRecursivePreview(package, reports);
     }
-    final canvasWidth = _virtualPagesProbe
-        ? report.pageSize.width
-        : level.width;
-    final canvasHeight = _virtualPagesProbe
-        ? report.continuousExtent.height
-        : level.height;
+    final paged = _pageMode != FlowPageMode.continuous;
+    final canvasWidth = paged ? report.pageSize.width : level.width;
+    final canvasHeight = paged ? report.continuousExtent.height : level.height;
     final canvas = Opacity(
       opacity: _opacity,
       child: SizedBox(
@@ -522,15 +549,13 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
         height: canvasHeight,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: _virtualPagesProbe
-                ? const Color(0xffe8e9ef)
-                : const Color(0xfff8f9ff),
+            color: paged ? const Color(0xffe8e9ef) : const Color(0xfff8f9ff),
             border: Border.all(color: const Color(0xff6574a8), width: 2),
           ),
           child: Stack(
             clipBehavior: Clip.hardEdge,
             children: [
-              if (_virtualPagesProbe)
+              if (paged)
                 for (
                   var pageIndex = 0;
                   pageIndex < report.pageCount;
@@ -549,11 +574,27 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
                       ),
                     ),
                   ),
+              if (_pageMode == FlowPageMode.columns)
+                for (
+                  var pageIndex = 0;
+                  pageIndex < report.pageCount;
+                  pageIndex += 1
+                )
+                  for (
+                    var columnIndex = 0;
+                    columnIndex < report.columnCount;
+                    columnIndex += 1
+                  )
+                    _FlowColumnGuide(
+                      report: report,
+                      pageIndex: pageIndex,
+                      columnIndex: columnIndex,
+                    ),
               for (final fragment in report.fragments)
                 _FlowFragmentView(
                   fragment: fragment,
                   item: level.items[fragment.sourceItemId],
-                  topOffset: _virtualPagesProbe
+                  topOffset: paged
                       ? fragment.pageIndex *
                             (report.pageSize.height + report.pageGap)
                       : 0,
@@ -646,7 +687,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
                             levelIndex: index,
                             level: package.levels[index],
                             report: reports[index],
-                            virtualPages: _virtualPagesProbe,
+                            pageMode: _pageMode,
                           ),
                         ),
                         if (package.levels[index].childBounds != null)
@@ -748,13 +789,24 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
                     setState(() => _levelOpacities[index] = value),
               ),
             ],
-          SwitchListTile(
-            key: const ValueKey('flow-virtual-pages-probe'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('使用 virtual-pages'),
-            subtitle: const Text('真实分页：对象整体移页，片段使用页内逻辑坐标'),
-            value: _virtualPagesProbe,
-            onChanged: (value) => _refresh(virtualPages: value),
+          const SizedBox(height: 10),
+          Text(
+            'Page mode / 页面模式',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 6),
+          SegmentedButton<FlowPageMode>(
+            key: const ValueKey('flow-page-mode'),
+            segments: const [
+              ButtonSegment(value: FlowPageMode.continuous, label: Text('连续')),
+              ButtonSegment(
+                value: FlowPageMode.virtualPages,
+                label: Text('虚拟页'),
+              ),
+              ButtonSegment(value: FlowPageMode.columns, label: Text('双栏')),
+            ],
+            selected: {_pageMode},
+            onSelectionChanged: (value) => _refresh(pageMode: value.single),
           ),
           Text('Viewer opacity / 预览不透明度 ${(_opacity * 100).round()}%'),
           Slider(
@@ -787,6 +839,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
                 _StatusChip('Native', report.nativeRuntime),
                 _StatusChip('Complete', report.complete),
                 _StatusChip('Balanced', report.pagesBalanced),
+                Chip(label: Text('${report.columnCount} columns')),
                 Chip(label: Text('Status ${report.composeStatus}')),
                 Chip(label: Text('${report.fragmentCount} fragments')),
               ],
@@ -830,33 +883,32 @@ class _FlowPlanSurface extends StatelessWidget {
     required this.levelIndex,
     required this.level,
     required this.report,
-    required this.virtualPages,
+    required this.pageMode,
   });
 
   final int levelIndex;
   final FlowSceneLevel level;
   final FlowPlanReport report;
-  final bool virtualPages;
+  final FlowPageMode pageMode;
 
   @override
   Widget build(BuildContext context) {
-    final width = virtualPages ? report.pageSize.width : level.width;
-    final height = virtualPages ? report.continuousExtent.height : level.height;
+    final paged = pageMode != FlowPageMode.continuous;
+    final width = paged ? report.pageSize.width : level.width;
+    final height = paged ? report.continuousExtent.height : level.height;
     return SizedBox(
       key: ValueKey('flow-level-plan-$levelIndex'),
       width: width,
       height: height,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: virtualPages
-              ? const Color(0xffe8e9ef)
-              : const Color(0xfff8f9ff),
+          color: paged ? const Color(0xffe8e9ef) : const Color(0xfff8f9ff),
           border: Border.all(color: const Color(0xff6574a8), width: 2),
         ),
         child: Stack(
           clipBehavior: Clip.hardEdge,
           children: [
-            if (virtualPages)
+            if (paged)
               for (
                 var pageIndex = 0;
                 pageIndex < report.pageCount;
@@ -875,16 +927,69 @@ class _FlowPlanSurface extends StatelessWidget {
                     ),
                   ),
                 ),
+            if (pageMode == FlowPageMode.columns)
+              for (
+                var pageIndex = 0;
+                pageIndex < report.pageCount;
+                pageIndex += 1
+              )
+                for (
+                  var columnIndex = 0;
+                  columnIndex < report.columnCount;
+                  columnIndex += 1
+                )
+                  _FlowColumnGuide(
+                    report: report,
+                    pageIndex: pageIndex,
+                    columnIndex: columnIndex,
+                  ),
             for (final fragment in report.fragments)
               _FlowFragmentView(
                 fragment: fragment,
                 item: level.items[fragment.sourceItemId],
-                topOffset: virtualPages
+                topOffset: paged
                     ? fragment.pageIndex *
                           (report.pageSize.height + report.pageGap)
                     : 0,
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FlowColumnGuide extends StatelessWidget {
+  const _FlowColumnGuide({
+    required this.report,
+    required this.pageIndex,
+    required this.columnIndex,
+  });
+
+  final FlowPlanReport report;
+  final int pageIndex;
+  final int columnIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final width =
+        (report.contentBounds.width -
+            (report.columnCount - 1) * report.columnGap) /
+        report.columnCount;
+    return Positioned(
+      key: ValueKey('flow-column-$pageIndex-$columnIndex'),
+      left:
+          report.contentBounds.left + columnIndex * (width + report.columnGap),
+      top:
+          pageIndex * (report.pageSize.height + report.pageGap) +
+          report.contentBounds.top,
+      width: width,
+      height: report.contentBounds.height,
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xff7d8dbd)),
+          ),
         ),
       ),
     );

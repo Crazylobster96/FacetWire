@@ -53,7 +53,7 @@ abstract interface class NativeRuntimeClient {
     required double width,
     required double height,
     required int contentCase,
-    required bool virtualPages,
+    required int pageMode,
   });
 
   Future<void> close();
@@ -83,20 +83,13 @@ final class NativeAssetRuntimeClient implements NativeRuntimeClient {
     required double width,
     required double height,
     required int contentCase,
-    required bool virtualPages,
+    required int pageMode,
   }) async {
     _ensureOpen();
     final output = calloc<_FlowNativeBuffer>();
     try {
       _check(
-        _compose(
-          _context,
-          width,
-          height,
-          contentCase,
-          virtualPages ? 1 : 0,
-          output,
-        ),
+        _compose(_context, width, height, contentCase, pageMode, output),
         'fwui_compose_flow_demo_v2',
       );
       if (output.ref.length == 0) return '';
@@ -130,13 +123,20 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
     required double width,
     required double height,
     required int contentCase,
-    required bool virtualPages,
+    required int pageMode,
   }) async {
     final level = contentCase + 1;
-    final paginated = virtualPages;
-    final pageHeight = paginated ? 240.0 : height;
+    final virtualPages = pageMode == 1;
+    final columns = pageMode == 2;
+    final paginated = virtualPages || columns;
+    final pageHeight = virtualPages ? 240.0 : (columns ? 300.0 : height);
     final fallback = level == 3;
-    final pageCount = paginated ? (fallback ? 2 : 3) : 1;
+    final pageCount = virtualPages ? (fallback ? 2 : 3) : 1;
+    final columnCount = columns ? 2 : 1;
+    final columnGap = columns ? 24.0 : 0.0;
+    final contentWidth = width - 48.0;
+    final columnWidth =
+        (contentWidth - (columnCount - 1) * columnGap) / columnCount;
     final objectId = level == 3
         ? 'object.missing.level-3'
         : 'image.hero.level-$level';
@@ -144,9 +144,9 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
       'pluginId': 'org.facetwire.reference.flow-layout',
       'capability': 'facetwire.layout.flow',
       'interfaceVersion': 1,
-      'demoCase': contentCase + (paginated ? 3 : 0),
+      'demoCase': contentCase + (pageMode * 3),
       'contentCase': contentCase,
-      'pageMode': paginated ? 1 : 0,
+      'pageMode': pageMode,
       'composeStatus': 0,
       'complete': true,
       'pageCount': pageCount,
@@ -159,9 +159,17 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
       },
       'pageSize': {'width': width, 'height': pageHeight},
       'pageGap': 0.0,
+      'columnCount': columnCount,
+      'columnGap': columnGap,
+      'contentBounds': {
+        'x': 24.0,
+        'y': 24.0,
+        'width': contentWidth,
+        'height': pageHeight - 48.0,
+      },
       'planKey': '00000000000000000000000000000000',
       'pagesBalanced': true,
-      'supportedSlice': 'continuous+virtual-pages+block',
+      'supportedSlice': 'continuous+virtual-pages+columns+block',
       'nativeRuntime': false,
       'fragments': [
         {
@@ -169,7 +177,13 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
           'sourceItemId': 'paragraph.intro.level-$level',
           'contentKind': '',
           'pageIndex': 0,
-          'bounds': {'x': 24.0, 'y': 32.0, 'width': width - 48, 'height': 56.0},
+          'columnIndex': 0,
+          'bounds': {
+            'x': 24.0,
+            'y': 32.0,
+            'width': columns ? columnWidth : contentWidth,
+            'height': 56.0,
+          },
           'textStart': 0,
           'textEnd': 52,
         },
@@ -177,10 +191,11 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
           'kind': fallback ? 'placeholder' : 'object',
           'sourceItemId': objectId,
           'contentKind': fallback ? 'unknown' : 'image',
-          'pageIndex': paginated && !fallback ? 1 : 0,
+          'pageIndex': virtualPages && !fallback ? 1 : 0,
+          'columnIndex': 0,
           'bounds': {
             'x': 24.0,
-            'y': paginated && !fallback ? 40.0 : 104.0,
+            'y': virtualPages && !fallback ? 40.0 : 104.0,
             'width': fallback ? 180.0 : 240.0 - (20.0 * contentCase),
             'height': fallback ? 112.0 : 150.0 - (15.0 * contentCase),
           },
@@ -191,11 +206,12 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
           'kind': 'text',
           'sourceItemId': 'paragraph.closing.level-$level',
           'contentKind': '',
-          'pageIndex': paginated ? (fallback ? 1 : 2) : 0,
+          'pageIndex': virtualPages ? (fallback ? 1 : 2) : 0,
+          'columnIndex': columns ? 1 : 0,
           'bounds': {
-            'x': 24.0,
+            'x': columns ? 24.0 + columnWidth + columnGap : 24.0,
             'y': paginated ? 34.0 : 258.0,
-            'width': width - 48,
+            'width': columns ? columnWidth : contentWidth,
             'height': 56.0,
           },
           'textStart': 0,

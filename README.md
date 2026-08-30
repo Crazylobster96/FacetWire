@@ -69,7 +69,7 @@ matrix are documented in
 [`docs/guides/core-content-renderers-demo-validation.zh-CN.md`](docs/guides/core-content-renderers-demo-validation.zh-CN.md).
 ### Current Flow Layout implementation
 
-`org.facetwire.reference.flow-layout` now exposes the public C ABI, plugin manifest, deterministic Layout Plan, continuous and virtual-page block flow, cross-page text ranges, whole-object page advancement, adjacent vertical margin collapse, Text Fragment/Child Measure service boundaries, and the Page/Fragment sink. The Playground includes a native three-page projection. Columns, inline objects, floats, overlays, and break/keep/widow/orphan controls remain pending; valid requests outside the implemented slice return `FW_STATUS_UNSUPPORTED` explicitly.
+`org.facetwire.reference.flow-layout` now exposes the public C ABI, plugin manifest, deterministic Layout Plan, continuous, virtual-page, and multi-column block flow, cross-region text ranges, whole-object region advancement, adjacent vertical margin collapse, Text Fragment/Child Measure service boundaries, and the Page/Fragment sink. The Playground exposes all three page modes through the native bridge and visualizes real column bounds. Inline objects, floats, overlays, and break/keep/widow/orphan controls remain pending; valid requests outside the implemented slice return `FW_STATUS_UNSUPPORTED` explicitly. See the dedicated [macOS/iOS columns validation prompt](docs/prompts/macos-ios-flow-columns-incremental-validation.md) for incremental Apple-platform verification.
 
 
 ## ABI model

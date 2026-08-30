@@ -9,7 +9,7 @@ struct SpatialSurfaceScreen: View {
     @State private var frame: FacetWireFrame?
     @State private var placeholderDiagnostic = "Loading FacetWire C bridge..."
     @State private var selectedLevel = 0
-    @State private var virtualPagesProbe = false
+    @State private var flowPageMode = FacetWireFlowPageMode.continuous
     @State private var flowOpacity = 0.9
     @State private var flowReport: FacetWireFlowReport?
     @State private var flowDiagnostic = "Loading Flow Layout 0.1..."
@@ -27,7 +27,7 @@ struct SpatialSurfaceScreen: View {
         .task { reloadAll() }
         .onChange(of: opacity) { _, _ in reloadPlaceholder() }
         .onChange(of: selectedLevel) { _, _ in reloadFlow() }
-        .onChange(of: virtualPagesProbe) { _, _ in reloadFlow() }
+        .onChange(of: flowPageMode) { _, _ in reloadFlow() }
     }
 
     private var header: some View {
@@ -88,7 +88,7 @@ struct SpatialSurfaceScreen: View {
                 VStack(alignment: .leading) {
                     Text("Flow Layout 0.1")
                         .font(.headline)
-                    Text("Three recursive cases · continuous / virtual-pages + block")
+                    Text("Three recursive cases · continuous / virtual-pages / columns + block")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -101,7 +101,12 @@ struct SpatialSurfaceScreen: View {
                 .frame(maxWidth: 360)
             }
 
-            Toggle("Use virtual-pages", isOn: $virtualPagesProbe)
+            Picker("Page mode", selection: $flowPageMode) {
+                Text("Continuous").tag(FacetWireFlowPageMode.continuous)
+                Text("Virtual pages").tag(FacetWireFlowPageMode.virtualPages)
+                Text("Two columns").tag(FacetWireFlowPageMode.columns)
+            }
+            .pickerStyle(.segmented)
 
             Group {
                 if let report = flowReport, report.complete {
@@ -176,14 +181,21 @@ struct SpatialSurfaceScreen: View {
         do {
             let report = try FacetWireBridge.composeFlow(
                 contentCase: UInt32(selectedLevel),
-                virtualPages: virtualPagesProbe
+                pageMode: flowPageMode
             )
             flowReport = report
-            if virtualPagesProbe {
+            if flowPageMode == .virtualPages {
+                let expectedPages = selectedLevel == 2 ? 2 : 3
                 flowDiagnostic = report.nativeRuntime && report.complete &&
-                    report.pageCount == 3 && report.pagesBalanced
-                    ? "PASS · native virtual-pages · 3 balanced pages"
+                    report.pageCount == expectedPages && report.pagesBalanced
+                    ? "PASS · native virtual-pages · \(expectedPages) balanced pages"
                     : "FAIL · native virtual-pages contract incomplete"
+            } else if flowPageMode == .columns {
+                flowDiagnostic = report.nativeRuntime && report.complete &&
+                    report.pageCount == 1 && report.columnCount == 2 &&
+                    report.fragments.last?.columnIndex == 1
+                    ? "PASS · native columns · 2 columns"
+                    : "FAIL · native columns contract incomplete"
             } else {
                 flowDiagnostic = report.nativeRuntime && report.complete
                     ? "PASS · native Flow · Level \(selectedLevel + 1) · \(report.fragmentCount) fragments"
@@ -248,6 +260,32 @@ private struct FlowLayoutSurface: View {
                 pagePath.addRect(page)
                 context.fill(pagePath, with: .color(.white.opacity(0.82)))
                 context.stroke(pagePath, with: .color(.indigo), lineWidth: 2)
+
+                if report.columnCount > 1 {
+                    let content = report.contentBounds
+                    let columnWidth = (
+                        content.width -
+                            Double(report.columnCount - 1) * report.columnGap
+                    ) / Double(report.columnCount)
+                    for columnIndex in 0..<report.columnCount {
+                        let column = CGRect(
+                            x: offsetX + CGFloat(
+                                content.x + Double(columnIndex) *
+                                    (columnWidth + report.columnGap)
+                            ) * scale,
+                            y: offsetY + CGFloat(pageTop + content.y) * scale,
+                            width: CGFloat(columnWidth) * scale,
+                            height: CGFloat(content.height) * scale
+                        )
+                        var columnPath = Path()
+                        columnPath.addRect(column)
+                        context.stroke(
+                            columnPath,
+                            with: .color(.blue.opacity(0.7)),
+                            lineWidth: 1
+                        )
+                    }
+                }
             }
 
             for fragment in report.fragments {

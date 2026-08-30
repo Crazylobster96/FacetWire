@@ -43,11 +43,11 @@ static const fw_plugin_descriptor_v1 fl_descriptor = {
 
 static const char fl_parameter_schema[] =
     "{\"schemaVersion\":1,\"implementationStatus\":\"experimental\","
-    "\"supportedPageModes\":[\"continuous\",\"virtual-pages\"],"
+    "\"supportedPageModes\":[\"continuous\",\"virtual-pages\",\"columns\"],"
     "\"supportedPlacements\":[\"block\"],"
     "\"parameters\":[{\"id\":\"pageMode\",\"type\":\"enum\","
     "\"default\":\"continuous\",\"values\":[\"continuous\","
-    "\"virtual-pages\"]}]}";
+    "\"virtual-pages\",\"columns\"]}]}";
 
 static int fl_context_valid(fw_plugin_handle plugin) {
     const fl_context *context = (const fl_context *)plugin;
@@ -175,6 +175,8 @@ static const fw_flow_item_v1 *fl_find_item(
 static fw_status fl_validate_request(fw_plugin_handle plugin,
     const fw_flow_layout_request_v1 *request, const char **out_key) {
     fl_budget budget;
+    float content_width;
+    float column_gaps;
     size_t total_segments = 0u;
     size_t i;
     *out_key = "flow.invalid_argument";
@@ -217,6 +219,19 @@ static fw_status fl_validate_request(fw_plugin_handle plugin,
                 request->page_template.margins.left -
                 request->page_template.margins.right) {
         *out_key = "flow.invalid_page_template";
+        return FW_STATUS_INVALID_ARGUMENT;
+    }
+    content_width = request->page_template.page_size.width -
+        request->page_template.margins.left -
+        request->page_template.margins.right;
+    column_gaps = (float)(request->page_template.column_count - 1u) *
+        request->page_template.column_gap;
+    if (!fl_finite(column_gaps) || column_gaps >= content_width ||
+        (request->page_template.mode == FW_FLOW_COLUMNS &&
+         (content_width - column_gaps) /
+             (float)request->page_template.column_count <
+                 request->page_template.minimum_text_width)) {
+        *out_key = "flow.invalid_column_geometry";
         return FW_STATUS_INVALID_ARGUMENT;
     }
     if (request->target.medium < FW_RENDER_MEDIUM_SCREEN ||
@@ -837,6 +852,8 @@ static fw_status FW_CALL fl_compose(fw_plugin_handle plugin,
         sink->end_page == NULL) return FW_STATUS_INVALID_ARGUMENT;
     if (request->page_template.mode == FW_FLOW_VIRTUAL_PAGES)
         return fl_compose_virtual_pages(request, services, sink, out_result);
+    if (request->page_template.mode == FW_FLOW_COLUMNS)
+        return fl_compose_columns(request, services, sink, out_result);
     if (request->page_template.mode != FW_FLOW_CONTINUOUS)
         return FW_STATUS_UNSUPPORTED;
     for (i = 0u; i < request->item_count; ++i) {

@@ -61,7 +61,7 @@ abstract interface class NativeRuntimeClient {
     required double width,
     required double height,
     required int contentCase,
-    required bool virtualPages,
+    required int pageMode,
   });
 
   Future<void> close();

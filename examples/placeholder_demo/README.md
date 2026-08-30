@@ -63,7 +63,10 @@ an already implemented visual treatment.
 Flow Layout 页面默认递归合成三层 Canvas：子层使用描述文件中的 Zone 坐标和自身逻辑
 尺寸，不做隐式缩放；L1/L2/L3 可分别调整不透明度，以检查重叠后的下层内容。也可切换
 到“单层检查”。分页开关与 Level 选择互不影响，Native Bridge v2 使用独立的
-`contentCase` 和 `pageMode` 参数；虚拟页数量由当前内容计算，不假定固定三页。
+`contentCase` 和 `pageMode` 参数；`pageMode` 可选择 continuous、virtual-pages 或
+columns，虚拟页数量由当前内容计算，不假定固定三页。columns 模式展示真实的两栏
+内容边界、栏间距和每个 Fragment 的 `columnIndex`，内容身份与递归关系不得因切换
+排版模式而变化。
 
 ## Package fixture / 示例包
 

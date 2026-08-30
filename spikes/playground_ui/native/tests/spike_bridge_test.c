@@ -139,7 +139,7 @@ int main(void) {
     fwui_buffer_release(&flow);
 
     for (content_case = 0u; content_case < 3u; ++content_case) {
-        for (page_mode = 0u; page_mode < 2u; ++page_mode) {
+        for (page_mode = 0u; page_mode < 3u; ++page_mode) {
             assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f,
                 content_case, page_mode, &flow) == FWUI_STATUS_OK);
             assert(strstr((const char *)flow.data,
@@ -151,18 +151,27 @@ int main(void) {
                     expected_page_count[content_case]) != NULL);
                 assert(strstr((const char *)flow.data,
                     expected_last_page[content_case]) != NULL);
-            } else {
+            } else if (page_mode == FWUI_FLOW_PAGE_CONTINUOUS) {
                 assert(strstr((const char *)flow.data,
                     "\"pageMode\":0") != NULL);
                 assert(strstr((const char *)flow.data,
                     "\"pageCount\":1") != NULL);
+            } else {
+                assert(strstr((const char *)flow.data,
+                    "\"pageMode\":2") != NULL);
+                assert(strstr((const char *)flow.data,
+                    "\"pageCount\":1") != NULL);
+                assert(strstr((const char *)flow.data,
+                    "\"columnCount\":2") != NULL);
+                assert(strstr((const char *)flow.data,
+                    "\"columnIndex\":1") != NULL);
             }
             fwui_buffer_release(&flow);
         }
     }
     assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 3u,
         FWUI_FLOW_PAGE_CONTINUOUS, &flow) == FWUI_STATUS_INVALID_ARGUMENT);
-    assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 0u, 2u,
+    assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 0u, 3u,
         &flow) == FWUI_STATUS_INVALID_ARGUMENT);
 
     assert(fwui_compose_flow_demo(context, 100.0f, 700.0f, 0u, &flow) ==

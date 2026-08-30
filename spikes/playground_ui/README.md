@@ -74,7 +74,9 @@ virtual pagination, whole-view opacity, fit mode, and fixed 1:1 mode.
 C 插件，不是 Dart 布局模拟。三层未压缩场景依次验证图片对象、嵌套图片对象和未知对象
 Placeholder 降级。默认递归合成按 child Zone 的累计坐标同时显示三层，每层保持原始
 逻辑尺寸并可独立调整不透明度；“单层检查”用于隔离当前 Level。`contentCase` 与
-`pageMode` 相互独立，切换 virtual-pages 不得切换 Level，页数由当前内容决定。设备
+`pageMode` 相互独立，`pageMode` 可选择 continuous、virtual-pages 或 columns；切换
+排版模式不得切换 Level，页数由当前内容决定。columns 模式显示真实栏边界与
+`columnIndex`。设备
 验收时合同区必须显示 Native PASS。完整命令与五平台验收表见
 ../../docs/guides/flow-layout-cross-platform-validation.zh-CN.md。
 ## Audio/Video Renderer demo / 音视频演示

@@ -54,7 +54,7 @@ final class DisplayListTests: XCTestCase {
     func testVirtualPagesProducesThreeBalancedPages() throws {
         let report = try FacetWireBridge.composeFlow(
             contentCase: 2,
-            virtualPages: true
+            pageMode: .virtualPages
         )
 
         XCTAssertEqual(report.composeStatus, 0)
@@ -64,6 +64,23 @@ final class DisplayListTests: XCTestCase {
         XCTAssertEqual(report.fragmentCount, 3)
         XCTAssertEqual(report.fragments.map(\.pageIndex), [0, 0, 1])
         XCTAssertEqual(report.fragments[0].sourceItemId, "paragraph.intro.level-3")
+        XCTAssertEqual(report.fragments[1].sourceItemId, "object.missing.level-3")
+    }
+
+    func testColumnsProducesTwoColumnPlanWithoutChangingContent() throws {
+        let report = try FacetWireBridge.composeFlow(
+            contentCase: 2,
+            pageMode: .columns
+        )
+
+        XCTAssertEqual(report.composeStatus, 0)
+        XCTAssertTrue(report.complete)
+        XCTAssertTrue(report.pagesBalanced)
+        XCTAssertEqual(report.pageCount, 1)
+        XCTAssertEqual(report.columnCount, 2)
+        XCTAssertEqual(report.fragments.map(\.pageIndex), [0, 0, 0])
+        XCTAssertEqual(report.fragments.map(\.columnIndex), [0, 0, 1])
+        XCTAssertEqual(report.fragments[1].kind, "placeholder")
         XCTAssertEqual(report.fragments[1].sourceItemId, "object.missing.level-3")
     }
     private func writeUInt16(_ value: UInt16, to data: inout Data, at offset: Int) {
