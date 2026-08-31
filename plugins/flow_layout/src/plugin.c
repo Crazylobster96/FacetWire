@@ -19,6 +19,7 @@
 #define FL_DEFAULT_MAX_SEGMENTS 16384u
 #define FL_DEFAULT_MAX_PAGES 1024u
 #define FL_DEFAULT_MAX_FRAGMENTS 65536u
+#define FL_DEFAULT_MAX_ACTIVE_FLOATS 256u
 #define FL_DEFAULT_MAX_ITERATIONS 131072u
 
 typedef struct fl_context {
@@ -45,7 +46,8 @@ static const fw_plugin_descriptor_v1 fl_descriptor = {
 static const char fl_parameter_schema[] =
     "{\"schemaVersion\":1,\"implementationStatus\":\"experimental\","
     "\"supportedPageModes\":[\"continuous\",\"virtual-pages\",\"columns\"],"
-    "\"supportedPlacements\":[\"block\"],"
+    "\"supportedPlacements\":[\"block\",\"inline\","
+    "\"float-start\",\"float-end\"],"
     "\"parameters\":[{\"id\":\"pageMode\",\"type\":\"enum\","
     "\"default\":\"continuous\",\"values\":[\"continuous\","
     "\"virtual-pages\",\"columns\"]}]}";
@@ -158,6 +160,8 @@ fl_budget fl_resolve_budget(const fw_flow_budget_v1 *value) {
     result.pages = fl_budget_value(value->max_pages, FL_DEFAULT_MAX_PAGES);
     result.fragments = fl_budget_value(value->max_fragments,
         FL_DEFAULT_MAX_FRAGMENTS);
+    result.floats = fl_budget_value(value->max_active_floats,
+        FL_DEFAULT_MAX_ACTIVE_FLOATS);
     result.iterations = fl_budget_value(value->max_iterations,
         FL_DEFAULT_MAX_ITERATIONS);
     return result;
@@ -262,6 +266,10 @@ static fw_status fl_validate_request(fw_plugin_handle plugin,
             item->break_policy.struct_size < sizeof(item->break_policy) ||
             !fl_valid_string(item->id, 1) ||
             !fl_item_kind_valid(item->kind) ||
+            ((item->kind == FW_FLOW_ITEM_PARAGRAPH ||
+              item->placement.mode == FW_FLOW_PLACE_FLOAT_START ||
+              item->placement.mode == FW_FLOW_PLACE_FLOAT_END) &&
+                item->direction > FW_TEXT_DIRECTION_RTL) ||
             !fl_placement_valid(item->placement.mode) ||
             !fl_insets_valid(item->placement.margins) ||
             !fl_nonnegative(item->placement.requested_width) ||
@@ -868,6 +876,10 @@ static fw_status FW_CALL fl_compose(fw_plugin_handle plugin,
         for (i = 0u; i < request->item_count; ++i) {
             size_t segment_index;
             const fw_flow_item_v1 *candidate = &request->items[i];
+            if (candidate->placement.mode == FW_FLOW_PLACE_FLOAT_START ||
+                candidate->placement.mode == FW_FLOW_PLACE_FLOAT_END)
+                return fl_compose_continuous(request, services, sink,
+                    out_result);
             if (candidate->kind != FW_FLOW_ITEM_PARAGRAPH) continue;
             for (segment_index = 0u;
                  segment_index < candidate->segment_count; ++segment_index) {

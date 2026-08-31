@@ -243,7 +243,16 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
     required int pageMode,
   }) async {
     final prefixes = ['level-1', 'level-2', 'level-3'];
-    final inlineObjects = contentCase >= 3;
+    final placementGroup = contentCase ~/ 3;
+    final inlineObjects = placementGroup == 1;
+    final floatObjects = placementGroup == 2 || placementGroup == 3;
+    final floatOnEnd = placementGroup == 3;
+    final placementMode = switch (placementGroup) {
+      1 => 'inline',
+      2 => 'float-start',
+      3 => 'float-end',
+      _ => 'block',
+    };
     final baseCase = contentCase % 3;
     final prefix = prefixes[baseCase];
     final fallback = baseCase == 2;
@@ -253,20 +262,23 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
     final pageHeight = virtualPages ? 240.0 : (columns ? 300.0 : height);
     final pageCount = inlineObjects
         ? 1
-        : (virtualPages ? (fallback ? 2 : 3) : 1);
+        : (virtualPages ? (floatObjects ? 2 : (fallback ? 2 : 3)) : 1);
     final columnCount = columns ? 2 : 1;
     final columnGap = columns ? 24.0 : 0.0;
     final contentWidth = width - 48.0;
     final columnWidth =
         (contentWidth - (columnCount - 1) * columnGap) / columnCount;
+    final objectWidth = fallback ? 180.0 : 240.0 - 20 * baseCase;
+    final objectHeight = fallback ? 112.0 : 150.0 - 15 * baseCase;
     return jsonEncode({
       'pluginId': 'org.facetwire.reference.flow-layout',
       'capability': 'facetwire.layout.flow',
       'interfaceVersion': 1,
-      'demoCase': contentCase + (pageMode * 6),
+      'demoCase': contentCase + (pageMode * 12),
       'contentCase': contentCase,
       'pageMode': pageMode,
       'inlineObjects': inlineObjects,
+      'placementMode': placementMode,
       'composeStatus': 0,
       'complete': true,
       'pageCount': pageCount,
@@ -289,7 +301,8 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
       },
       'planKey': 'demo0000000000000000000000000001',
       'pagesBalanced': true,
-      'supportedSlice': 'continuous+virtual-pages+columns+block+inline',
+      'supportedSlice':
+          'continuous+virtual-pages+columns+block+inline+float-start+float-end',
       'nativeRuntime': false,
       'fragments': inlineObjects
           ? <Object?>[
@@ -353,13 +366,21 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
                     ? 'object.missing.$prefix'
                     : 'image.hero.$prefix',
                 'contentKind': fallback ? 'unknown' : 'image',
-                'pageIndex': virtualPages && !fallback ? 1 : 0,
+                'pageIndex': floatObjects
+                    ? (virtualPages ? 1 : 0)
+                    : (virtualPages && !fallback ? 1 : 0),
                 'columnIndex': 0,
                 'bounds': {
-                  'x': 24.0,
-                  'y': virtualPages && !fallback ? 40.0 : 104.0,
-                  'width': fallback ? 180.0 : 240.0 - 20 * baseCase,
-                  'height': fallback ? 112.0 : 150.0 - 15 * baseCase,
+                  'x': floatObjects
+                      ? (columns
+                            ? 32.0
+                            : (floatOnEnd ? width - 32.0 - objectWidth : 32.0))
+                      : 24.0,
+                  'y': virtualPages && (floatObjects || !fallback)
+                      ? 40.0
+                      : 104.0,
+                  'width': objectWidth,
+                  'height': objectHeight,
                 },
                 'textStart': 0,
                 'textEnd': 0,
@@ -368,16 +389,28 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
                 'kind': 'text',
                 'sourceItemId': 'paragraph.closing.$prefix',
                 'contentKind': '',
-                'pageIndex': virtualPages ? (fallback ? 1 : 2) : 0,
+                'pageIndex': virtualPages
+                    ? (floatObjects ? 1 : (fallback ? 1 : 2))
+                    : 0,
                 'columnIndex': columns ? 1 : 0,
                 'bounds': {
-                  'x': columns ? 24.0 + columnWidth + columnGap : 24.0,
-                  'y': paginated
+                  'x': columns
+                      ? 24.0 + columnWidth + columnGap
+                      : (floatObjects
+                            ? (floatOnEnd ? 24.0 : 40.0 + objectWidth)
+                            : 24.0),
+                  'y': floatObjects
+                      ? (virtualPages ? 50.0 : (columns ? 34.0 : 114.0))
+                      : paginated
                       ? 34.0
                       : fallback
                       ? 228.0
                       : 266.0 - 15 * baseCase,
-                  'width': columns ? columnWidth : contentWidth,
+                  'width': columns
+                      ? columnWidth
+                      : (floatObjects
+                            ? contentWidth - objectWidth - 16.0
+                            : contentWidth),
                   'height': 56.0,
                 },
                 'textStart': 0,

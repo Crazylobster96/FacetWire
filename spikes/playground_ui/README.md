@@ -69,9 +69,11 @@ an unknown child keeps its bounds through Placeholder fallback. Recursive mode
 composes all three native-size Canvases at their cumulative child-Zone offsets
 and exposes independent per-level opacity. The page also tests content-dependent
 virtual pagination, whole-view opacity, fit mode, and fixed 1:1 mode.
-Block and inline paragraph modes are orthogonal to the three page modes. Inline
-mode verifies ordered text/object/text parts, atomic replacement objects, exact
-UTF-8 byte ranges, and compact Placeholder fallback.
+Block, inline, float-start, and float-end modes are orthogonal to the three page
+modes. Inline mode verifies ordered text/object/text parts, atomic replacement
+objects, exact UTF-8 byte ranges, and compact Placeholder fallback. Float modes
+verify logical-side placement, rectangular exclusions, wrapping, minimum-width
+clearing, and region progression.
 
 顶栏的流式布局图标打开 Flow Layout 0.1 验证页。该页面通过 Native Assets 调用真实
 C 插件，不是 Dart 布局模拟。三层未压缩场景依次验证图片对象、嵌套图片对象和未知对象
@@ -79,8 +81,9 @@ Placeholder 降级。默认递归合成按 child Zone 的累计坐标同时显�
 逻辑尺寸并可独立调整不透明度；“单层检查”用于隔离当前 Level。`contentCase` 与
 `pageMode` 相互独立，`pageMode` 可选择 continuous、virtual-pages 或 columns；切换
 排版模式不得切换 Level，页数由当前内容决定。columns 模式显示真实栏边界与
-`columnIndex`。“块对象/行内对象”与页面模式正交；行内模式验证 text/object/text
-有序部件、不可拆对象、精确 UTF-8 byte range 和紧凑 Placeholder。设备
+`columnIndex`。“块对象/行内对象/起始浮动/末端浮动”与页面模式正交；行内模式验证
+text/object/text 有序部件、不可拆对象、精确 UTF-8 byte range 和紧凑 Placeholder；
+浮动模式验证逻辑侧定位、矩形排除区、正文绕排和最小宽度清除。设备
 验收时合同区必须显示 Native PASS。完整命令与五平台验收表见
 ../../docs/guides/flow-layout-cross-platform-validation.zh-CN.md。
 ## Audio/Video Renderer demo / 音视频演示

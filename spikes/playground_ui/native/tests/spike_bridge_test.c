@@ -41,6 +41,7 @@ int main(void) {
     unsigned int iteration = 0u;
     unsigned int content_case = 0u;
     unsigned int page_mode = 0u;
+    unsigned int placement_group = 0u;
     static const char *const expected_intro[3] = {
         "paragraph.intro.level-1",
         "paragraph.intro.level-2",
@@ -195,7 +196,29 @@ int main(void) {
             fwui_buffer_release(&flow);
         }
     }
-    assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 6u,
+    for (placement_group = 2u; placement_group <= 3u; ++placement_group) {
+        for (content_case = 0u; content_case < 3u; ++content_case) {
+            for (page_mode = 0u; page_mode < 3u; ++page_mode) {
+                assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f,
+                    content_case + placement_group * 3u, page_mode,
+                    &flow) == FWUI_STATUS_OK);
+                assert(strstr((const char *)flow.data,
+                    placement_group == 2u ?
+                        "\"placementMode\":\"float-start\"" :
+                        "\"placementMode\":\"float-end\"") != NULL);
+                assert(strstr((const char *)flow.data,
+                    "\"inlineObjects\":false") != NULL);
+                assert(strstr((const char *)flow.data,
+                    "float-start+float-end") != NULL);
+                assert(strstr((const char *)flow.data,
+                    "\"composeStatus\":0") != NULL);
+                assert(strstr((const char *)flow.data,
+                    "\"fragmentCount\":3") != NULL);
+                fwui_buffer_release(&flow);
+            }
+        }
+    }
+    assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 12u,
         FWUI_FLOW_PAGE_CONTINUOUS, &flow) == FWUI_STATUS_INVALID_ARGUMENT);
     assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 0u, 3u,
         &flow) == FWUI_STATUS_INVALID_ARGUMENT);

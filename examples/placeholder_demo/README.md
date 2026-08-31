@@ -66,9 +66,10 @@ Flow Layout 页面默认递归合成三层 Canvas：子层使用描述文件中�
 `contentCase` 和 `pageMode` 参数；`pageMode` 可选择 continuous、virtual-pages 或
 columns，虚拟页数量由当前内容计算，不假定固定三页。columns 模式展示真实的两栏
 内容边界、栏间距和每个 Fragment 的 `columnIndex`，内容身份与递归关系不得因切换
-排版模式而变化。“块对象/行内对象”使用 `contentCase` 的 0..2/3..5 两组值，行内模式
-验证不可拆 replacement object、精确文本 byte range、四种 baseline 所依据的统一服务
-合同，以及 Level 3 的 72 × 36 紧凑 Placeholder。
+排版模式而变化。“块对象/行内对象/起始浮动/末端浮动”使用 `contentCase` 的
+0..2/3..5/6..8/9..11 四组值。行内模式验证不可拆 replacement object、精确文本 byte
+range、四种 baseline 所依据的统一服务合同，以及 Level 3 的 72 × 36 紧凑 Placeholder；
+浮动模式验证逻辑 start/end、矩形 exclusion、正文绕排、最小宽度清除和区域推进。
 
 ## Package fixture / 示例包
 

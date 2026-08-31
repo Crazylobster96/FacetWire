@@ -37,6 +37,14 @@ void main() {
           pageMode: 0,
         ),
       ) as Map<String, Object?>;
+      final floatStart = jsonDecode(
+        await flow.composeFlowDemo(
+          width: 600,
+          height: 700,
+          contentCase: 6,
+          pageMode: 0,
+        ),
+      ) as Map<String, Object?>;
 
       expect(
         snapshot['pluginId'],
@@ -60,6 +68,9 @@ void main() {
         'image.inline.level-1',
       );
       expect((inlineFragments.last! as Map<String, Object?>)['textStart'], 7);
+      expect(floatStart['placementMode'], 'float-start');
+      expect(floatStart['inlineObjects'], isFalse);
+      expect(floatStart['fragmentCount'], 3);
     } finally {
       await placeholder.close();
       await flow.close();

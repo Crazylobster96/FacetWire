@@ -141,13 +141,40 @@ static void flow_include_bounds(fw_rect_f32 *used, uint32_t *has_bounds,
     }
 }
 
+static void flow_available_text_span(
+    const fw_text_fragment_request_v1 *request,
+    float line_height,
+    float *out_left,
+    float *out_right) {
+    const float center = request->region.x + request->region.width * 0.5f;
+    const float bottom = request->region.y + line_height;
+    float left = request->region.x;
+    float right = request->region.x + request->region.width;
+    size_t index;
+    for (index = 0u; index < request->exclusion_count; ++index) {
+        const fw_text_exclusion_rect_v1 *exclusion =
+            &request->exclusions[index];
+        const fw_rect_f32 *rect = &exclusion->rect;
+        if (exclusion->struct_size < sizeof(*exclusion) ||
+            rect->y >= bottom ||
+            rect->y + rect->height <= request->region.y) continue;
+        if (rect->x + rect->width * 0.5f <= center)
+            left = fmaxf(left, rect->x + rect->width);
+        else
+            right = fminf(right, rect->x);
+    }
+    *out_left = left;
+    *out_right = right;
+}
+
 static fw_status flow_measure_inline_text(
     const fw_text_fragment_request_v1 *request,
     fw_text_fragment_metrics_v1 *out_metrics, size_t total) {
     const float line_height = 56.0f;
     const float baseline = 38.0f;
-    const float right = request->region.x + request->region.width;
-    float cursor_x = request->region.x;
+    float left;
+    float right;
+    float cursor_x;
     size_t text_cursor = request->start_utf8_byte;
     size_t object_cursor = request->start_inline_object_index;
     size_t part_count = 0u;
@@ -156,6 +183,8 @@ static fw_status flow_measure_inline_text(
         request->start_inline_object_index > request->inline_object_count ||
         request->region.height < line_height)
         return FW_STATUS_RESOURCE_LIMIT;
+    flow_available_text_span(request, line_height, &left, &right);
+    cursor_x = left;
     while (text_cursor < total || object_cursor < request->inline_object_count) {
         const size_t next_object_offset =
             object_cursor < request->inline_object_count ?
@@ -227,6 +256,8 @@ static fw_status FW_CALL flow_measure_text(
     fw_text_fragment_metrics_v1 *out_metrics) {
     size_t total = 0u;
     size_t index;
+    float left;
+    float right;
     (void)user_data;
     if (request == NULL || out_metrics == NULL ||
         out_metrics->struct_size < sizeof(*out_metrics)) {
@@ -240,10 +271,12 @@ static fw_status FW_CALL flow_measure_text(
         return FW_STATUS_RESOURCE_LIMIT;
     if (request->inline_object_count != 0u)
         return flow_measure_inline_text(request, out_metrics, total);
+    flow_available_text_span(request, 56.0f, &left, &right);
+    if (right < left) return FW_STATUS_INVALID_STATE;
     out_metrics->end_utf8_byte = total;
-    out_metrics->used_bounds.x = request->region.x;
+    out_metrics->used_bounds.x = left;
     out_metrics->used_bounds.y = request->region.y;
-    out_metrics->used_bounds.width = request->region.width;
+    out_metrics->used_bounds.width = right - left;
     out_metrics->used_bounds.height = 56.0f;
     out_metrics->line_count = 2u;
     out_metrics->reached_end = 1u;
@@ -375,11 +408,16 @@ static fwui_status serialize_flow_report(
     char json[FWUI_FLOW_JSON_CAPACITY];
     size_t offset = 0u;
     uint32_t index;
+    const uint32_t placement_group = content_case / 3u;
+    const char *placement_mode = placement_group == 1u ? "inline" :
+        (placement_group == 2u ? "float-start" :
+            (placement_group == 3u ? "float-end" : "block"));
     if (!append_json(json, sizeof(json), &offset,
         "{\"pluginId\":\"org.facetwire.reference.flow-layout\","
         "\"capability\":\"facetwire.layout.flow\","
         "\"interfaceVersion\":1,\"demoCase\":%u,"
         "\"contentCase\":%u,\"pageMode\":%u,\"inlineObjects\":%s,"
+        "\"placementMode\":\"%s\","
         "\"composeStatus\":%u,"
         "\"complete\":%s,\"pageCount\":%u,\"fragmentCount\":%u,"
         "\"textFragmentCount\":%u,\"objectFragmentCount\":%u,"
@@ -389,10 +427,10 @@ static fwui_status serialize_flow_report(
         "\"contentBounds\":{\"x\":%.3f,\"y\":%.3f,"
         "\"width\":%.3f,\"height\":%.3f},"
         "\"planKey\":\"%016llx%016llx\",\"pagesBalanced\":%s,"
-        "\"supportedSlice\":\"continuous+virtual-pages+columns+block+inline\","
+        "\"supportedSlice\":\"continuous+virtual-pages+columns+block+inline+float-start+float-end\","
         "\"nativeRuntime\":true,\"fragments\":[",
-        content_case + (page_mode * 6u), content_case, page_mode,
-        content_case >= 3u ? "true" : "false",
+        content_case + (page_mode * 12u), content_case, page_mode,
+        placement_group == 1u ? "true" : "false", placement_mode,
         (unsigned int)compose_status,
         result->complete != 0u ? "true" : "false", result->page_count,
         result->fragment_count, result->text_fragment_count,
@@ -486,7 +524,7 @@ fwui_status fwui_runtime_snapshot(
         "\"placeholder\",\"flow-layout\"],"
         "\"flowCapability\":\"facetwire.layout.flow\","
         "\"flowInterfaceVersion\":1,"
-        "\"flowSupportedSlice\":\"continuous+virtual-pages+columns+block\"}";
+        "\"flowSupportedSlice\":\"continuous+virtual-pages+columns+block+inline+float-start+float-end\"}";
     if (context == NULL || context->flow == NULL ||
         !buffer_available(out_utf8_json) || context->abi_version != 1u) {
         return FWUI_STATUS_INVALID_ARGUMENT;
@@ -601,16 +639,18 @@ fwui_status fwui_compose_flow_demo_v2(
     fw_status status;
     uint32_t index;
     uint32_t base_case;
+    uint32_t placement_group;
     uint32_t inline_objects;
     if (context == NULL || context->flow == NULL ||
         !buffer_available(out_layout_plan_utf8_json) ||
         !isfinite(width) || !isfinite(height) || width < 240.0f ||
-        height < 320.0f || content_case > 5u ||
+        height < 320.0f || content_case > 11u ||
         page_mode > FWUI_FLOW_PAGE_COLUMNS) {
         return FWUI_STATUS_INVALID_ARGUMENT;
     }
     base_case = content_case % 3u;
-    inline_objects = content_case >= 3u;
+    placement_group = content_case / 3u;
+    inline_objects = placement_group == 1u;
     case_state.demo_case = base_case;
     case_state.inline_objects = inline_objects;
     memset(&intro_segment, 0, sizeof(intro_segment));
@@ -687,6 +727,12 @@ fwui_status fwui_compose_flow_demo_v2(
         items[1].placement.margins.top = 0.0f;
         items[1].placement.margins.right = 3.0f;
         items[1].placement.margins.bottom = 0.0f;
+    } else if (placement_group == 2u || placement_group == 3u) {
+        items[1].placement.mode = placement_group == 2u ?
+            FW_FLOW_PLACE_FLOAT_START : FW_FLOW_PLACE_FLOAT_END;
+        items[1].placement.margins.left = 8.0f;
+        items[1].placement.margins.right = 8.0f;
+        items[1].direction = FW_TEXT_DIRECTION_LTR;
     }
     memset(&request, 0, sizeof(request));
     request.struct_size = sizeof(request);

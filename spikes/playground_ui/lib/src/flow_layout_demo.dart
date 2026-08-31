@@ -279,6 +279,7 @@ final class FlowPlanReport {
     required this.pageGap,
     required this.pageMode,
     required this.inlineObjects,
+    required this.placementMode,
     required this.columnCount,
     required this.columnGap,
     required this.contentBounds,
@@ -300,6 +301,7 @@ final class FlowPlanReport {
   final double pageGap;
   final int pageMode;
   final bool inlineObjects;
+  final String placementMode;
   final int columnCount;
   final double columnGap;
   final Rect contentBounds;
@@ -339,6 +341,9 @@ final class FlowPlanReport {
       pageGap: (value['pageGap']! as num).toDouble(),
       pageMode: (value['pageMode'] as num?)?.toInt() ?? 0,
       inlineObjects: value['inlineObjects'] == true,
+      placementMode:
+          value['placementMode'] as String? ??
+          (value['inlineObjects'] == true ? 'inline' : 'block'),
       columnCount: (value['columnCount'] as num?)?.toInt() ?? 1,
       columnGap: (value['columnGap'] as num?)?.toDouble() ?? 0,
       contentBounds: Rect.fromLTWH(
@@ -367,7 +372,7 @@ enum FlowSceneMode { recursive, single }
 
 enum FlowPageMode { continuous, virtualPages, columns }
 
-enum FlowParagraphMode { block, inline }
+enum FlowParagraphMode { block, inline, floatStart, floatEnd }
 
 class FlowLayoutDemoScreen extends StatefulWidget {
   const FlowLayoutDemoScreen({required this.client, this.loader, super.key});
@@ -428,8 +433,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
     final source = await widget.client.composeFlowDemo(
       width: level.width,
       height: level.height,
-      contentCase:
-          selected + (_paragraphMode == FlowParagraphMode.inline ? 3 : 0),
+      contentCase: selected + (_paragraphMode.index * 3),
       pageMode: _pageMode.index,
     );
     return FlowPlanReport.fromJson(source);
@@ -484,7 +488,7 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
           preferredSize: Size.fromHeight(24),
           child: Padding(
             padding: EdgeInsets.only(bottom: 6),
-            child: Text('三层递归 · Native Plan · 3 种页面模式 × block/inline'),
+            child: Text('三层递归 · Native Plan · 页面模式 × block/inline/float'),
           ),
         ),
       ),
@@ -830,18 +834,23 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
             style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: 6),
-          SegmentedButton<FlowParagraphMode>(
+          Wrap(
             key: const ValueKey('flow-paragraph-mode'),
-            segments: const [
-              ButtonSegment(value: FlowParagraphMode.block, label: Text('块对象')),
-              ButtonSegment(
-                value: FlowParagraphMode.inline,
-                label: Text('行内对象'),
-              ),
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final mode in FlowParagraphMode.values)
+                ChoiceChip(
+                  label: Text(switch (mode) {
+                    FlowParagraphMode.block => '块对象',
+                    FlowParagraphMode.inline => '行内对象',
+                    FlowParagraphMode.floatStart => '起始浮动',
+                    FlowParagraphMode.floatEnd => '末端浮动',
+                  }),
+                  selected: _paragraphMode == mode,
+                  onSelected: (_) => _refresh(paragraphMode: mode),
+                ),
             ],
-            selected: {_paragraphMode},
-            onSelectionChanged: (value) =>
-                _refresh(paragraphMode: value.single),
           ),
           Text('Viewer opacity / 预览不透明度 ${(_opacity * 100).round()}%'),
           Slider(
@@ -875,7 +884,13 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
                 _StatusChip('Complete', report.complete),
                 _StatusChip('Balanced', report.pagesBalanced),
                 Chip(label: Text('${report.columnCount} columns')),
-                Chip(label: Text(report.inlineObjects ? 'Inline' : 'Block')),
+                Chip(
+                  label: Text(switch (report.placementMode) {
+                    'block' => 'Block',
+                    'inline' => 'Inline',
+                    final value => value,
+                  }),
+                ),
                 Chip(label: Text('Status ${report.composeStatus}')),
                 Chip(label: Text('${report.fragmentCount} fragments')),
               ],

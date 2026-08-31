@@ -42,11 +42,43 @@ void main() {
     expect(report.fragmentCount, 3);
     expect(report.columnCount, 1);
     expect(report.inlineObjects, isFalse);
+    expect(report.placementMode, 'block');
     expect(report.fragments.map((fragment) => fragment.kind), [
       'text',
       'object',
       'text',
     ]);
+  });
+
+  test('reports float-start and float-end geometry', () async {
+    final start = FlowPlanReport.fromJson(
+      await const DemoRuntimeClient().composeFlowDemo(
+        width: 600,
+        height: 700,
+        contentCase: 6,
+        pageMode: 0,
+      ),
+    );
+    final end = FlowPlanReport.fromJson(
+      await const DemoRuntimeClient().composeFlowDemo(
+        width: 600,
+        height: 700,
+        contentCase: 9,
+        pageMode: 0,
+      ),
+    );
+
+    expect(start.placementMode, 'float-start');
+    expect(end.placementMode, 'float-end');
+    expect(start.inlineObjects, isFalse);
+    expect(
+      start.fragments[1].bounds.left,
+      lessThan(end.fragments[1].bounds.left),
+    );
+    expect(
+      start.fragments[2].bounds.left,
+      greaterThan(end.fragments[2].bounds.left),
+    );
   });
 
   testWidgets('verifies levels, fallback, virtual pages, and viewer mode', (
@@ -193,6 +225,10 @@ void main() {
       ),
       findsOneWidget,
     );
+
+    await tester.tap(find.text('起始浮动'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('float-start'), findsOneWidget);
 
     final controlsList = find.byKey(const ValueKey('flow-layout-controls'));
     final layerOpacity = find.byKey(const ValueKey('flow-level-opacity-2'));

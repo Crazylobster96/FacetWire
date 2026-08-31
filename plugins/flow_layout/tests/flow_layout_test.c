@@ -17,6 +17,8 @@
 
 typedef struct fake_text_state {
     uint32_t calls;
+    size_t last_exclusion_count;
+    size_t max_exclusion_count;
     uint32_t zero_progress;
     size_t max_bytes_per_fragment;
     float minimum_region_height;
@@ -190,7 +192,13 @@ static fw_status FW_CALL fake_measure_text(void *user_data,
     fake_text_state *state = (fake_text_state *)user_data;
     const size_t total = paragraph_bytes(request);
     size_t end = total;
+    float left = request->region.x;
+    float right = request->region.x + request->region.width;
+    size_t exclusion_index;
     ++state->calls;
+    state->last_exclusion_count = request->exclusion_count;
+    if (state->max_exclusion_count < request->exclusion_count)
+        state->max_exclusion_count = request->exclusion_count;
     if (out_metrics == NULL || out_metrics->struct_size < sizeof(*out_metrics) ||
         request->start_utf8_byte > total)
         return FW_STATUS_INVALID_ARGUMENT;
@@ -204,11 +212,27 @@ static fw_status FW_CALL fake_measure_text(void *user_data,
     if (state->max_bytes_per_fragment != 0u &&
         request->start_utf8_byte + state->max_bytes_per_fragment < total)
         end = request->start_utf8_byte + state->max_bytes_per_fragment;
+    for (exclusion_index = 0u;
+         exclusion_index < request->exclusion_count; ++exclusion_index) {
+        const fw_text_exclusion_rect_v1 *exclusion =
+            &request->exclusions[exclusion_index];
+        const fw_rect_f32 *rect = &exclusion->rect;
+        const float line_bottom = request->region.y + 24.0f;
+        const float center = request->region.x + request->region.width * 0.5f;
+        if (exclusion->struct_size < sizeof(*exclusion) ||
+            rect->y >= line_bottom ||
+            rect->y + rect->height <= request->region.y) continue;
+        if (rect->x + rect->width * 0.5f <= center)
+            left = fmaxf(left, rect->x + rect->width);
+        else
+            right = fminf(right, rect->x);
+    }
+    if (right < left) return FW_STATUS_INVALID_STATE;
     out_metrics->end_utf8_byte = state->zero_progress != 0u ?
         request->start_utf8_byte : end;
-    out_metrics->used_bounds.x = request->region.x;
+    out_metrics->used_bounds.x = left;
     out_metrics->used_bounds.y = request->region.y;
-    out_metrics->used_bounds.width = request->region.width;
+    out_metrics->used_bounds.width = right - left;
     out_metrics->used_bounds.height = 24.0f;
     out_metrics->line_count = 1u;
     out_metrics->reached_end = state->zero_progress == 0u && end == total;
@@ -432,6 +456,32 @@ static void make_inline_fixture(flow_fixture *fixture,
     fixture->request.item_count = 2u;
 }
 
+static void make_float_fixture(flow_fixture *fixture,
+    fw_flow_placement_mode mode, fw_text_direction direction) {
+    fw_flow_item_v1 object;
+    fw_flow_item_v1 paragraph;
+    make_fixture(fixture, "float", "unused", "image.float",
+        "paragraph.wrap", "unused", "wrapped text");
+    object = fixture->items[1];
+    paragraph = fixture->items[2];
+    fixture->items[0] = object;
+    fixture->items[1] = paragraph;
+    fixture->items[0].placement.mode = mode;
+    fixture->items[0].placement.margins.left = 10.0f;
+    fixture->items[0].placement.margins.top = 0.0f;
+    fixture->items[0].placement.margins.right = 5.0f;
+    fixture->items[0].placement.margins.bottom = 6.0f;
+    fixture->items[0].placement.requested_width = 120.0f;
+    fixture->items[0].placement.requested_height = 80.0f;
+    fixture->items[0].direction = direction;
+    fixture->items[1].placement.margins.top = 0.0f;
+    fixture->items[1].placement.margins.bottom = 0.0f;
+    fixture->request.item_count = 2u;
+    fixture->request.page_template.page_size.width = 300.0f;
+    fixture->request.page_template.page_size.height = 300.0f;
+    fixture->request.page_template.minimum_text_width = 80.0f;
+}
+
 static fw_flow_layout_services_v1 make_services(fake_text_state *text_state,
     fake_child_state *child_state, fw_text_fragment_service_v1 *text,
     fw_child_measure_service_v1 *children) {
@@ -490,6 +540,7 @@ static int test_descriptor_and_validation(const fw_plugin_api_v1 *plugin,
     CHECK(schema.data != NULL && strstr(schema.data, "continuous") != NULL);
     CHECK(strstr(schema.data, "virtual-pages") != NULL);
     CHECK(strstr(schema.data, "columns") != NULL);
+    CHECK(strstr(schema.data, "float-start") != NULL);
     make_fixture(&fixture, "demo", "p1", "hero", "p2", "Hello", "World");
     memset(&result, 0, sizeof(result));
     result.struct_size = sizeof(result);
@@ -981,6 +1032,164 @@ static int test_inline_fallback_preserves_slot(
     return 1;
 }
 
+static int test_float_logical_sides_and_exclusion(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    const fw_flow_placement_mode modes[3] = {
+        FW_FLOW_PLACE_FLOAT_START, FW_FLOW_PLACE_FLOAT_END,
+        FW_FLOW_PLACE_FLOAT_START};
+    const fw_text_direction directions[3] = {
+        FW_TEXT_DIRECTION_LTR, FW_TEXT_DIRECTION_LTR,
+        FW_TEXT_DIRECTION_RTL};
+    const float expected_object_x[3] = {30.0f, 155.0f, 155.0f};
+    const float expected_text_x[3] = {155.0f, 20.0f, 20.0f};
+    size_t index;
+    for (index = 0u; index < 3u; ++index) {
+        flow_fixture fixture;
+        fake_text_state text_state = {0};
+        fake_child_state child_state = {0};
+        fake_sink_state sink_state = {0};
+        fw_flow_layout_result_v1 result = {0};
+        make_float_fixture(&fixture, modes[index], directions[index]);
+        CHECK(compose_fixture(api, handle, &fixture, &text_state,
+            &child_state, &sink_state, &result) == FW_STATUS_OK);
+        CHECK(result.complete == 1u && result.fragment_count == 2u);
+        CHECK(sink_state.kinds[0] == FW_FLOW_FRAGMENT_OBJECT &&
+            sink_state.kinds[1] == FW_FLOW_FRAGMENT_TEXT);
+        CHECK(fabsf(sink_state.bounds[0].x -
+            expected_object_x[index]) < 0.001f);
+        CHECK(fabsf(sink_state.bounds[1].x -
+            expected_text_x[index]) < 0.001f);
+        CHECK(fabsf(sink_state.bounds[1].width - 125.0f) < 0.001f);
+        CHECK(text_state.max_exclusion_count == 1u);
+        CHECK(fabsf(result.continuous_extent.height - 126.0f) < 0.001f);
+    }
+    return 1;
+}
+
+static int test_float_clears_when_text_width_is_too_small(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_float_fixture(&fixture, FW_FLOW_PLACE_FLOAT_START,
+        FW_TEXT_DIRECTION_LTR);
+    fixture.items[0].placement.margins.left = 0.0f;
+    fixture.items[0].placement.margins.right = 0.0f;
+    fixture.items[0].placement.margins.bottom = 0.0f;
+    fixture.items[0].placement.requested_width = 200.0f;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(fabsf(sink_state.bounds[0].y - 20.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].x - 20.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].y - 100.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].width - 260.0f) < 0.001f);
+    CHECK(text_state.last_exclusion_count == 0u);
+    return 1;
+}
+
+static int test_multiple_floats_share_available_line(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    fw_flow_item_v1 first;
+    fw_flow_item_v1 second;
+    fw_flow_item_v1 paragraph;
+    make_fixture(&fixture, "two-floats", "unused", "float.one",
+        "paragraph.after", "unused", "after");
+    first = fixture.items[1];
+    second = fixture.items[1];
+    paragraph = fixture.items[2];
+    first.id = view_of("float.one");
+    second.id = view_of("float.two");
+    first.placement.mode = FW_FLOW_PLACE_FLOAT_START;
+    second.placement.mode = FW_FLOW_PLACE_FLOAT_END;
+    first.placement.requested_width = 60.0f;
+    first.placement.requested_height = 80.0f;
+    second.placement.requested_width = 60.0f;
+    second.placement.requested_height = 80.0f;
+    memset(&first.placement.margins, 0, sizeof(first.placement.margins));
+    memset(&second.placement.margins, 0, sizeof(second.placement.margins));
+    paragraph.placement.margins.top = 0.0f;
+    fixture.items[0] = first;
+    fixture.items[1] = second;
+    fixture.items[2] = paragraph;
+    fixture.request.page_template.page_size.width = 300.0f;
+    fixture.request.page_template.page_size.height = 300.0f;
+    fixture.request.page_template.minimum_text_width = 80.0f;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.complete == 1u && result.fragment_count == 3u);
+    CHECK(fabsf(sink_state.bounds[0].x - 20.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].x - 220.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[2].x - 80.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[2].width - 140.0f) < 0.001f);
+    CHECK(text_state.max_exclusion_count == 2u);
+    return 1;
+}
+
+static int test_float_advances_whole_object_to_next_page(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "float-page", "paragraph.before", "float.image",
+        "paragraph.after", "before", "after");
+    fixture.items[1].placement.mode = FW_FLOW_PLACE_FLOAT_START;
+    fixture.items[1].placement.requested_width = 120.0f;
+    fixture.items[1].placement.requested_height = 80.0f;
+    fixture.request.page_template.mode = FW_FLOW_VIRTUAL_PAGES;
+    fixture.request.page_template.page_size.height = 130.0f;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.complete == 1u && result.page_count == 2u);
+    CHECK(sink_state.page_indices[0] == 0u &&
+        sink_state.page_indices[1] == 1u &&
+        sink_state.page_indices[2] == 1u);
+    CHECK(fabsf(sink_state.bounds[1].y - 32.0f) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].height - 72.0f) < 0.001f);
+    CHECK(sink_state.begin_count == 2u && sink_state.end_count == 2u);
+    return 1;
+}
+
+static int test_active_float_budget_is_balanced(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    fw_flow_item_v1 first;
+    fw_flow_item_v1 second;
+    fw_flow_item_v1 paragraph;
+    make_fixture(&fixture, "float-budget", "unused", "float.one",
+        "paragraph.after", "unused", "after");
+    first = fixture.items[1];
+    second = fixture.items[1];
+    paragraph = fixture.items[2];
+    first.id = view_of("float.one");
+    second.id = view_of("float.two");
+    first.placement.mode = FW_FLOW_PLACE_FLOAT_START;
+    second.placement.mode = FW_FLOW_PLACE_FLOAT_END;
+    first.placement.margins.top = 0.0f;
+    second.placement.margins.top = 0.0f;
+    fixture.items[0] = first;
+    fixture.items[1] = second;
+    fixture.items[2] = paragraph;
+    fixture.request.budget.max_active_floats = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_RESOURCE_LIMIT);
+    CHECK(result.complete == 0u && sink_state.fragment_count == 1u);
+    CHECK(sink_state.begin_count == 1u && sink_state.end_count == 1u);
+    return 1;
+}
+
 static int test_unsupported_slice(const fw_flow_layout_api_v1 *api,
     fw_plugin_handle handle) {
     flow_fixture fixture;
@@ -989,7 +1198,7 @@ static int test_unsupported_slice(const fw_flow_layout_api_v1 *api,
     fake_sink_state sink_state = {0};
     fw_flow_layout_result_v1 result = {0};
     make_fixture(&fixture, "demo", "p1", "hero", "p2", "Hello", "World");
-    fixture.items[1].placement.mode = FW_FLOW_PLACE_FLOAT_START;
+    fixture.items[1].placement.mode = FW_FLOW_PLACE_OVERLAY;
     CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
         &sink_state, &result) == FW_STATUS_UNSUPPORTED);
     CHECK(sink_state.begin_count == 0u);
@@ -1034,6 +1243,11 @@ int main(void) {
     passed &= test_inline_parts_cross_pages_and_columns(api, handle);
     passed &= test_inline_capability_and_part_validation(api, handle);
     passed &= test_inline_fallback_preserves_slot(api, handle);
+    passed &= test_float_logical_sides_and_exclusion(api, handle);
+    passed &= test_float_clears_when_text_width_is_too_small(api, handle);
+    passed &= test_multiple_floats_share_available_line(api, handle);
+    passed &= test_float_advances_whole_object_to_next_page(api, handle);
+    passed &= test_active_float_budget_is_balanced(api, handle);
     passed &= test_unsupported_slice(api, handle);
     plugin->unload(handle);
     if (!passed) return 1;

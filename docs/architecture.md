@@ -134,10 +134,10 @@ decisions.
    audio, with Placeholder, Text, Core Image, and Core Media reference plugins.
 5. **Partially implemented:** Flow Layout 0.1 now has its public ABI, manifest,
    deterministic Layout Plan, and continuous, virtual-pages, and columns
-   block/inline slices, including cross-region text/object continuation,
-   atomic replacement objects, four baseline modes, RTL placement, and
-   whole-object region advancement. The next gate is float/overlay and
-   pagination controls.
+   block/inline/float slices, including cross-region text/object continuation,
+   atomic replacement objects, four baseline modes, RTL and logical float
+   placement, rectangular exclusions, minimum-width clearing, and whole-object
+   region advancement. The next gate is overlay and pagination controls.
 6. Define and implement Subtitle/Cue rendering and Media Controls/Interaction.
 7. Define structured data sources, starting with CSV and adding Excel through
    a separate adapter.

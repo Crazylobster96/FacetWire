@@ -57,7 +57,7 @@ ctest --preset default
 构建并运行 Windows/macOS 演示请参阅 [`examples/placeholder_demo/README.md`](examples/placeholder_demo/README.md)。Text/Image/GIF 三层递归演示及其四平台验证矩阵记录在[核心内容 Renderer 演示验证指南](docs/guides/core-content-renderers-demo-validation.zh-CN.md)中。
 ### Flow Layout 当前实现状态
 
-`org.facetwire.reference.flow-layout` 已提供公共 C ABI、插件 Manifest、确定性 Layout Plan，以及 continuous、virtual-pages、columns 三种模式下的 block/inline flow。当前实验切片支持文本与行内对象跨区域续排、不可拆 replacement object、四种 baseline、RTL 定位、对象整体换栏/换页、相邻垂直 margin collapse、带能力协商的 Text Fragment/Child Measure Service、Page/Fragment Sink 和 Playground 原生投影。float、overlay、keep/widow/orphan 尚未实现，合法请求会明确返回 `FW_STATUS_UNSUPPORTED`。Apple 平台可使用[行内对象增量验证提示词](docs/prompts/macos-ios-visionos-flow-inline-incremental-validation.md)。
+`org.facetwire.reference.flow-layout` 已提供公共 C ABI、插件 Manifest、确定性 Layout Plan，以及 continuous、virtual-pages、columns 三种模式下的 block/inline/float-start/float-end flow。当前实验切片支持文本与行内对象跨区域续排、不可拆 replacement object、四种 baseline、RTL 与逻辑浮动定位、带 margin 的矩形 exclusion、最小正文宽度清除、活动 float 预算、对象整体换栏/换页、相邻垂直 margin collapse、带能力协商的 Text Fragment/Child Measure Service、Page/Fragment Sink 和 Playground 原生投影。overlay、keep/widow/orphan 尚未实现，合法请求会明确返回 `FW_STATUS_UNSUPPORTED`。Apple 平台可使用[Float 增量验证提示词](docs/prompts/macos-ios-visionos-flow-float-incremental-validation.md)。
 
 ## ABI 模型
 
