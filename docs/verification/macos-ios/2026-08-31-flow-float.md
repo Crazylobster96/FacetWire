@@ -109,6 +109,10 @@ The app was installed and launched on iPhone 17 Pro Max / iOS 26.5. Float-start/
 
 No physical Vision Pro was available. Real gaze/hand tracking, indirect pinch behavior, device window/volume lifecycle, comfort, performance, and the physical-device float matrix remain NOT RUN. Simulator success is not treated as hardware success.
 
+### Follow-up acceptance
+
+After the automated and manual runs above, the user confirmed that the currently exercised validation showed no problems. This acceptance does not expand the evidence boundary: the uncaptured visionOS Simulator below-viewport diagnostic remains documented as a manual limitation, and Vision Pro hardware remains NOT RUN.
+
 ## Local evidence
 
 Screenshots and logs are kept in the ignored directory `dist/evidence/2026-08-31-flow-float/` and are not committed. Principal files:
@@ -137,6 +141,6 @@ Screenshots and logs are kept in the ignored directory `dist/evidence/2026-08-31
 
 ## Conclusion and remaining work
 
-The shared native float contract, formal and Spike Flutter suites, macOS and iOS Simulator builds, visionOS build, and all 62 automated tests passed. macOS and iOS Simulator manual matrices passed. The visionOS Simulator host launch and selector interaction passed, while the below-viewport Flow canvas/diagnostic screenshot remains a manual limitation caused by simulator input routing. Physical Vision Pro verification remains outstanding.
+The shared native float contract, formal and Spike Flutter suites, macOS and iOS Simulator builds, visionOS build, and all 62 automated tests passed. macOS and iOS Simulator manual matrices passed, and the user reported no issue in the exercised acceptance checks. The visionOS Simulator host launch and selector interaction passed, while the below-viewport Flow canvas/diagnostic screenshot remains a manual limitation caused by simulator input routing. Physical Vision Pro verification remains outstanding.
 
 Because shared code was not modified, no additional targeted regression was required; nevertheless, the complete mobile validator, both Spike Flutter build targets, and the complete visionOS validator were run after the host fix. No binary evidence or sensitive signing/device data is included.
