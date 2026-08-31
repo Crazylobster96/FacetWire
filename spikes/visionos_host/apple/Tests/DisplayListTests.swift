@@ -120,6 +120,69 @@ final class DisplayListTests: XCTestCase {
         )
     }
 
+    func testFloatPlacementContractsAcrossPageModes() throws {
+        let placements: [(UInt32, String)] = [
+            (6, "float-start"),
+            (9, "float-end"),
+        ]
+        for (contentCase, placementMode) in placements {
+            for pageMode in FacetWireFlowPageMode.allCases {
+                let report = try FacetWireBridge.composeFlow(
+                    contentCase: contentCase,
+                    pageMode: pageMode
+                )
+
+                XCTAssertEqual(report.composeStatus, 0)
+                XCTAssertTrue(report.complete)
+                XCTAssertTrue(report.pagesBalanced)
+                XCTAssertFalse(report.inlineObjects)
+                XCTAssertEqual(report.placementMode, placementMode)
+                XCTAssertEqual(report.fragmentCount, 3)
+                XCTAssertEqual(report.fragments.count, 3)
+                XCTAssertTrue(
+                    report.supportedSlice.contains("float-start+float-end")
+                )
+            }
+        }
+    }
+
+    func testFloatFallbackPreservesPlaceholderBounds() throws {
+        let block = try FacetWireBridge.composeFlow(contentCase: 2)
+        let floatStart = try FacetWireBridge.composeFlow(contentCase: 8)
+        let floatEnd = try FacetWireBridge.composeFlow(contentCase: 11)
+
+        XCTAssertEqual(floatStart.fragments[1].kind, "placeholder")
+        XCTAssertEqual(floatEnd.fragments[1].kind, "placeholder")
+        XCTAssertEqual(
+            floatStart.fragments[1].sourceItemId,
+            block.fragments[1].sourceItemId
+        )
+        XCTAssertEqual(
+            floatEnd.fragments[1].sourceItemId,
+            block.fragments[1].sourceItemId
+        )
+        XCTAssertEqual(
+            floatStart.fragments[1].bounds.width,
+            block.fragments[1].bounds.width,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            floatStart.fragments[1].bounds.height,
+            block.fragments[1].bounds.height,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            floatEnd.fragments[1].bounds.width,
+            block.fragments[1].bounds.width,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            floatEnd.fragments[1].bounds.height,
+            block.fragments[1].bounds.height,
+            accuracy: 0.001
+        )
+    }
+
     private func writeUInt16(_ value: UInt16, to data: inout Data, at offset: Int) {
         data[offset] = UInt8(value & 0xff)
         data[offset + 1] = UInt8((value >> 8) & 0xff)

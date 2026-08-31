@@ -90,7 +90,7 @@ struct SpatialSurfaceScreen: View {
                 VStack(alignment: .leading) {
                     Text("Flow Layout 0.1")
                         .font(.headline)
-                    Text("Three recursive cases · continuous / virtual-pages / columns · block / inline")
+                    Text("Three recursive cases · continuous / virtual-pages / columns · block / inline / float")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -113,6 +113,8 @@ struct SpatialSurfaceScreen: View {
             Picker("Paragraph content", selection: $flowParagraphMode) {
                 Text("Block object").tag(FacetWireFlowParagraphMode.block)
                 Text("Inline object").tag(FacetWireFlowParagraphMode.inline)
+                Text("Float start").tag(FacetWireFlowParagraphMode.floatStart)
+                Text("Float end").tag(FacetWireFlowParagraphMode.floatEnd)
             }
             .pickerStyle(.segmented)
 
@@ -189,7 +191,7 @@ struct SpatialSurfaceScreen: View {
         do {
             let report = try FacetWireBridge.composeFlow(
                 contentCase: UInt32(selectedLevel) +
-                    (flowParagraphMode == .inline ? 3 : 0),
+                    (flowParagraphMode.rawValue * 3),
                 pageMode: flowPageMode
             )
             flowReport = report
@@ -201,6 +203,20 @@ struct SpatialSurfaceScreen: View {
                     report.fragments[1].kind == expectedKind
                     ? "PASS · native inline object · atomic text/object/text"
                     : "FAIL · native inline object contract incomplete"
+            } else if flowParagraphMode == .floatStart ||
+                        flowParagraphMode == .floatEnd {
+                let expectedMode = flowParagraphMode == .floatStart ?
+                    "float-start" : "float-end"
+                let expectedKind = selectedLevel == 2 ? "placeholder" : "object"
+                flowDiagnostic = report.nativeRuntime && report.complete &&
+                    !report.inlineObjects &&
+                    report.placementMode == expectedMode &&
+                    report.fragmentCount == 3 &&
+                    report.fragments.count == 3 &&
+                    report.fragments[1].kind == expectedKind &&
+                    report.supportedSlice.contains("float-start+float-end")
+                    ? "PASS · native \(expectedMode) · logical float/exclusion"
+                    : "FAIL · native \(expectedMode) contract incomplete"
             } else if flowPageMode == .virtualPages {
                 let expectedPages = selectedLevel == 2 ? 2 : 3
                 flowDiagnostic = report.nativeRuntime && report.complete &&

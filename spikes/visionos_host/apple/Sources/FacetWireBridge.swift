@@ -50,6 +50,7 @@ struct FacetWireFlowReport: Decodable {
     let planKey: String
     let pagesBalanced: Bool
     let inlineObjects: Bool
+    let placementMode: String
     let supportedSlice: String
     let nativeRuntime: Bool
     let fragments: [FacetWireFlowFragment]
@@ -66,6 +67,8 @@ enum FacetWireFlowPageMode: UInt32, CaseIterable, Identifiable {
 enum FacetWireFlowParagraphMode: UInt32, CaseIterable, Identifiable {
     case block = 0
     case inline = 1
+    case floatStart = 2
+    case floatEnd = 3
 
     var id: UInt32 { rawValue }
 }
