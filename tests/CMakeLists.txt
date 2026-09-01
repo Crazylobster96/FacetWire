@@ -90,6 +90,8 @@ if(TARGET facetwire_placeholder_renderer AND
    TARGET facetwire_text_renderer AND
    TARGET facetwire_core_image_renderer AND
    TARGET facetwire_core_media_renderer AND
+   TARGET facetwire_core_chart_renderer AND
+   TARGET facetwire_hierarchical_chart_renderer AND
    TARGET facetwire_flow_layout)
     add_executable(facetwire_memory_lifetime_test memory_lifetime_test.c)
     target_compile_features(facetwire_memory_lifetime_test PRIVATE c_std_11)
@@ -99,6 +101,8 @@ if(TARGET facetwire_placeholder_renderer AND
         FacetWire::text_renderer
         FacetWire::core_image_renderer
         FacetWire::core_media_renderer
+        FacetWire::core_chart_renderer
+        FacetWire::hierarchical_chart_renderer
         FacetWire::flow_layout)
     if(MSVC)
         target_compile_options(facetwire_memory_lifetime_test PRIVATE

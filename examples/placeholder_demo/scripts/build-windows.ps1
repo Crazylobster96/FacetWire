@@ -1,12 +1,14 @@
 param(
-    [string]$Configuration = "Release"
+    [string]$Configuration = "Release",
+    [ValidatePattern('^[A-Za-z0-9._-]+$')]
+    [string]$RunnerBuildName = "windows-ninja"
 )
 
 $ErrorActionPreference = "Stop"
 $demoRoot = Split-Path -Parent $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $demoRoot "..\..")).Path
 $nativeBuild = Join-Path $repoRoot "build\placeholder-demo-native-windows-ninja"
-$runnerBuild = Join-Path $demoRoot "build\windows-ninja"
+$runnerBuild = Join-Path $demoRoot "build\$RunnerBuildName"
 
 $flutterRoot = $env:FACETWIRE_FLUTTER_ROOT
 if (-not $flutterRoot) {
@@ -93,6 +95,7 @@ Invoke-Checked {
 Invoke-Checked {
     & $cmake --build $nativeBuild --target `
         facetwire_placeholder_demo_bridge `
+        facetwire_chart_demo_bridge_test `
         facetwire_placeholder_demo_bridge_test `
         facetwire_playground_bridge_test `
         facetwire_placeholder_renderer_test `

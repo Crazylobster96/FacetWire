@@ -2,19 +2,20 @@
 
 This is the canonical cross-platform FacetWire renderer Playground for Windows,
 macOS, iOS, Android, and Linux. It keeps the original mature Placeholder page
-and executable name, while adding Text/Image/GIF, Audio/Video, and Flow Layout
-verification pages to the same app. Placeholder and Flow share one Native
+and executable name, while adding Text/Image/GIF, Audio/Video, Core Chart, and
+Flow Layout verification pages to the same app. Placeholder, Chart, and Flow share one Native
 Assets library; the Windows compatibility bundle remains
 `facetwire_placeholder_demo.exe`.
 
 这是 FacetWire 的正式跨平台 Renderer Playground，覆盖 Windows、macOS、iOS、
 Android 与 Linux。它保留原有成熟 Placeholder 页面和 Windows 可执行文件名，同时在
-同一个应用中加入 Text/Image/GIF、Audio/Video 与 Flow Layout 验证页。Placeholder
-和 Flow 由同一个 Native Assets 库提供；Windows 兼容入口仍为
+同一个应用中加入 Text/Image/GIF、Audio/Video、Core Chart 与 Flow Layout 验证页。
+Placeholder、Chart 和 Flow 由同一个 Native Assets 库提供；Windows 兼容入口仍为
 `facetwire_placeholder_demo.exe`。
 
 | Page / 页面 | Contract / 内容 | Entry / 入口 |
 | --- | --- | --- |
+| Core Chart | 真实 Core Chart 0.3 / Hierarchical Chart 0.1、30 个图表入口、主题、自动布局、标签、VisualTransform、透明与语义 | 首页图表图标 |
 | Placeholder | 真实 `fwdemo_*` C ABI、三层递归、测量/语义/命中测试 | 默认首页 |
 | Rich Media Showcase / 富媒体综合演示 | Text、PNG、GIF、内联图表数据、本地 MP4、三层原始坐标、重叠与独立 opacity | 首页文章图标 |
 | Audio/Video | 本地 MP4/WAV、字幕层、控制层、音频层 | 首页媒体图标 |
@@ -29,13 +30,17 @@ facetwire_placeholder_demo.exe "D:\demos\sample.agscene\sample.agscene.dis.json"
 
 The built-in `rich-media-showcase.agscene` is the default package on the content
 page. Video is real local playback through the implemented Core Media path. The
-inline bar chart is a Playground-native preview of descriptor data for scene and
-layout testing; it does **not** claim that the future Chart Renderer plugin is
-implemented.
+inline bar chart remains a legacy Playground preview for scene/layout testing.
+The dedicated Core Chart page uses the implemented native Core Chart and
+Hierarchical Chart renderers, reports Native PASS, and exposes the element
+tree inspector plus theme, legend, label, and auto-layout controls.
 
 内置 `rich-media-showcase.agscene` 是内容页的默认演示包。视频通过已实现的 Core
 Media 路径播放本地 MP4；内联柱状图由 Playground 根据描述数据原生绘制，用于场景与
-布局验证，**不代表**后续独立 Chart Renderer 插件已经实现。
+布局验证；独立 Core Chart 页面已经通过真实 Native Asset 调用 Core Chart 0.3 与
+Hierarchical Chart 0.1，并显示 Native PASS；Element Inspector 可以选择标题、坐标轴、
+图例、系列、datum 和标签，独立调整透明度、颜色、平移、缩放、旋转与提升状态，且不会
+丢失当前主题、图例、标签和自动布局策略。
 ## Demonstrated capabilities / 演示能力
 
 - plugin lifecycle, descriptor, capability and interface discovery；
@@ -51,6 +56,13 @@ Media 路径播放本地 MP4；内联柱状图由 Playground 根据描述数据�
   `contain`/`cover`/`fill` only when explicitly requested；
 - Canvas/Page/Layer/Zone relationship-path inspection；
 - renderer parameter schema inspection。
+- native Core Chart cartesian/polar/statistical/financial/combo and six
+  extended commands, six themes, auto layout, governed labels,
+  VisualTransform rotation and opacity,
+- native Treemap, Sunburst and Packed Bubble through the Hierarchical profile,
+- native Chart element enumeration, canonical IDs, presentation overrides,
+  zOffset and promotion metadata,
+  transparent uncovered regions, semantics and balanced command batches。
 
 The current renderer contract accepts phase/progress/reduce-motion fields, but
 not every accepted field has a dedicated visual animation yet. The report strip
@@ -130,8 +142,19 @@ The script builds and tests the C bridge, runs `flutter analyze` and
 `flutter test`, builds the Release app, and bundles the DLL beside the EXE. It
 prints the final executable path.
 
+If a running Playground locks the default executable, keep that process open
+and build to an isolated directory instead:
+
+```powershell
+powershell -ExecutionPolicy Bypass `
+  -File examples\placeholder_demo\scripts\build-windows.ps1 `
+  -RunnerBuildName windows-ninja-next
+```
+
 脚本会依次构建/测试 C Bridge、执行 Flutter 静态分析与单元测试、构建 Release 应用，
 最后把 DLL 放到 EXE 同目录并输出可执行文件路径。
+如果正在运行的 Playground 锁定了默认 EXE，可通过
+`-RunnerBuildName windows-ninja-next` 构建到独立目录，无需强制结束现有进程。
 
 ## macOS build and run / macOS 构建运行
 

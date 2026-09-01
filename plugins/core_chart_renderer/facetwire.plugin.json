@@ -1,0 +1,31 @@
+{
+  "$schema": "../../spec/schema/plugin-manifest-v0.1.schema.json",
+  "format": "facetwire.plugin-manifest",
+  "formatVersion": "0.1",
+  "plugin": {
+    "id": "org.facetwire.reference.core-chart-renderer",
+    "version": "0.3.0",
+    "name": "FacetWire Core Chart Renderer",
+    "vendor": "FacetWire contributors",
+    "licenseSpdx": "MPL-2.0"
+  },
+  "abi": {"major": 1, "minimumMinor": 0, "maximumMinor": 0},
+  "capabilities": [{
+    "id": "facetwire.renderer.chart",
+    "kind": "facetwire.capability.renderer",
+    "flags": 15,
+    "interfaces": [
+      {"id": "facetwire.renderer.chart.v1", "version": 1},
+      {"id": "facetwire.renderer.chart.elements.v1", "version": 1},
+      {"id": "facetwire.renderer.chart.presentation.v1", "version": 1}
+    ]
+  }],
+  "artifacts": [{
+    "target": "any",
+    "profile": "static",
+    "registration": "facetwire_core_chart_plugin_query"
+  }],
+  "permissions": [],
+  "dependencies": [],
+  "extensions": {}
+}

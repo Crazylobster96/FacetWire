@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://facetwire.org/schema/chart-legend-template-v0.1.schema.json",
+  "title": "FacetWire Chart Legend Template 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profileVersion", "templateId", "items"],
+  "properties": {
+    "profileVersion": { "const": "0.1" },
+    "templateId": { "type": "string", "minLength": 1 },
+    "placement": {
+      "enum": ["auto", "bottom", "right", "hidden"],
+      "default": "auto"
+    },
+    "direction": {
+      "enum": ["auto", "row", "column"],
+      "default": "auto"
+    },
+    "wrap": {
+      "enum": ["auto", "none", "items"],
+      "default": "auto"
+    },
+    "alignment": {
+      "enum": ["start", "center", "end"],
+      "default": "start"
+    },
+    "showValues": { "type": "boolean", "default": false },
+    "interactive": { "type": "boolean", "default": false },
+    "tokens": { "$ref": "#/$defs/tokens" },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/item" }
+    }
+  },
+  "$defs": {
+    "unit": { "type": "number", "minimum": 0, "maximum": 1 },
+    "color": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["red", "green", "blue", "alpha"],
+      "properties": {
+        "red": { "$ref": "#/$defs/unit" },
+        "green": { "$ref": "#/$defs/unit" },
+        "blue": { "$ref": "#/$defs/unit" },
+        "alpha": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "markerSize": { "$ref": "#/$defs/unit" },
+        "markerLabelGap": { "$ref": "#/$defs/unit" },
+        "labelValueGap": { "$ref": "#/$defs/unit" },
+        "itemGap": { "$ref": "#/$defs/unit" },
+        "rowGap": { "$ref": "#/$defs/unit" },
+        "itemPaddingX": { "$ref": "#/$defs/unit" },
+        "itemPaddingY": { "$ref": "#/$defs/unit" },
+        "minItemWidth": { "$ref": "#/$defs/unit" },
+        "maxItemWidth": { "$ref": "#/$defs/unit" },
+        "labelFontSize": { "$ref": "#/$defs/unit" },
+        "valueFontSize": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "seriesId", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "seriesId": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "valueText": { "type": "string" },
+        "semanticLabel": { "type": "string" },
+        "color": { "$ref": "#/$defs/color" },
+        "markerShape": {
+          "enum": ["auto", "square", "circle", "line", "area"],
+          "default": "auto"
+        },
+        "state": {
+          "enum": ["normal", "highlighted", "muted", "disabled"],
+          "default": "normal"
+        },
+        "visible": { "type": "boolean", "default": true }
+      }
+    }
+  }
+}

@@ -111,7 +111,7 @@ Skia / Metal / Direct2D / Vulkan / WebGPU / 平台 UI
 5. **部分实现：** Flow Layout 0.1 已落地公共 ABI、Manifest、确定性 Layout Plan，以及 continuous、virtual-pages、columns 三种模式下的 block/inline/float 排版；已支持文本/行内对象跨区域续排、不可拆 replacement object、四种 baseline、RTL 与逻辑浮动定位、矩形排除区、最小正文宽度清除和对象整体移至下一栏或下一页。下一门禁是 overlay 和分页控制。
 6. 定义并实现 Subtitle/Cue Renderer 与 Media Controls/Interaction Profile。
 7. 定义结构化数据源层，先支持 CSV，再通过独立适配器支持 Excel。
-8. 在结构化数据源之上定义 Chart Model 与 Chart Renderer。
+8. **部分实现：** Core Chart Renderer 0.3 已支持宿主规范化的类别/系列/复合值模型、原有 17 种图表、6 种普通扩展图表、主题、自动布局、标签治理、VisualTransform、透明、语义和基础命中测试；Chart Element Layering 提供稳定元素树、展示覆盖与按需提升语义。独立 Hierarchical Chart 0.1 Profile 已支持矩形树图、旭日图和 Packed Bubble。CSV/Excel Adapter、双轴、地图、火焰图和 Forge 保存尚未实现。
 9. 定义通用 Graph Model，并为脑图、Visio、亿图等格式提供导入适配器。
 10. 在数据、图表和图结构能力稳定后实现 Image Composition 专业图像合成 Profile。
 11. 把已验证的 Spike 收敛为正式 FacetWire Playground，并增加一致性认证。

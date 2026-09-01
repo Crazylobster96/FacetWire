@@ -211,7 +211,7 @@ iOS 真机使用 `flutter devices` 获取设备 ID，然后执行
 | CC-09 | 点击嵌套层 | 当前层信息显示该 Zone 的原始 bounds |
 | CC-10 | 缩放/旋转设备 | 根 viewport 适配屏幕，嵌套文档内部坐标关系不改变 |
 | CC-11 | 视频海报与播放 | 初始显示海报；点击播放后加载本地 MP4，暂停/继续有效 |
-| CC-12 | 图表能力标识 | 显示描述数据生成的柱状图；明确标注为 Playground 预览而非已完成 Chart Renderer 插件 |
+| CC-12 | 图表能力标识 | 综合场景仍显示描述数据生成的兼容预览；首页独立 Chart 页面必须显示真实插件 Native PASS |
 
 ### 本章检查
 
@@ -222,8 +222,8 @@ iOS 真机使用 `flutter devices` 获取设备 ID，然后执行
 ## 6. 当前边界与下一步
 
 当前 Flutter 页面是标准目录包的跨平台视觉宿主，用于验证组合关系。综合演示中的
-Chart 是宿主原生预览，不是已完成的 Chart Renderer 插件；Video 则复用现有 Core Media
-播放路径。C 插件的 Host
+综合场景内的 Chart 是保留的宿主兼容预览；独立 Chart 页面已经使用 Core Chart
+Renderer 0.1 的真实 Native Asset 命令。Video 复用现有 Core Media 播放路径。C 插件的 Host
 Service/DisplayList 路径由原生契约测试验证。下一步生产化集成应让 Playground 的内容
 投影器把同一 Zone 转成 `fw_text_renderer_request_v1` 或
 `fw_image_renderer_request_v1`，再把真实 DisplayList/纹理结果桥接到 Flutter，而不是长期

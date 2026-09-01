@@ -7,7 +7,7 @@
 
 实现位于 `src/visual_transform.c`，公共 ABI 位于
 `include/facetwire/visual_transform.h`，由 `FacetWire::facetwire` 导出。Image、GIF、Video
-和未来 Chart 插件只能调用公共函数，不得保留本地 placement 副本。该模块无堆分配、无
+和 Chart 插件只能调用公共函数，不得保留本地 placement 副本。该模块无堆分配、无
 句柄所有权、无平台 API，也不绘制背景。
 
 ### 本章检查
@@ -109,15 +109,16 @@ poster 三条输出路径消费相同 command。
 
 ### Chart
 
-Chart Renderer 尚未实现。它的 0.1 ABI 必须复用 `fw_visual_transform_v1/result_v1`，无论
-图表输出为矢量 display list、纹理还是节点缩略图。图表交互、数据范围和节点语义不进入
-VisualTransform。
+Core Chart Renderer 0.1 已通过 `fw_chart_render_request_v1.transform` 复用
+`fw_visual_transform_v1/result_v1`。当前插件输出归一化矢量 display list；Host 将同一
+transform 结果应用于全部笛卡尔、极坐标、统计、金融与组合图。图表交互、数据范围和节点语义仍由 Chart
+Renderer 合同负责，不进入 VisualTransform。
 
 ### 本章检查
 
 - Image 与 GIF 不因时间轴不同而分叉几何规则。
 - Video 三类 surface 不产生旋转跳变。
-- 图表扩展点明确但没有提前固化图表业务字段。
+- Chart 复用公共几何合同，同时保持图表模型与语义合同独立。
 
 ## 5. 缓存与透明规则
 
@@ -138,13 +139,15 @@ fingerprint。内容旋转后不得复用未旋转的 Poster/帧缓存。`Visual
 | fit/旋转/Layer bounds/非法值 | `tests/visual_transform_test.c` |
 | Image/GIF transformed sink、透明留白、旧 ABI | `plugins/core_image_renderer/tests/core_image_renderer_test.c` |
 | Video surface/poster/frame 共用旋转 | `plugins/core_media_renderer/tests/media_renderer_test.c` |
+| Chart fit/旋转/透明留白与命令平衡 | `plugins/core_chart_renderer/tests/core_chart_renderer_test.c` |
+| Chart Native Bridge 命令序列化 | `examples/placeholder_demo/native/tests/chart_demo_bridge_test.c` |
 | acquire/release 与 media handle 平衡 | `tests/memory_lifetime_test.c` 及插件合同测试 |
 
 ### 本章检查
 
 - 公共算法和各插件接线分别有测试。
 - 回归矩阵覆盖旧 ABI。
-- 后续 Chart 测试可追加一行，不改变现有合同。
+- Chart 的公共变换、插件合同和 Native Bridge 均有独立回归测试。
 
 ## 7. 关联性与扩展性结论
 

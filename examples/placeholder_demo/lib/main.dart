@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'src/demo_app.dart';
+import 'src/chart_runtime_client.dart';
 import 'src/demo_models.dart';
 import 'src/flow_runtime_client.dart';
 import 'src/native_asset_demo_client.dart';
@@ -33,10 +34,18 @@ Future<void> main(List<String> arguments) async {
     flowClient = const DemoRuntimeClient();
   }
 
+  ChartRuntimeClient chartClient;
+  try {
+    chartClient = NativeAssetChartRuntimeClient.open();
+  } on Object {
+    chartClient = const DemoChartRuntimeClient();
+  }
+
   runApp(
     PlaceholderDemoApp(
       client: placeholderClient,
       runtimeClient: flowClient,
+      chartClient: chartClient,
       packageLoader: AgscenePackageLoader.asset(),
       initialDemoPath: parseDemoPathArguments(arguments),
     ),

@@ -12,9 +12,13 @@ void main(List<String> args) async {
       sources: const [
         'native/src/facetwire_placeholder_demo.c',
         'native/src/facetwire_playground_bridge.c',
+        'native/src/facetwire_chart_demo.c',
         'native/src/facetwire_placeholder_plugin_embed.c',
+        'native/src/facetwire_chart_plugin_embed.c',
+        'native/src/facetwire_hierarchical_chart_plugin_embed.c',
         'native/src/facetwire_flow_layout_plugin_embed.c',
         'native/src/facetwire_flow_virtual_pages_embed.c',
+        'native/src/facetwire_visual_transform_embed.c',
       ],
       includes: const ['native/include', '../../include'],
       defines: const {

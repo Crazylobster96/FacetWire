@@ -3,6 +3,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'chart_renderer_demo.dart';
+import 'chart_runtime_client.dart';
 import 'core_content_demo.dart';
 import 'flow_layout_demo.dart';
 import 'flow_runtime_client.dart';
@@ -20,12 +22,14 @@ class PlaceholderDemoApp extends StatefulWidget {
     required this.client,
     required this.packageLoader,
     this.runtimeClient = const DemoRuntimeClient(),
+    this.chartClient = const DemoChartRuntimeClient(),
     this.initialDemoPath,
     super.key,
   });
 
   final NativeDemoClient client;
   final NativeRuntimeClient runtimeClient;
+  final ChartRuntimeClient chartClient;
   final AgscenePackageLoader packageLoader;
   final String? initialDemoPath;
 
@@ -38,6 +42,7 @@ class _PlaceholderDemoAppState extends State<PlaceholderDemoApp> {
   void dispose() {
     unawaited(widget.client.close());
     unawaited(widget.runtimeClient.close());
+    unawaited(widget.chartClient.close());
     super.dispose();
   }
 
@@ -72,6 +77,7 @@ class _PlaceholderDemoAppState extends State<PlaceholderDemoApp> {
           CoreContentDemoScreen(initialPath: widget.initialDemoPath),
       '/media': (_) => const MediaRendererDemoScreen(),
       '/flow': (_) => FlowLayoutDemoScreen(client: widget.runtimeClient),
+      '/chart': (_) => ChartRendererDemoScreen(client: widget.chartClient),
     },
   );
 }
@@ -322,6 +328,12 @@ class _PlaceholderDemoScreenState extends State<PlaceholderDemoScreen> {
                 tooltip: 'Flow Layout 0.1',
                 onPressed: () => Navigator.of(context).pushNamed('/flow'),
                 icon: const Icon(Icons.view_stream_outlined),
+              ),
+              IconButton(
+                key: const ValueKey('open-chart-renderer-demo'),
+                tooltip: 'Core Chart Renderer 0.1',
+                onPressed: () => Navigator.of(context).pushNamed('/chart'),
+                icon: const Icon(Icons.insert_chart_outlined),
               ),
               if (snapshot != null && !compact)
                 Padding(

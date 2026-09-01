@@ -1,6 +1,7 @@
 add_library(facetwire_placeholder_demo_bridge SHARED
     src/facetwire_placeholder_demo.c
     src/facetwire_playground_bridge.c
+    src/facetwire_chart_demo.c
 )
 
 target_compile_features(facetwire_placeholder_demo_bridge PRIVATE c_std_11)
@@ -13,6 +14,8 @@ target_include_directories(facetwire_placeholder_demo_bridge PUBLIC
 )
 target_link_libraries(facetwire_placeholder_demo_bridge PRIVATE
     FacetWire::placeholder_renderer
+    FacetWire::core_chart_renderer
+    FacetWire::hierarchical_chart_renderer
     FacetWire::flow_layout
 )
 set_target_properties(facetwire_placeholder_demo_bridge PROPERTIES
@@ -84,5 +87,20 @@ if(BUILD_TESTING AND FACETWIRE_BUILD_TESTS)
         facetwire.placeholder_demo.playground_bridge PROPERTIES
         LABELS "unit;demo;placeholder;flow"
     )
+    add_executable(facetwire_chart_demo_bridge_test
+        tests/chart_demo_bridge_test.c)
+    target_compile_features(facetwire_chart_demo_bridge_test PRIVATE c_std_11)
+    target_link_libraries(facetwire_chart_demo_bridge_test PRIVATE
+        facetwire_placeholder_demo_bridge)
+    if(MSVC)
+        target_compile_options(facetwire_chart_demo_bridge_test PRIVATE
+            /W4 /WX /permissive- /utf-8)
+    else()
+        target_compile_options(facetwire_chart_demo_bridge_test PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME facetwire.placeholder_demo.chart_bridge
+        COMMAND facetwire_chart_demo_bridge_test)
+    set_tests_properties(facetwire.placeholder_demo.chart_bridge PROPERTIES
+        LABELS "unit;demo;chart;native-bridge")
 endif()
-

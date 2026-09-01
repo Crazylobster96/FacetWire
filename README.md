@@ -38,6 +38,8 @@ examples/documents/                Conforming uncompressed .agscene fixtures
 plugins/text_renderer/             Reference Text Renderer 0.1
 plugins/core_image_renderer/        Reference Image and Animated Image renderer
 plugins/core_media_renderer/        Reference Audio and Video renderer
+plugins/core_chart_renderer/        Reference Core Chart Renderer 0.3
+plugins/hierarchical_chart_renderer/ Reference Hierarchical Chart Renderer 0.1
 plugins/flow_layout/                Experimental Flow Layout 0.1 reference
 spikes/playground_ui/               Shared Windows/macOS/iOS/Android demo host
 plugins/placeholder_renderer/      Reference fallback renderer
@@ -72,6 +74,32 @@ matrix are documented in
 `org.facetwire.reference.flow-layout` now exposes the public C ABI, plugin manifest, deterministic Layout Plan, continuous, virtual-page, and multi-column block/inline flow, cross-region text and inline-object continuation, whole-object region advancement, four baseline modes, RTL placement, logical float-start/end, rectangular text exclusions, minimum-width clearing, bounded active floats, adjacent vertical margin collapse, Text Fragment/Child Measure service boundaries, and the Page/Fragment sink. The Playground exposes all three page modes and block/inline/float-start/float-end content through the native bridge. Overlays and break/keep/widow/orphan controls remain pending; valid requests outside the implemented slice return `FW_STATUS_UNSUPPORTED` explicitly. See the dedicated [macOS/iOS/visionOS Float validation prompt](docs/prompts/macos-ios-visionos-flow-float-incremental-validation.md) for incremental Apple-platform verification.
 
 
+### Current Core Chart implementation
+
+org.facetwire.reference.core-chart-renderer exposes
+facetwire.renderer.chart.v1, facetwire.renderer.chart.elements.v1, and
+facetwire.renderer.chart.presentation.v1 for
+normalized category/series/value models,
+bar/stacked/area/scatter/polar/statistical/financial/combo chart families,
+diverging bars, faceted lines, range areas, density heatmaps, word clouds,
+Nightingale roses, six themes, automatic layout, governed labels, shared
+VisualTransform, opacity and transparent
+uncovered regions, aggregate semantics, data-node hit testing, bounded
+resources, and deterministic cache keys. CSV and Excel remain independent
+future Data Source Adapters. The canonical Playground includes a real Native
+Asset Chart verification page with 30 gallery choices and selectable title, axes, legend, series,
+datum, and label elements plus opacity, color, translation, scale, rotation,
+z-offset, and promotion controls. Legends use the standardized container → item →
+marker/label/optional-value composition, so a whole legend item or an individual part
+can be adjusted through the same element framework.
+
+`org.facetwire.reference.hierarchical-chart-renderer` separately exposes
+`facetwire.renderer.hierarchical-chart.v1` for Treemap, Sunburst, and Packed
+Bubble using stable parent-first nodes. See the [0.3 requirements](docs/requirements/chart-visualization-expansion-requirements-v0.3.md),
+[detailed design](docs/design/chart-visualization-expansion-detailed-design-v0.3.md),
+the [Chinese user guide](docs/guides/chart-visualization-expansion-user-guide.zh-CN.md),
+and [Chart Visual Design 0.4](docs/design/chart-visual-design-system-v0.4.md).
+
 ## ABI model
 
 The host obtains a `fw_plugin_api_v1` table, validates its size and ABI
@@ -98,6 +126,18 @@ See [the 0.1 plugin contract](spec/plugin-contract-v0.1.md), the experimental
 [function-level detailed design](docs/design/text-renderer-detailed-design-v0.1.md).
 Flow layout is specified by its [requirements](docs/requirements/flow-layout-renderer-requirements-v0.1.md)
 and [function-level design](docs/design/flow-layout-renderer-detailed-design-v0.1.md).
+Core Chart is specified by its [requirements](docs/requirements/core-chart-renderer-requirements-v0.1.md)
+and [function-level design](docs/design/core-chart-renderer-detailed-design-v0.1.md).
+Chart element layering is specified by its
+[0.2 requirements](docs/requirements/chart-element-layering-requirements-v0.2.md),
+[detailed design](docs/design/chart-element-layering-detailed-design-v0.2.md), and
+[Chinese user guide](docs/guides/chart-element-layering-user-guide.zh-CN.md). The reusable
+legend sub-template is defined by the [Legend Composition Profile 0.1](spec/chart-legend-composition-profile-v0.1.md)
+and its [Chinese edition](spec/chart-legend-composition-profile-v0.1.zh-CN.md).
+Chart visualization 0.3 and the Hierarchical Chart Profile are specified by the
+[expansion requirements](docs/requirements/chart-visualization-expansion-requirements-v0.3.md),
+[detailed design](docs/design/chart-visualization-expansion-detailed-design-v0.3.md), and
+[Chinese user guide](docs/guides/chart-visualization-expansion-user-guide.zh-CN.md).
 The Playground, recursive fixture, and five-platform acceptance procedure are documented in
 [the Chinese cross-platform validation guide](docs/guides/flow-layout-cross-platform-validation.zh-CN.md).
 Audio and video rendering are specified by the

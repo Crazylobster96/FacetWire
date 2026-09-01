@@ -83,6 +83,39 @@ validate_manifest("plugins/core_media_renderer/facetwire.plugin.json"
     "org.facetwire.reference.core-media-renderer"
     "facetwire_core_media_plugin_query" "facetwire.renderer.video"
     "facetwire.renderer.audio")
+validate_manifest("plugins/core_chart_renderer/facetwire.plugin.json"
+    "org.facetwire.reference.core-chart-renderer"
+    "facetwire_core_chart_plugin_query" "facetwire.renderer.chart")
+validate_manifest("plugins/hierarchical_chart_renderer/facetwire.plugin.json"
+    "org.facetwire.reference.hierarchical-chart-renderer"
+    "facetwire_hierarchical_chart_plugin_query"
+    "facetwire.renderer.hierarchical-chart")
+
+file(READ
+    "${FACETWIRE_SOURCE_DIR}/plugins/core_chart_renderer/facetwire.plugin.json"
+    chart_manifest)
+string(JSON chart_interface_count LENGTH
+    "${chart_manifest}" capabilities 0 interfaces)
+if(NOT chart_interface_count EQUAL 3)
+    message(FATAL_ERROR
+        "core chart manifest must publish renderer, element and presentation interfaces")
+endif()
+string(JSON chart_renderer_interface GET
+    "${chart_manifest}" capabilities 0 interfaces 0 id)
+string(JSON chart_element_interface GET
+    "${chart_manifest}" capabilities 0 interfaces 1 id)
+string(JSON chart_presentation_interface GET
+    "${chart_manifest}" capabilities 0 interfaces 2 id)
+if(NOT chart_renderer_interface STREQUAL "facetwire.renderer.chart.v1" OR
+   NOT chart_element_interface STREQUAL
+       "facetwire.renderer.chart.elements.v1" OR
+   NOT chart_presentation_interface STREQUAL
+       "facetwire.renderer.chart.presentation.v1")
+    message(FATAL_ERROR
+        "core chart manifest publishes unexpected interfaces: "
+        "${chart_renderer_interface};${chart_element_interface};"
+        "${chart_presentation_interface}")
+endif()
 validate_manifest("plugins/flow_layout/facetwire.plugin.json"
     "org.facetwire.reference.flow-layout"
     "facetwire_flow_layout_plugin_query" "facetwire.layout.flow")

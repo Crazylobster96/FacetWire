@@ -141,7 +141,15 @@ decisions.
 6. Define and implement Subtitle/Cue rendering and Media Controls/Interaction.
 7. Define structured data sources, starting with CSV and adding Excel through
    a separate adapter.
-8. Define the Chart Model and Chart Renderer above structured data sources.
+8. **Partially implemented:** Core Chart Renderer 0.3 now accepts a
+   host-normalized category/series/compound-value model and supports
+   cartesian, polar, statistical, financial, mixed-series and six extended
+   chart families, plus themes, auto layout, label governance, VisualTransform,
+   transparency, semantics, and hit testing. Chart
+   Element Layering adds stable element identities, presentation overrides,
+   and on-demand promotion intent. The separate Hierarchical Chart 0.1 profile
+   implements Treemap, Sunburst, and Packed Bubble. CSV/Excel adapters, dual
+   axes, maps, flame graphs, and Forge persistence remain pending.
 9. Define a common Graph Model with import adapters for mind maps, Visio, Edraw,
    and similar formats.
 10. Implement the professional Image Composition Profile after data, chart,
