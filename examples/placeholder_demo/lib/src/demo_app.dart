@@ -64,22 +64,35 @@ class _PlaceholderDemoAppState extends State<PlaceholderDemoApp> {
       ),
       useMaterial3: true,
     ),
-    home: PlaceholderDemoScreen(
-      client: widget.client,
-      packageLoader: widget.packageLoader,
-    ),
-    routes: {
-      '/placeholder': (_) => PlaceholderDemoScreen(
+    onGenerateRoute: _onGenerateRoute,
+  );
+
+  Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
+    final WidgetBuilder? builder = switch (settings.name) {
+      '/' || '/placeholder' => (_) => PlaceholderDemoScreen(
         client: widget.client,
         packageLoader: widget.packageLoader,
       ),
-      '/content': (_) =>
-          CoreContentDemoScreen(initialPath: widget.initialDemoPath),
-      '/media': (_) => const MediaRendererDemoScreen(),
-      '/flow': (_) => FlowLayoutDemoScreen(client: widget.runtimeClient),
-      '/chart': (_) => ChartRendererDemoScreen(client: widget.chartClient),
-    },
-  );
+      '/content' => (_) => CoreContentDemoScreen(
+        initialPath: widget.initialDemoPath,
+      ),
+      '/media' => (_) => const MediaRendererDemoScreen(),
+      '/flow' => (_) => FlowLayoutDemoScreen(client: widget.runtimeClient),
+      '/chart' => (_) => ChartRendererDemoScreen(client: widget.chartClient),
+      _ => null,
+    };
+    if (builder == null) return null;
+
+    // Windows Flutter can dereference a null GPU context while snapshotting an
+    // external video texture. Keep both sides of every transition live: even a
+    // non-media route can be pushed above a playing video. MaterialPageRoute
+    // retains platform transitions/back gestures; only snapshotting is disabled.
+    return MaterialPageRoute<dynamic>(
+      settings: settings,
+      builder: builder,
+      allowSnapshotting: false,
+    );
+  }
 }
 
 String? parseDemoPathArguments(List<String> arguments) {

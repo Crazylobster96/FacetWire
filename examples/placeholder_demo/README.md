@@ -41,6 +41,27 @@ Media 路径播放本地 MP4；内联柱状图由 Playground 根据描述数据�
 Hierarchical Chart 0.1，并显示 Native PASS；Element Inspector 可以选择标题、坐标轴、
 图例、系列、datum 和标签，独立调整透明度、颜色、平移、缩放、旋转与提升状态，且不会
 丢失当前主题、图例、标签和自动布局策略。
+## Live-content navigation / 实时内容路由约束
+
+All Playground routes (including `/`) are created by the central
+`onGenerateRoute` factory with `MaterialPageRoute(allowSnapshotting: false)`.
+Keep this policy for new pages: even a non-media page can transition above a
+playing video. Platform animations and back navigation remain enabled; both
+the incoming and outgoing pages are painted live instead of snapshotted.
+
+This works around a Windows Flutter external-video-texture snapshot crash
+(`GrDirectContext::flush`, null GPU context), observed with Flutter 3.47.1.
+It is a host integration policy, not a change to FacetWire plugin layout,
+opacity, VisualTransform, or media decoding contracts. Do not bypass the
+factory with `home`, `routes`, or a default `MaterialPageRoute`, or capture
+live video subtrees using `toImage`/`toImageSync` without a supported path.
+
+所有页面（包括首页）统一禁用路由快照，保留平台转场和返回行为。新增非媒体页面也要
+遵守，因为其下层可能正在播放视频。该约束修复 Demo 宿主与 Flutter 视频纹理的快照
+兼容问题，不改变插件合同。Windows 回归应覆盖：媒体页首帧加载中进入/返回、播放中
+进入/返回、富媒体页播放后进入 Flow/Placeholder 再返回、快速反复切换，以及明暗主题。
+Widget 测试检查全部命名路由和转场中间帧；真实视频/GPU 路径仍需运行 Release 验证。
+
 ## Demonstrated capabilities / 演示能力
 
 - plugin lifecycle, descriptor, capability and interface discovery；

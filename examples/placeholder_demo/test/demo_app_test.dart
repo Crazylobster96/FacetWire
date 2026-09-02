@@ -1,12 +1,123 @@
 // SPDX-License-Identifier: MPL-2.0
+import 'package:facetwire_placeholder_demo/src/chart_renderer_demo.dart';
+import 'package:facetwire_placeholder_demo/src/core_content_demo.dart';
 import 'package:facetwire_placeholder_demo/src/demo_app.dart';
 import 'package:facetwire_placeholder_demo/src/demo_models.dart';
+import 'package:facetwire_placeholder_demo/src/flow_layout_demo.dart';
+import 'package:facetwire_placeholder_demo/src/media_renderer_demo.dart';
 import 'package:facetwire_placeholder_demo/src/package_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('all playground routes keep live content and route settings', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1500, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      PlaceholderDemoApp(
+        client: _FakeClient(),
+        packageLoader: _phonePackageLoader(),
+        initialDemoPath: 'custom.agscene',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(PlaceholderDemoScreen));
+    final initialRoute = ModalRoute.of(context)!;
+    expect(initialRoute.settings.name, '/');
+    expect(initialRoute.allowSnapshotting, isFalse);
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    // home/routes would let MaterialApp create an unprotected default route.
+    expect(app.home, isNull);
+    expect(app.routes, isEmpty);
+    expect(app.onGenerateRoute, isNotNull);
+    const expectedPages = <String, Type>{
+      '/': PlaceholderDemoScreen,
+      '/placeholder': PlaceholderDemoScreen,
+      '/content': CoreContentDemoScreen,
+      '/media': MediaRendererDemoScreen,
+      '/flow': FlowLayoutDemoScreen,
+      '/chart': ChartRendererDemoScreen,
+    };
+    for (final entry in expectedPages.entries) {
+      final settings = RouteSettings(
+        name: entry.key,
+        arguments: const {'source': 'route-regression'},
+      );
+      final route = app.onGenerateRoute!(settings)! as MaterialPageRoute;
+      expect(route.settings, same(settings));
+      expect(route.allowSnapshotting, isFalse, reason: entry.key);
+      expect(route.maintainState, isTrue);
+      final page = route.builder(context);
+      expect(page.runtimeType, entry.value);
+      if (page is CoreContentDemoScreen) {
+        expect(page.initialPath, 'custom.agscene');
+      }
+      route.dispose();
+    }
+    expect(app.onGenerateRoute!(const RouteSettings(name: '/unknown')), isNull);
+  });
+
+  for (final brightness in Brightness.values) {
+    testWidgets('Windows push/pop does not snapshot in $brightness theme', (
+      tester,
+    ) async {
+      tester.binding.platformDispatcher.platformBrightnessTestValue =
+          brightness;
+      addTearDown(
+        tester.binding.platformDispatcher.clearPlatformBrightnessTestValue,
+      );
+      await tester.binding.setSurfaceSize(const Size(1500, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        PlaceholderDemoApp(
+          client: _FakeClient(),
+          packageLoader: _phonePackageLoader(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(PlaceholderDemoScreen));
+      expect(Theme.of(context).brightness, brightness);
+      expect(
+        Theme.of(context).pageTransitionsTheme.builders[TargetPlatform.windows],
+        isA<ZoomPageTransitionsBuilder>(),
+      );
+      final navigator = Navigator.of(context);
+      // Check during, not only after, the animation: snapshots are transient.
+      Future<void> checkTransitionFrames() async {
+        await tester.pump();
+        for (var frame = 0; frame < 4; frame += 1) {
+          await tester.pump(const Duration(milliseconds: 60));
+          for (final snapshot in tester.widgetList<SnapshotWidget>(
+            find.byType(SnapshotWidget, skipOffstage: false),
+          )) {
+            expect(snapshot.controller.allowSnapshotting, isFalse);
+          }
+          expect(tester.takeException(), isNull);
+        }
+        await tester.pumpAndSettle();
+      }
+
+      for (var attempt = 0; attempt < 3; attempt += 1) {
+        final result = navigator.pushNamed('/placeholder');
+        await checkTransitionFrames();
+        expect(navigator.canPop(), isTrue);
+        expect(
+          ModalRoute.of(tester.element(find.byType(PlaceholderDemoScreen)))!
+              .allowSnapshotting,
+          isFalse,
+        );
+        navigator.pop('returned');
+        await checkTransitionFrames();
+        expect(await result, 'returned');
+        expect(navigator.canPop(), isFalse);
+      }
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+  }
 
   testWidgets('shows recursive scene and real-contract controls', (
     tester,
