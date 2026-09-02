@@ -219,7 +219,39 @@ int main(void) {
             }
         }
     }
-    assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 12u,
+    for (content_case = 0u; content_case < 3u; ++content_case) {
+        for (page_mode = 0u; page_mode < 3u; ++page_mode) {
+            assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f,
+                content_case + 12u, page_mode, &flow) == FWUI_STATUS_OK);
+            assert(strstr((const char *)flow.data,
+                "\"placementMode\":\"overlay\"") != NULL);
+            assert(strstr((const char *)flow.data,
+                "\"z\":10,\"flags\":1") != NULL);
+            assert(strstr((const char *)flow.data,
+                "\"fragmentCount\":3") != NULL);
+            fwui_buffer_release(&flow);
+        }
+    }
+    for (content_case = 0u; content_case < 3u; ++content_case) {
+        for (page_mode = 0u; page_mode < 3u; ++page_mode) {
+            assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f,
+                content_case + 15u, page_mode, &flow) == FWUI_STATUS_OK);
+            assert(strstr((const char *)flow.data,
+                "\"placementMode\":\"pagination-constraints\"") != NULL);
+            assert(strstr((const char *)flow.data,
+                "breaks+keep+orphans+widows") != NULL);
+            assert(strstr((const char *)flow.data,
+                "\"flags\":4") != NULL);
+            if (page_mode == FWUI_FLOW_PAGE_VIRTUAL)
+                assert(strstr((const char *)flow.data,
+                    "\"pageIndex\":1") != NULL);
+            else if (page_mode == FWUI_FLOW_PAGE_COLUMNS)
+                assert(strstr((const char *)flow.data,
+                    "\"columnIndex\":1") != NULL);
+            fwui_buffer_release(&flow);
+        }
+    }
+    assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 18u,
         FWUI_FLOW_PAGE_CONTINUOUS, &flow) == FWUI_STATUS_INVALID_ARGUMENT);
     assert(fwui_compose_flow_demo_v2(context, 600.0f, 700.0f, 0u, 3u,
         &flow) == FWUI_STATUS_INVALID_ARGUMENT);

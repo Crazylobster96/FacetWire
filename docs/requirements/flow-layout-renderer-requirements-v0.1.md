@@ -4,6 +4,10 @@
 目标 Capability：`facetwire.layout.flow`
 目标 Interface：`facetwire.layout.flow.v1`
 
+参考实现状态：FLW-PLC-006 与 FLW-BRK-001..005 已进入 0.1 实验切片。精确满足失败时必须
+设置 `FW_FLOW_DIAGNOSTIC_*`；含 inline object 的段落目前允许显式放宽 widow/orphan，
+但不允许拆分原子对象。
+
 ## 1. 目标与非目标
 
 Flow Layout 把规范化 Flow Item、Page Template、Render Target 和受限测量服务转换为确定的
@@ -178,6 +182,8 @@ Virtual Page/Fragment Plan。它负责兄弟关系、文本片段、Replaced Ele
 
 - 每组核心需求均有正向、边界和失败测试。
 - Fake 服务足以覆盖算法，真实文本/图片后端另做集成测试。
+- Playground 必须提供独立“覆盖层”和“分页约束”场景，并显示 Fragment flags、z 与
+  diagnosticFlags，不能只依赖单元测试判断通过。
 
 ## 12. 完成定义与关联检查
 

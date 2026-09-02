@@ -128,10 +128,14 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
     final placementGroup = contentCase ~/ 3;
     final inlineObjects = placementGroup == 1;
     final floatObjects = placementGroup == 2 || placementGroup == 3;
+    final overlayObjects = placementGroup == 4;
+    final paginationConstraints = placementGroup == 5;
     final placementMode = switch (placementGroup) {
       1 => 'inline',
       2 => 'float-start',
       3 => 'float-end',
+      4 => 'overlay',
+      5 => 'pagination-constraints',
       _ => 'block',
     };
     final baseCase = contentCase % 3;
@@ -141,9 +145,13 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
     final paginated = virtualPages || columns;
     final pageHeight = virtualPages ? 240.0 : (columns ? 300.0 : height);
     final fallback = level == 3;
-    final pageCount = inlineObjects
+    final pageCount = inlineObjects || overlayObjects
         ? 1
-        : (virtualPages ? (floatObjects ? 2 : (fallback ? 2 : 3)) : 1);
+        : (virtualPages
+              ? (paginationConstraints
+                    ? 2
+                    : (floatObjects ? 2 : (fallback ? 2 : 3)))
+              : 1);
     final columnCount = columns ? 2 : 1;
     final columnGap = columns ? 24.0 : 0.0;
     final contentWidth = width - 48.0;
@@ -193,6 +201,104 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
               'bounds': {'x': 144.0, 'y': 32.0, 'width': 84.0, 'height': 56.0},
               'textStart': 7,
               'textEnd': 21,
+            },
+          ]
+        : overlayObjects
+        ? <Object?>[
+            {
+              'kind': 'text',
+              'sourceItemId': 'paragraph.intro.level-$level',
+              'contentKind': '',
+              'pageIndex': 0,
+              'columnIndex': 0,
+              'bounds': {
+                'x': 24.0,
+                'y': 32.0,
+                'width': columns ? columnWidth : contentWidth,
+                'height': 56.0,
+              },
+              'textStart': 0,
+              'textEnd': 52,
+              'z': 0,
+              'flags': 0,
+            },
+            {
+              'kind': fallback ? 'placeholder' : 'object',
+              'sourceItemId': objectId,
+              'contentKind': fallback ? 'unknown' : 'image',
+              'pageIndex': 0,
+              'columnIndex': 0,
+              'bounds': {'x': 42.0, 'y': 50.0, 'width': 132.0, 'height': 72.0},
+              'textStart': 0,
+              'textEnd': 0,
+              'z': 10,
+              'flags': 1,
+            },
+            {
+              'kind': 'text',
+              'sourceItemId': 'paragraph.closing.level-$level',
+              'contentKind': '',
+              'pageIndex': 0,
+              'columnIndex': 0,
+              'bounds': {
+                'x': 24.0,
+                'y': 98.0,
+                'width': columns ? columnWidth : contentWidth,
+                'height': 56.0,
+              },
+              'textStart': 0,
+              'textEnd': 58,
+              'z': 0,
+              'flags': 0,
+            },
+          ]
+        : paginationConstraints
+        ? <Object?>[
+            {
+              'kind': 'text',
+              'sourceItemId': 'paragraph.intro.level-$level',
+              'contentKind': '',
+              'pageIndex': 0,
+              'columnIndex': 0,
+              'bounds': {
+                'x': 24.0,
+                'y': 32.0,
+                'width': columns ? columnWidth : contentWidth,
+                'height': 56.0,
+              },
+              'textStart': 0,
+              'textEnd': 52,
+              'z': 0,
+              'flags': 0,
+            },
+            {
+              'kind': fallback ? 'placeholder' : 'object',
+              'sourceItemId': objectId,
+              'contentKind': fallback ? 'unknown' : 'image',
+              'pageIndex': 0,
+              'columnIndex': 0,
+              'bounds': {'x': 24.0, 'y': 104.0, 'width': 140.0, 'height': 80.0},
+              'textStart': 0,
+              'textEnd': 0,
+              'z': 0,
+              'flags': 0,
+            },
+            {
+              'kind': 'text',
+              'sourceItemId': 'paragraph.closing.level-$level',
+              'contentKind': '',
+              'pageIndex': virtualPages ? 1 : 0,
+              'columnIndex': columns ? 1 : 0,
+              'bounds': {
+                'x': columns ? 24.0 + columnWidth + columnGap : 24.0,
+                'y': paginated ? 34.0 : 194.0,
+                'width': columns ? columnWidth : contentWidth,
+                'height': 56.0,
+              },
+              'textStart': 0,
+              'textEnd': 58,
+              'z': 0,
+              'flags': 4,
             },
           ]
         : floatObjects
@@ -294,7 +400,7 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
       'pluginId': 'org.facetwire.reference.flow-layout',
       'capability': 'facetwire.layout.flow',
       'interfaceVersion': 1,
-      'demoCase': contentCase + (pageMode * 12),
+      'demoCase': contentCase + (pageMode * 18),
       'contentCase': contentCase,
       'pageMode': pageMode,
       'inlineObjects': inlineObjects,
@@ -321,8 +427,8 @@ final class DemoRuntimeClient implements NativeRuntimeClient {
       },
       'planKey': '00000000000000000000000000000000',
       'pagesBalanced': true,
-      'supportedSlice':
-          'continuous+virtual-pages+columns+block+inline+float-start+float-end',
+      'diagnosticFlags': 0,
+      'supportedSlice': 'continuous+virtual-pages+columns+block+inline+float-start+float-end+overlay+breaks+keep+orphans+widows',
       'nativeRuntime': false,
       'fragments': fragments,
     });

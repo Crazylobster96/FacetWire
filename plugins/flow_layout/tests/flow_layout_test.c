@@ -26,6 +26,8 @@ typedef struct fake_text_state {
     uint32_t disable_inline_parts;
     uint32_t invalid_inline_part;
     uint32_t legacy_block_abi;
+    size_t bytes_per_line;
+    const char *multiline_paragraph_id;
 } fake_text_state;
 
 typedef struct fake_child_state {
@@ -49,6 +51,8 @@ typedef struct fake_sink_state {
     size_t text_ends[16];
     uint32_t continuation_before[16];
     uint32_t continuation_after[16];
+    uint32_t fragment_flags[16];
+    int32_t fragment_z[16];
     fw_rect_f32 bounds[16];
 } fake_sink_state;
 
@@ -192,6 +196,7 @@ static fw_status FW_CALL fake_measure_text(void *user_data,
     fake_text_state *state = (fake_text_state *)user_data;
     const size_t total = paragraph_bytes(request);
     size_t end = total;
+    uint32_t line_count = 1u;
     float left = request->region.x;
     float right = request->region.x + request->region.width;
     size_t exclusion_index;
@@ -212,6 +217,29 @@ static fw_status FW_CALL fake_measure_text(void *user_data,
     if (state->max_bytes_per_fragment != 0u &&
         request->start_utf8_byte + state->max_bytes_per_fragment < total)
         end = request->start_utf8_byte + state->max_bytes_per_fragment;
+    if (state->bytes_per_line != 0u &&
+        (state->multiline_paragraph_id == NULL ||
+         (request->paragraph_id.length ==
+            strlen(state->multiline_paragraph_id) &&
+          memcmp(request->paragraph_id.data,
+            state->multiline_paragraph_id,
+            request->paragraph_id.length) == 0))) {
+        const size_t remaining = total - request->start_utf8_byte;
+        const uint32_t required_lines = (uint32_t)(
+            (remaining + state->bytes_per_line - 1u) /
+            state->bytes_per_line);
+        uint32_t available_lines =
+            (uint32_t)floorf(request->region.height / 24.0f);
+        if (request->max_lines != 0u &&
+            request->max_lines < available_lines)
+            available_lines = request->max_lines;
+        if (available_lines == 0u) return FW_STATUS_RESOURCE_LIMIT;
+        line_count = required_lines < available_lines ?
+            required_lines : available_lines;
+        end = request->start_utf8_byte +
+            (size_t)line_count * state->bytes_per_line;
+        if (end > total) end = total;
+    }
     for (exclusion_index = 0u;
          exclusion_index < request->exclusion_count; ++exclusion_index) {
         const fw_text_exclusion_rect_v1 *exclusion =
@@ -233,8 +261,8 @@ static fw_status FW_CALL fake_measure_text(void *user_data,
     out_metrics->used_bounds.x = left;
     out_metrics->used_bounds.y = request->region.y;
     out_metrics->used_bounds.width = right - left;
-    out_metrics->used_bounds.height = 24.0f;
-    out_metrics->line_count = 1u;
+    out_metrics->used_bounds.height = 24.0f * (float)line_count;
+    out_metrics->line_count = line_count;
     out_metrics->reached_end = state->zero_progress == 0u && end == total;
     out_metrics->fingerprint_high = UINT64_C(0x1111222233334444);
     out_metrics->fingerprint_low = (uint64_t)total;
@@ -314,6 +342,8 @@ static fw_status FW_CALL fake_emit_fragment(void *user_data,
     state->text_ends[index] = fragment->text_end_utf8_byte;
     state->continuation_before[index] = fragment->continuation_before;
     state->continuation_after[index] = fragment->continuation_after;
+    state->fragment_flags[index] = fragment->flags;
+    state->fragment_z[index] = fragment->z;
     copy_length = fragment->source_item_id.length;
     if (copy_length >= sizeof(state->source_ids[index]))
         copy_length = sizeof(state->source_ids[index]) - 1u;
@@ -1190,18 +1220,188 @@ static int test_active_float_budget_is_balanced(
     return 1;
 }
 
-static int test_unsupported_slice(const fw_flow_layout_api_v1 *api,
+static int test_overlay_anchors_without_advancing_flow(
+    const fw_flow_layout_api_v1 *api,
     fw_plugin_handle handle) {
     flow_fixture fixture;
     fake_text_state text_state = {0};
     fake_child_state child_state = {0};
     fake_sink_state sink_state = {0};
     fw_flow_layout_result_v1 result = {0};
+    fw_flow_validation_result_v1 validation = {0};
     make_fixture(&fixture, "demo", "p1", "hero", "p2", "Hello", "World");
     fixture.items[1].placement.mode = FW_FLOW_PLACE_OVERLAY;
+    fixture.items[1].placement.requested_width = 48.0f;
+    fixture.items[1].placement.requested_height = 32.0f;
+    fixture.items[1].placement.margins.left = 0.0f;
+    fixture.items[1].placement.margins.top = 0.0f;
+    fixture.items[1].placement.margins.right = 0.0f;
+    fixture.items[1].placement.margins.bottom = 0.0f;
+    fixture.items[1].placement.offset_x = 10.0f;
+    fixture.items[1].placement.offset_y = 5.0f;
+    fixture.items[1].placement.z = 7;
+    fixture.items[1].overlay_anchor_item_id = fixture.items[0].id;
+    fixture.items[1].overlay_reading_order = 1;
+    fixture.items[1].overlay_has_reading_order = 1u;
     CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
-        &sink_state, &result) == FW_STATUS_UNSUPPORTED);
-    CHECK(sink_state.begin_count == 0u);
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.complete == 1u && sink_state.fragment_count == 3u);
+    CHECK((sink_state.fragment_flags[1] &
+        FW_FLOW_FRAGMENT_FLAG_OVERLAY) != 0u);
+    CHECK(sink_state.fragment_z[1] == 7);
+    CHECK(fabsf(sink_state.bounds[1].x -
+        (sink_state.bounds[0].x + 10.0f)) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[1].y -
+        (sink_state.bounds[0].y + 5.0f)) < 0.001f);
+    CHECK(fabsf(sink_state.bounds[2].y - 56.0f) < 0.001f);
+    fixture.items[1].overlay_anchor_item_id = fixture.items[2].id;
+    memset(&validation, 0, sizeof(validation));
+    validation.struct_size = sizeof(validation);
+    CHECK(api->validate(handle, &fixture.request, &validation) ==
+        FW_STATUS_INVALID_ARGUMENT);
+    return 1;
+}
+
+static int test_explicit_breaks(const fw_flow_layout_api_v1 *api,
+    fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "break", "p1", "hero", "p2", "Hello", "World");
+    fixture.request.page_template.mode = FW_FLOW_VIRTUAL_PAGES;
+    fixture.request.page_template.page_size.height = 240.0f;
+    fixture.items[0].break_policy.break_after = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.page_count == 2u && sink_state.page_indices[1] == 1u);
+    CHECK((sink_state.fragment_flags[1] &
+        FW_FLOW_FRAGMENT_FLAG_BREAK_AFTER_PREVIOUS) != 0u);
+
+    memset(&text_state, 0, sizeof(text_state));
+    memset(&child_state, 0, sizeof(child_state));
+    memset(&sink_state, 0, sizeof(sink_state));
+    memset(&result, 0, sizeof(result));
+    fixture.items[0].break_policy.break_after = 0u;
+    fixture.items[1].break_policy.break_before = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(sink_state.page_indices[1] == 1u);
+    CHECK((sink_state.fragment_flags[1] &
+        FW_FLOW_FRAGMENT_FLAG_BREAK_BEFORE) != 0u);
+
+    memset(&text_state, 0, sizeof(text_state));
+    memset(&child_state, 0, sizeof(child_state));
+    memset(&sink_state, 0, sizeof(sink_state));
+    memset(&result, 0, sizeof(result));
+    fixture.request.page_template.mode = FW_FLOW_CONTINUOUS;
+    fixture.items[1].break_policy.break_before = 0u;
+    fixture.items[0].break_policy.break_after = 1u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.page_count == 1u && sink_state.page_indices[1] == 0u);
+    CHECK((sink_state.fragment_flags[1] &
+        FW_FLOW_FRAGMENT_FLAG_BREAK_AFTER_PREVIOUS) != 0u);
+    return 1;
+}
+
+static int test_keep_together_moves_whole_paragraph(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "keep-together", "p1", "hero", "p2",
+        "Hello", "ABCDEFGH");
+    fixture.request.page_template.mode = FW_FLOW_VIRTUAL_PAGES;
+    fixture.request.page_template.page_size.height = 220.0f;
+    fixture.items[2].break_policy.keep_together = 1u;
+    text_state.bytes_per_line = 2u;
+    text_state.multiline_paragraph_id = "p2";
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.page_count == 2u && sink_state.fragment_count == 3u);
+    CHECK(sink_state.page_indices[2] == 1u);
+    CHECK(sink_state.text_starts[2] == 0u &&
+        sink_state.text_ends[2] == 8u);
+    CHECK((result.diagnostic_flags &
+        FW_FLOW_DIAGNOSTIC_KEEP_TOGETHER_RELAXED) == 0u);
+    return 1;
+}
+
+static int test_orphans_move_paragraph_to_fresh_page(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "orphans", "p1", "hero", "p2",
+        "Hello", "ABCDEF");
+    fixture.request.page_template.mode = FW_FLOW_VIRTUAL_PAGES;
+    fixture.request.page_template.page_size.height = 200.0f;
+    fixture.items[2].break_policy.orphans = 2u;
+    text_state.bytes_per_line = 2u;
+    text_state.multiline_paragraph_id = "p2";
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.page_count == 2u && sink_state.fragment_count == 3u);
+    CHECK(sink_state.page_indices[2] == 1u);
+    CHECK(sink_state.text_starts[2] == 0u &&
+        sink_state.text_ends[2] == 6u);
+    return 1;
+}
+
+static int test_widows_rebalance_previous_fragment(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "widows", "p1", "hero", "p2",
+        "Hello", "ABCDEFGH");
+    fixture.request.page_template.mode = FW_FLOW_VIRTUAL_PAGES;
+    fixture.request.page_template.page_size.height = 250.0f;
+    fixture.items[2].break_policy.orphans = 2u;
+    fixture.items[2].break_policy.widows = 2u;
+    text_state.bytes_per_line = 2u;
+    text_state.multiline_paragraph_id = "p2";
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.page_count == 2u && sink_state.fragment_count == 4u);
+    CHECK(sink_state.text_starts[2] == 0u &&
+        sink_state.text_ends[2] == 4u);
+    CHECK(sink_state.text_starts[3] == 4u &&
+        sink_state.text_ends[3] == 8u);
+    CHECK((result.diagnostic_flags &
+        FW_FLOW_DIAGNOSTIC_WIDOW_ORPHAN_RELAXED) == 0u);
+    return 1;
+}
+
+static int test_keep_with_next_moves_chain(
+    const fw_flow_layout_api_v1 *api, fw_plugin_handle handle) {
+    flow_fixture fixture;
+    fake_text_state text_state = {0};
+    fake_child_state child_state = {0};
+    fake_sink_state sink_state = {0};
+    fw_flow_layout_result_v1 result = {0};
+    make_fixture(&fixture, "keep-next", "p1", "hero", "p2",
+        "Hello", "World");
+    fixture.request.page_template.mode = FW_FLOW_VIRTUAL_PAGES;
+    fixture.request.page_template.page_size.height = 170.0f;
+    fixture.items[1].break_policy.keep_with_next = 1u;
+    fixture.request.budget.max_backtrack_items = 4u;
+    CHECK(compose_fixture(api, handle, &fixture, &text_state, &child_state,
+        &sink_state, &result) == FW_STATUS_OK);
+    CHECK(result.page_count == 2u);
+    CHECK(sink_state.page_indices[0] == 0u &&
+        sink_state.page_indices[1] == 1u &&
+        sink_state.page_indices[2] == 1u);
+    CHECK((result.diagnostic_flags &
+        FW_FLOW_DIAGNOSTIC_KEEP_WITH_NEXT_RELAXED) == 0u);
     return 1;
 }
 
@@ -1248,7 +1448,12 @@ int main(void) {
     passed &= test_multiple_floats_share_available_line(api, handle);
     passed &= test_float_advances_whole_object_to_next_page(api, handle);
     passed &= test_active_float_budget_is_balanced(api, handle);
-    passed &= test_unsupported_slice(api, handle);
+    passed &= test_overlay_anchors_without_advancing_flow(api, handle);
+    passed &= test_explicit_breaks(api, handle);
+    passed &= test_keep_together_moves_whole_paragraph(api, handle);
+    passed &= test_orphans_move_paragraph_to_fresh_page(api, handle);
+    passed &= test_widows_rebalance_previous_fragment(api, handle);
+    passed &= test_keep_with_next_moves_chain(api, handle);
     plugin->unload(handle);
     if (!passed) return 1;
     {

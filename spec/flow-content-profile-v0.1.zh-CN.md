@@ -117,6 +117,10 @@ bounds。动态图片和视频参与静态分页时使用其视觉 viewport，�
 文本宽度时，文本移到排除区下方。`overlay` 必须声明 anchor Item、offset、z 和可访问
 阅读顺序，不能仅依赖视觉坐标。
 
+参考实现 0.1 将 overlay 锚定到同一请求中更早的非 inline、非 overlay Item 的首个
+Fragment；overlay 继承 anchor 的页面、栏和 clip，不推进 Flow cursor。跨已关闭历史页的
+反向锚定属于当前未实现组合，必须明确返回 `UNSUPPORTED`。
+
 ### 本章检查
 
 - 默认 block 最确定，复杂关系需要显式选择。
@@ -173,6 +177,10 @@ Item 可以声明：`breakBefore`、`breakAfter`、`keepTogether`、`keepWithNex
 4. keepWithNext；
 5. widow/orphan；
 6. 视觉平衡。
+
+实现无法精确满足第 3 至第 5 项时必须在 Layout Result 中设置对应 relaxation diagnostic。
+包含 inline object 的 Paragraph 始终优先保持对象原子性；若服务不支持安全的逐行回滚，
+widow/orphan 可以放宽，但不得静默。
 
 大于完整内容区域且允许缩小的 Object 可缩至 min size；仍放不下时占用独立 overflow
 Fragment 或 Placeholder，不能无限创建空白页。

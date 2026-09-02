@@ -12,6 +12,7 @@ typedef struct fl_budget {
     uint32_t pages;
     uint32_t fragments;
     uint32_t floats;
+    uint32_t backtracks;
     uint32_t iterations;
 } fl_budget;
 

@@ -47,6 +47,15 @@ typedef uint32_t fw_flow_fragment_kind;
 #define FW_FLOW_FRAGMENT_OBJECT 2u
 #define FW_FLOW_FRAGMENT_PLACEHOLDER 3u
 
+#define FW_FLOW_FRAGMENT_FLAG_OVERLAY (1u << 0)
+#define FW_FLOW_FRAGMENT_FLAG_BREAK_BEFORE (1u << 1)
+#define FW_FLOW_FRAGMENT_FLAG_BREAK_AFTER_PREVIOUS (1u << 2)
+
+#define FW_FLOW_DIAGNOSTIC_KEEP_TOGETHER_RELAXED (UINT64_C(1) << 0)
+#define FW_FLOW_DIAGNOSTIC_KEEP_WITH_NEXT_RELAXED (UINT64_C(1) << 1)
+#define FW_FLOW_DIAGNOSTIC_WIDOW_ORPHAN_RELAXED (UINT64_C(1) << 2)
+#define FW_FLOW_DIAGNOSTIC_BACKTRACK_LIMIT (UINT64_C(1) << 3)
+
 typedef struct fw_flow_break_policy_v1 {
     uint32_t struct_size;
     uint32_t break_before;
@@ -99,6 +108,9 @@ typedef struct fw_flow_item_v1 {
     fw_flow_break_policy_v1 break_policy;
     uint32_t decorative;
     uint32_t flags;
+    fw_string_view overlay_anchor_item_id;
+    int32_t overlay_reading_order;
+    uint32_t overlay_has_reading_order;
 } fw_flow_item_v1;
 
 typedef struct fw_flow_page_template_v1 {

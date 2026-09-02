@@ -20,6 +20,7 @@
 #define FL_DEFAULT_MAX_PAGES 1024u
 #define FL_DEFAULT_MAX_FRAGMENTS 65536u
 #define FL_DEFAULT_MAX_ACTIVE_FLOATS 256u
+#define FL_DEFAULT_MAX_BACKTRACK_ITEMS 64u
 #define FL_DEFAULT_MAX_ITERATIONS 131072u
 
 typedef struct fl_context {
@@ -47,7 +48,9 @@ static const char fl_parameter_schema[] =
     "{\"schemaVersion\":1,\"implementationStatus\":\"experimental\","
     "\"supportedPageModes\":[\"continuous\",\"virtual-pages\",\"columns\"],"
     "\"supportedPlacements\":[\"block\",\"inline\","
-    "\"float-start\",\"float-end\"],"
+    "\"float-start\",\"float-end\",\"overlay\"],"
+    "\"supportedPagination\":[\"break-before\",\"break-after\","
+    "\"keep-together\",\"keep-with-next\",\"orphans\",\"widows\"],"
     "\"parameters\":[{\"id\":\"pageMode\",\"type\":\"enum\","
     "\"default\":\"continuous\",\"values\":[\"continuous\","
     "\"virtual-pages\",\"columns\"]}]}";
@@ -162,6 +165,8 @@ fl_budget fl_resolve_budget(const fw_flow_budget_v1 *value) {
         FL_DEFAULT_MAX_FRAGMENTS);
     result.floats = fl_budget_value(value->max_active_floats,
         FL_DEFAULT_MAX_ACTIVE_FLOATS);
+    result.backtracks = fl_budget_value(value->max_backtrack_items,
+        FL_DEFAULT_MAX_BACKTRACK_ITEMS);
     result.iterations = fl_budget_value(value->max_iterations,
         FL_DEFAULT_MAX_ITERATIONS);
     return result;
@@ -286,12 +291,43 @@ static fw_status fl_validate_request(fw_plugin_handle plugin,
             !fl_bool(item->break_policy.break_after) ||
             !fl_bool(item->break_policy.keep_together) ||
             !fl_bool(item->break_policy.keep_with_next) ||
+            item->break_policy.orphans > 1000u ||
+            item->break_policy.widows > 1000u ||
             !fl_bool(item->decorative) ||
+            !fl_bool(item->overlay_has_reading_order) ||
+            !fl_valid_string(item->overlay_anchor_item_id, 0) ||
             (item->placement.max_width != 0.0f &&
                 item->placement.max_width < item->placement.min_width) ||
             (item->placement.max_height != 0.0f &&
                 item->placement.max_height < item->placement.min_height)) {
             *out_key = "flow.invalid_item";
+            return FW_STATUS_INVALID_ARGUMENT;
+        }
+        if (item->placement.mode == FW_FLOW_PLACE_OVERLAY) {
+            const fw_flow_item_v1 *anchor = NULL;
+            if (item->kind != FW_FLOW_ITEM_OBJECT ||
+                !fl_valid_string(item->overlay_anchor_item_id, 1) ||
+                (item->decorative == 0u &&
+                    item->overlay_has_reading_order == 0u)) {
+                *out_key = "flow.invalid_overlay";
+                return FW_STATUS_INVALID_ARGUMENT;
+            }
+            for (j = 0u; j < i; ++j) {
+                if (fl_string_equal(request->items[j].id,
+                    item->overlay_anchor_item_id)) {
+                    anchor = &request->items[j];
+                    break;
+                }
+            }
+            if (anchor == NULL ||
+                anchor->placement.mode == FW_FLOW_PLACE_INLINE ||
+                anchor->placement.mode == FW_FLOW_PLACE_OVERLAY) {
+                *out_key = "flow.invalid_overlay_anchor";
+                return FW_STATUS_INVALID_ARGUMENT;
+            }
+        } else if (item->overlay_anchor_item_id.length != 0u ||
+            item->overlay_has_reading_order != 0u) {
+            *out_key = "flow.unexpected_overlay_metadata";
             return FW_STATUS_INVALID_ARGUMENT;
         }
         for (j = 0u; j < i; ++j) {
@@ -510,6 +546,10 @@ fl_hash fl_request_hash(const fw_flow_layout_request_v1 *request) {
         fl_hash_u64(&hash, item->break_policy.keep_with_next);
         fl_hash_u64(&hash, item->break_policy.orphans);
         fl_hash_u64(&hash, item->break_policy.widows);
+        fl_hash_view(&hash, item->overlay_anchor_item_id);
+        fl_hash_u64(&hash,
+            (uint64_t)(int64_t)item->overlay_reading_order);
+        fl_hash_u64(&hash, item->overlay_has_reading_order);
         fl_hash_f32(&hash, item->text_style.font_size);
         fl_hash_u64(&hash, item->text_style.font_weight);
         fl_hash_u64(&hash, item->text_style.font_style);
@@ -877,7 +917,12 @@ static fw_status FW_CALL fl_compose(fw_plugin_handle plugin,
             size_t segment_index;
             const fw_flow_item_v1 *candidate = &request->items[i];
             if (candidate->placement.mode == FW_FLOW_PLACE_FLOAT_START ||
-                candidate->placement.mode == FW_FLOW_PLACE_FLOAT_END)
+                candidate->placement.mode == FW_FLOW_PLACE_FLOAT_END ||
+                candidate->placement.mode == FW_FLOW_PLACE_OVERLAY ||
+                candidate->break_policy.break_before != 0u ||
+                candidate->break_policy.break_after != 0u ||
+                candidate->break_policy.keep_together != 0u ||
+                candidate->break_policy.keep_with_next != 0u)
                 return fl_compose_continuous(request, services, sink,
                     out_result);
             if (candidate->kind != FW_FLOW_ITEM_PARAGRAPH) continue;

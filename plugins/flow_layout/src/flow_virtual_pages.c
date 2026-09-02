@@ -32,7 +32,19 @@ typedef struct fl_virtual_context {
     fw_text_exclusion_rect_v1 *active_floats;
     size_t active_float_count;
     size_t active_float_capacity;
+    struct fl_anchor_record *anchors;
+    size_t anchor_count;
+    uint32_t pending_fragment_flags;
 } fl_virtual_context;
+
+typedef struct fl_anchor_record {
+    fw_string_view item_id;
+    fw_rect_f32 bounds;
+    fw_rect_f32 clip;
+    uint32_t page_index;
+    uint32_t column_index;
+    uint32_t valid;
+} fl_anchor_record;
 
 typedef struct fl_inline_child {
     const fw_flow_item_v1 *item;
@@ -49,6 +61,16 @@ static int fl_vp_finite(float value) {
 
 static int fl_vp_nonnegative(float value) {
     return isfinite(value) && value >= 0.0f;
+}
+
+static uint32_t fl_vp_line_rule(uint32_t value) {
+    return value == 0u ? 2u : value;
+}
+
+static int fl_vp_view_equal(fw_string_view left, fw_string_view right) {
+    return left.length == right.length &&
+        (left.length == 0u ||
+            memcmp(left.data, right.data, left.length) == 0);
 }
 
 static int fl_vp_text_service_base_valid(
@@ -236,15 +258,47 @@ static fw_status fl_vp_next_region(fl_virtual_context *context) {
     return fl_vp_next_page(context);
 }
 
+static fl_anchor_record *fl_vp_find_anchor(fl_virtual_context *context,
+    fw_string_view item_id) {
+    size_t index;
+    for (index = 0u; index < context->anchor_count; ++index) {
+        if (fl_vp_view_equal(context->anchors[index].item_id, item_id))
+            return &context->anchors[index];
+    }
+    return NULL;
+}
+
 static fw_status fl_vp_emit(fl_virtual_context *context,
     const fw_flow_fragment_v1 *fragment) {
-    const fw_status status = fl_emit(context->sink, fragment,
+    fw_flow_fragment_v1 emitted = *fragment;
+    fl_anchor_record *anchor;
+    fw_status status;
+    emitted.flags |= context->pending_fragment_flags;
+    context->pending_fragment_flags = 0u;
+    status = fl_emit(context->sink, &emitted,
         context->result, &context->plan_hash);
     if (status == FW_STATUS_OK) {
         context->page_has_fragments = 1u;
         context->column_has_fragments = 1u;
+        anchor = fl_vp_find_anchor(context, emitted.source_item_id);
+        if (anchor != NULL && anchor->valid == 0u) {
+            anchor->bounds = emitted.bounds;
+            anchor->clip = emitted.clip;
+            anchor->page_index = emitted.page_index;
+            anchor->column_index = emitted.column_index;
+            anchor->valid = 1u;
+        }
     }
     return status;
+}
+
+static fw_status fl_vp_apply_explicit_break(fl_virtual_context *context,
+    uint32_t fragment_flag) {
+    context->pending_fragment_flags |= fragment_flag;
+    if (context->continuous != 0u ||
+        context->column_has_fragments == 0u)
+        return FW_STATUS_OK;
+    return fl_vp_next_region(context);
 }
 
 static int fl_vp_metrics_valid(const fw_flow_item_v1 *item,
@@ -281,6 +335,83 @@ static int fl_vp_has_inline_segments(const fw_flow_item_v1 *item) {
     return 0;
 }
 
+static fw_rect_f32 fl_vp_following_region(
+    const fl_virtual_context *context) {
+    fw_rect_f32 result = context->region;
+    uint32_t column = context->column_index + 1u;
+    if (column >= context->column_count) column = 0u;
+    result.x = context->content.x +
+        (float)column * (context->region.width + context->column_gap);
+    result.y = context->content.y;
+    result.height = context->content.height;
+    return result;
+}
+
+static fw_status fl_vp_balance_widows(fl_virtual_context *context,
+    const fw_flow_item_v1 *item, fw_text_fragment_request_v1 *request,
+    fw_text_fragment_metrics_v1 *metrics, size_t total) {
+    const fw_text_fragment_service_v1 *text = context->services->text;
+    const uint32_t orphans =
+        fl_vp_line_rule(item->break_policy.orphans);
+    const uint32_t widows =
+        fl_vp_line_rule(item->break_policy.widows);
+    fw_text_fragment_request_v1 probe_request;
+    fw_text_fragment_metrics_v1 probe_metrics;
+    fw_status status;
+    uint32_t missing;
+    uint32_t reduced_lines;
+    size_t original_end;
+    if (context->continuous != 0u || metrics->reached_end != 0u ||
+        widows <= 1u || request->inline_object_count != 0u)
+        return FW_STATUS_OK;
+    if (++context->iterations > context->budget.iterations)
+        return FW_STATUS_RESOURCE_LIMIT;
+    probe_request = *request;
+    probe_request.start_utf8_byte = metrics->end_utf8_byte;
+    probe_request.region = fl_vp_following_region(context);
+    probe_request.exclusions = NULL;
+    probe_request.exclusion_count = 0u;
+    probe_request.max_lines = 0u;
+    memset(&probe_metrics, 0, sizeof(probe_metrics));
+    probe_metrics.struct_size = sizeof(probe_metrics);
+    status = text->measure_next(text->user_data, &probe_request,
+        &probe_metrics);
+    if (status != FW_STATUS_OK) {
+        context->result->diagnostic_flags |=
+            FW_FLOW_DIAGNOSTIC_WIDOW_ORPHAN_RELAXED;
+        return FW_STATUS_OK;
+    }
+    if (!fl_vp_metrics_valid(item, &probe_request, total, &probe_metrics))
+        return FW_STATUS_INVALID_STATE;
+    if (probe_metrics.reached_end == 0u ||
+        probe_metrics.line_count >= widows)
+        return FW_STATUS_OK;
+    missing = widows - probe_metrics.line_count;
+    if (metrics->line_count <= missing ||
+        metrics->line_count - missing < orphans) {
+        context->result->diagnostic_flags |=
+            FW_FLOW_DIAGNOSTIC_WIDOW_ORPHAN_RELAXED;
+        return FW_STATUS_OK;
+    }
+    reduced_lines = metrics->line_count - missing;
+    original_end = metrics->end_utf8_byte;
+    request->max_lines = reduced_lines;
+    memset(metrics, 0, sizeof(*metrics));
+    metrics->struct_size = sizeof(*metrics);
+    if (++context->iterations > context->budget.iterations)
+        return FW_STATUS_RESOURCE_LIMIT;
+    status = text->measure_next(text->user_data, request, metrics);
+    if (status != FW_STATUS_OK) return status;
+    if (!fl_vp_metrics_valid(item, request, total, metrics))
+        return FW_STATUS_INVALID_STATE;
+    if (metrics->end_utf8_byte >= original_end ||
+        metrics->line_count > reduced_lines) {
+        context->result->diagnostic_flags |=
+            FW_FLOW_DIAGNOSTIC_WIDOW_ORPHAN_RELAXED;
+    }
+    return FW_STATUS_OK;
+}
+
 static fw_status fl_vp_compose_inline_paragraph(
     fl_virtual_context *context, const fw_flow_item_v1 *item);
 
@@ -290,6 +421,7 @@ static fw_status fl_vp_compose_paragraph(fl_virtual_context *context,
     const size_t total = fl_vp_paragraph_bytes(item);
     size_t start = 0u;
     uint32_t continuation = 0u;
+    uint32_t initial_region_retry = 0u;
     if (fl_vp_has_inline_segments(item))
         return fl_vp_compose_inline_paragraph(context, item);
     if (!fl_vp_text_service_base_valid(text))
@@ -349,6 +481,26 @@ static fw_status fl_vp_compose_paragraph(fl_virtual_context *context,
         if (status != FW_STATUS_OK) return status;
         if (!fl_vp_metrics_valid(item, &request, total, &metrics))
             return FW_STATUS_INVALID_STATE;
+        if (start == 0u && metrics.reached_end == 0u &&
+            (item->break_policy.keep_together != 0u ||
+             metrics.line_count <
+                fl_vp_line_rule(item->break_policy.orphans))) {
+            if (context->column_has_fragments != 0u &&
+                initial_region_retry == 0u) {
+                status = fl_vp_next_region(context);
+                if (status != FW_STATUS_OK) return status;
+                context->cursor_y += item->placement.margins.top;
+                initial_region_retry = 1u;
+                continue;
+            }
+            context->result->diagnostic_flags |=
+                item->break_policy.keep_together != 0u ?
+                    FW_FLOW_DIAGNOSTIC_KEEP_TOGETHER_RELAXED :
+                    FW_FLOW_DIAGNOSTIC_WIDOW_ORPHAN_RELAXED;
+        }
+        status = fl_vp_balance_widows(context, item, &request, &metrics,
+            total);
+        if (status != FW_STATUS_OK) return status;
         memset(&fragment, 0, sizeof(fragment));
         fragment.struct_size = sizeof(fragment);
         fragment.kind = FW_FLOW_FRAGMENT_TEXT;
@@ -618,6 +770,7 @@ static fw_status fl_vp_compose_inline_paragraph(
     size_t text_offset = 0u;
     size_t start = 0u;
     size_t start_inline = 0u;
+    uint32_t initial_region_retry = 0u;
     fl_inline_child *children = NULL;
     fw_text_inline_object_v1 *objects = NULL;
     fw_text_fragment_part_v1 *parts = NULL;
@@ -753,6 +906,27 @@ static fw_status fl_vp_compose_inline_paragraph(
             status = FW_STATUS_INVALID_STATE;
             break;
         }
+        if (start == 0u && metrics.reached_end == 0u &&
+            (item->break_policy.keep_together != 0u ||
+             metrics.line_count <
+                fl_vp_line_rule(item->break_policy.orphans))) {
+            if (context->column_has_fragments != 0u &&
+                initial_region_retry == 0u) {
+                status = fl_vp_next_region(context);
+                if (status != FW_STATUS_OK) break;
+                context->cursor_y += item->placement.margins.top;
+                initial_region_retry = 1u;
+                continue;
+            }
+            context->result->diagnostic_flags |=
+                item->break_policy.keep_together != 0u ?
+                    FW_FLOW_DIAGNOSTIC_KEEP_TOGETHER_RELAXED :
+                    FW_FLOW_DIAGNOSTIC_WIDOW_ORPHAN_RELAXED;
+        }
+        if (metrics.reached_end == 0u &&
+            fl_vp_line_rule(item->break_policy.widows) > 1u)
+            context->result->diagnostic_flags |=
+                FW_FLOW_DIAGNOSTIC_WIDOW_ORPHAN_RELAXED;
         status = fl_vp_emit_inline_parts(context, item, children, &request,
             &metrics);
         if (status != FW_STATUS_OK) break;
@@ -823,6 +997,57 @@ static fw_status fl_vp_compose_object(fl_virtual_context *context,
     context->cursor_y += size.height;
     context->max_layout_bottom = fl_max(context->max_layout_bottom,
         context->cursor_y);
+    return FW_STATUS_OK;
+}
+
+static fw_status fl_vp_compose_overlay(fl_virtual_context *context,
+    const fw_flow_item_v1 *item) {
+    fl_anchor_record *anchor = fl_vp_find_anchor(context,
+        item->overlay_anchor_item_id);
+    fw_child_measure_result_v1 measured;
+    fw_flow_fragment_v1 fragment;
+    fw_size_f32 size;
+    char id[256];
+    fw_status status;
+    if (anchor == NULL || anchor->valid == 0u ||
+        anchor->page_index != context->page_index)
+        return FW_STATUS_UNSUPPORTED;
+    if (++context->iterations > context->budget.iterations ||
+        context->result->fragment_count >= context->budget.fragments)
+        return FW_STATUS_RESOURCE_LIMIT;
+    status = fl_vp_measure_object(context, item, &item->text_style,
+        &measured, &size);
+    if (status != FW_STATUS_OK) return status;
+    status = fl_vp_fit_object(item, &size, anchor->clip.width,
+        anchor->clip.height);
+    if (status != FW_STATUS_OK) return status;
+    memset(&fragment, 0, sizeof(fragment));
+    fragment.struct_size = sizeof(fragment);
+    fragment.kind = measured.used_fallback != 0u ?
+        FW_FLOW_FRAGMENT_PLACEHOLDER : FW_FLOW_FRAGMENT_OBJECT;
+    status = fl_make_fragment_id(id, sizeof(id), item->id,
+        context->request->layout_revision, context->ordinal++,
+        &fragment.derived_fragment_id);
+    if (status != FW_STATUS_OK) return status;
+    fragment.source_item_id = item->id;
+    fragment.content_kind = item->content_kind;
+    fragment.page_index = anchor->page_index;
+    fragment.column_index = anchor->column_index;
+    fragment.bounds.x = anchor->bounds.x + item->placement.margins.left +
+        item->placement.offset_x;
+    fragment.bounds.y = anchor->bounds.y + item->placement.margins.top +
+        item->placement.offset_y;
+    fragment.bounds.width = size.width;
+    fragment.bounds.height = size.height;
+    fragment.clip = anchor->clip;
+    fragment.z = item->placement.z;
+    fragment.layout_fingerprint_high = measured.fingerprint_high;
+    fragment.layout_fingerprint_low = measured.fingerprint_low;
+    fragment.flags = FW_FLOW_FRAGMENT_FLAG_OVERLAY;
+    status = fl_vp_emit(context, &fragment);
+    if (status != FW_STATUS_OK) return status;
+    context->max_layout_bottom = fl_max(context->max_layout_bottom,
+        fragment.bounds.y + fragment.bounds.height);
     return FW_STATUS_OK;
 }
 
@@ -930,21 +1155,149 @@ static fw_status fl_vp_compose_float(fl_virtual_context *context,
     return FW_STATUS_OK;
 }
 
+static fw_status fl_vp_keep_item_height(fl_virtual_context *context,
+    const fw_flow_item_v1 *item, float *out_height, int *out_supported) {
+    *out_height = 0.0f;
+    *out_supported = 1;
+    if (item->placement.mode == FW_FLOW_PLACE_INLINE ||
+        item->placement.mode == FW_FLOW_PLACE_FLOAT_START ||
+        item->placement.mode == FW_FLOW_PLACE_FLOAT_END ||
+        item->placement.mode == FW_FLOW_PLACE_OVERLAY) {
+        *out_supported = 0;
+        return FW_STATUS_OK;
+    }
+    if (item->kind == FW_FLOW_ITEM_OBJECT) {
+        fw_child_measure_result_v1 measured;
+        fw_size_f32 size;
+        fw_status status;
+        if (++context->iterations > context->budget.iterations)
+            return FW_STATUS_RESOURCE_LIMIT;
+        status = fl_vp_measure_object(context, item, &item->text_style,
+            &measured, &size);
+        if (status != FW_STATUS_OK) return status;
+        status = fl_vp_fit_object(item, &size, context->region.width,
+            context->region.height);
+        if (status != FW_STATUS_OK) {
+            *out_supported = 0;
+            return FW_STATUS_OK;
+        }
+        *out_height = size.height;
+        return FW_STATUS_OK;
+    }
+    if (fl_vp_has_inline_segments(item)) {
+        *out_supported = 0;
+        return FW_STATUS_OK;
+    }
+    {
+        const fw_text_fragment_service_v1 *text = context->services->text;
+        const size_t total = fl_vp_paragraph_bytes(item);
+        fw_text_fragment_request_v1 request;
+        fw_text_fragment_metrics_v1 metrics;
+        fw_status status;
+        if (!fl_vp_text_service_base_valid(text)) return FW_STATUS_INVALID_ARGUMENT;
+        memset(&request, 0, sizeof(request));
+        request.struct_size = sizeof(request);
+        request.paragraph_id = item->id;
+        request.segments = item->segments;
+        request.segment_count = item->segment_count;
+        request.style = item->text_style;
+        request.direction = item->direction;
+        request.region = context->region;
+        request.region.y = context->content.y;
+        request.region.height = context->content.height;
+        memset(&metrics, 0, sizeof(metrics));
+        metrics.struct_size = sizeof(metrics);
+        if (++context->iterations > context->budget.iterations)
+            return FW_STATUS_RESOURCE_LIMIT;
+        status = text->measure_next(text->user_data, &request, &metrics);
+        if (status != FW_STATUS_OK) return status;
+        if (!fl_vp_metrics_valid(item, &request, total, &metrics))
+            return FW_STATUS_INVALID_STATE;
+        if (metrics.reached_end == 0u) {
+            *out_supported = 0;
+            return FW_STATUS_OK;
+        }
+        *out_height = metrics.used_bounds.height;
+    }
+    return FW_STATUS_OK;
+}
+
+static size_t fl_vp_next_top_level(
+    const fw_flow_layout_request_v1 *request, size_t index) {
+    for (++index; index < request->item_count; ++index) {
+        if (request->items[index].placement.mode != FW_FLOW_PLACE_INLINE)
+            return index;
+    }
+    return request->item_count;
+}
+
+static fw_status fl_vp_apply_keep_chain(fl_virtual_context *context,
+    size_t start_index) {
+    const fw_flow_layout_request_v1 *request = context->request;
+    size_t index = start_index;
+    uint32_t inspected = 0u;
+    float height = 0.0f;
+    float previous_bottom = 0.0f;
+    fw_status status;
+    if (context->continuous != 0u ||
+        request->items[start_index].break_policy.keep_with_next == 0u)
+        return FW_STATUS_OK;
+    for (;;) {
+        const fw_flow_item_v1 *item = &request->items[index];
+        float item_height;
+        int supported;
+        if (++inspected > context->budget.backtracks) {
+            context->result->diagnostic_flags |=
+                FW_FLOW_DIAGNOSTIC_BACKTRACK_LIMIT |
+                FW_FLOW_DIAGNOSTIC_KEEP_WITH_NEXT_RELAXED;
+            return FW_STATUS_OK;
+        }
+        status = fl_vp_keep_item_height(context, item, &item_height,
+            &supported);
+        if (status != FW_STATUS_OK) return status;
+        if (!supported) {
+            context->result->diagnostic_flags |=
+                FW_FLOW_DIAGNOSTIC_KEEP_WITH_NEXT_RELAXED;
+            return FW_STATUS_OK;
+        }
+        height += fl_max(previous_bottom, item->placement.margins.top) +
+            item_height;
+        previous_bottom = item->placement.margins.bottom;
+        if (item->break_policy.keep_with_next == 0u) break;
+        index = fl_vp_next_top_level(request, index);
+        if (index >= request->item_count) break;
+        if (request->items[index].break_policy.break_before != 0u ||
+            item->break_policy.break_after != 0u) {
+            context->result->diagnostic_flags |=
+                FW_FLOW_DIAGNOSTIC_KEEP_WITH_NEXT_RELAXED;
+            return FW_STATUS_OK;
+        }
+    }
+    height += previous_bottom;
+    if (height > context->region.height + 0.0001f) {
+        context->result->diagnostic_flags |=
+            FW_FLOW_DIAGNOSTIC_KEEP_WITH_NEXT_RELAXED;
+        return FW_STATUS_OK;
+    }
+    if (height > context->region.y + context->region.height -
+            context->cursor_y + 0.0001f &&
+        context->column_has_fragments != 0u)
+        return fl_vp_next_region(context);
+    return FW_STATUS_OK;
+}
+
 static fw_status fl_vp_supported_slice(
     const fw_flow_layout_request_v1 *request) {
     size_t item_index;
     for (item_index = 0u; item_index < request->item_count; ++item_index) {
         const fw_flow_item_v1 *item = &request->items[item_index];
-        if (item->break_policy.break_before != 0u ||
-            item->break_policy.break_after != 0u ||
-            item->break_policy.keep_together != 0u ||
-            item->break_policy.keep_with_next != 0u)
-            return FW_STATUS_UNSUPPORTED;
         if (item->placement.mode == FW_FLOW_PLACE_INLINE ||
             item->placement.mode == FW_FLOW_PLACE_BLOCK) continue;
         if (item->kind == FW_FLOW_ITEM_OBJECT &&
             (item->placement.mode == FW_FLOW_PLACE_FLOAT_START ||
              item->placement.mode == FW_FLOW_PLACE_FLOAT_END)) continue;
+        if (item->kind == FW_FLOW_ITEM_OBJECT &&
+            item->placement.mode == FW_FLOW_PLACE_OVERLAY) continue;
         if (item->placement.mode != FW_FLOW_PLACE_BLOCK)
             return FW_STATUS_UNSUPPORTED;
     }
@@ -1008,17 +1361,42 @@ static fw_status fl_compose_paged_blocks(
             context.active_float_capacity, sizeof(*context.active_floats));
         if (context.active_floats == NULL) return FW_STATUS_OUT_OF_MEMORY;
     }
+    context.anchor_count = request->item_count;
+    if (context.anchor_count != 0u) {
+        if (context.anchor_count > SIZE_MAX / sizeof(*context.anchors)) {
+            free(context.active_floats);
+            return FW_STATUS_RESOURCE_LIMIT;
+        }
+        context.anchors = (fl_anchor_record *)calloc(context.anchor_count,
+            sizeof(*context.anchors));
+        if (context.anchors == NULL) {
+            free(context.active_floats);
+            return FW_STATUS_OUT_OF_MEMORY;
+        }
+        for (index = 0u; index < context.anchor_count; ++index)
+            context.anchors[index].item_id = request->items[index].id;
+    }
     status = fl_vp_open_page(&context);
     if (status == FW_STATUS_OK) {
         for (index = 0u; index < request->item_count; ++index) {
             const fw_flow_item_v1 *item = &request->items[index];
             if (item->placement.mode == FW_FLOW_PLACE_INLINE) continue;
-            context.cursor_y += fl_max(context.previous_bottom,
-                item->placement.margins.top);
+            if (item->break_policy.break_before != 0u) {
+                status = fl_vp_apply_explicit_break(&context,
+                    FW_FLOW_FRAGMENT_FLAG_BREAK_BEFORE);
+                if (status != FW_STATUS_OK) break;
+            }
+            status = fl_vp_apply_keep_chain(&context, index);
+            if (status != FW_STATUS_OK) break;
+            if (item->placement.mode != FW_FLOW_PLACE_OVERLAY)
+                context.cursor_y += fl_max(context.previous_bottom,
+                    item->placement.margins.top);
             if (item->placement.mode == FW_FLOW_PLACE_FLOAT_START ||
                 item->placement.mode == FW_FLOW_PLACE_FLOAT_END) {
                 context.previous_bottom = 0.0f;
                 status = fl_vp_compose_float(&context, item);
+            } else if (item->placement.mode == FW_FLOW_PLACE_OVERLAY) {
+                status = fl_vp_compose_overlay(&context, item);
             } else if (item->kind == FW_FLOW_ITEM_PARAGRAPH)
                 status = fl_vp_compose_paragraph(&context, item);
             else
@@ -1026,11 +1404,19 @@ static fw_status fl_compose_paged_blocks(
             if (status != FW_STATUS_OK) break;
             if (item->placement.mode == FW_FLOW_PLACE_BLOCK)
                 context.previous_bottom = item->placement.margins.bottom;
+            if (item->break_policy.break_after != 0u &&
+                fl_vp_next_top_level(request, index) <
+                    request->item_count) {
+                status = fl_vp_apply_explicit_break(&context,
+                    FW_FLOW_FRAGMENT_FLAG_BREAK_AFTER_PREVIOUS);
+                if (status != FW_STATUS_OK) break;
+            }
         }
     }
     close_status = fl_vp_close_page(&context);
     if (status == FW_STATUS_OK && close_status != FW_STATUS_OK)
         status = close_status;
+    free(context.anchors);
     free(context.active_floats);
     out_result->continuous_extent.width =
         request->page_template.page_size.width;

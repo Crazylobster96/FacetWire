@@ -4,6 +4,9 @@
 对应标准：`spec/flow-content-profile-v0.1.zh-CN.md`
 对应需求：`docs/requirements/flow-layout-renderer-requirements-v0.1.md`
 
+实现状态：0.1 参考实现已覆盖 block、inline、float、overlay、显式 break、keepTogether、
+有界 keepWithNext 和普通段落 orphan/widow。不能满足的美观约束通过诊断位暴露。
+
 ## 1. 组件与调用链
 
 参考插件 `org.facetwire.reference.flow-layout` 只生成 Layout Plan。宿主解析 Flow、选择响应式
@@ -145,10 +148,18 @@ typedef struct fw_flow_item_v1 {
     fw_flow_break_policy_v1 break_policy;
     uint32_t decorative;
     uint32_t flags;
+    fw_string_view overlay_anchor_item_id;
+    int32_t overlay_reading_order;
+    uint32_t overlay_has_reading_order;
 } fw_flow_item_v1;
 ```
 
 所有数组/字符串由宿主拥有，只在调用期间有效。`content_id` 是宿主绑定键，不是路径或平台对象。inline object 使用 Segment 引用同一请求内 Object Item；其 Placement 必须为 inline，主 Item 循环必须跳过该定义，避免重复 Fragment。
+
+`overlay_anchor_item_id` 必须引用请求中更早出现的 block Paragraph/Object；overlay 不能作为
+另一个 overlay 的 anchor。非 decorative overlay 必须设置
+`overlay_has_reading_order=1`。这些字段追加在实验版 `fw_flow_item_v1` 尾部，宿主和插件
+仍必须按 `struct_size` 协商；0.1 尚未承诺冻结二进制布局。
 
 ### 本章检查
 
@@ -500,6 +511,26 @@ finish page, compute counts and plan key
 Margin 0.1 规则：相邻 block 的垂直 margin 取最大值，不处理负 margin；inline 不参与 block
 margin；float margin 属于 exclusion bounds；overlay margin 不改变 cursor。
 
+overlay 0.1 规则：对象以 anchor 的首个 Fragment 左上角为原点应用 margin、offset 与 z，
+继承 anchor 的 page、column 和 clip，并设置 `FW_FLOW_FRAGMENT_FLAG_OVERLAY`。它不改变
+flow cursor、相邻 margin 或后续 Item 的布局。当前参考实现要求 anchor 的页面尚未关闭；
+跨已关闭历史页的反向覆盖返回 `FW_STATUS_UNSUPPORTED`，避免缓存整份历史页面几何。
+
+分页控制 0.1 规则：
+
+- `breakBefore` 在当前区域已有内容时推进到下一栏/页，并在下一个 Fragment 设置
+  `FW_FLOW_FRAGMENT_FLAG_BREAK_BEFORE`；`breakAfter` 对后继 Fragment 设置
+  `FW_FLOW_FRAGMENT_FLAG_BREAK_AFTER_PREVIOUS`。
+- continuous 模式保留同一画布和 cursor，只输出上述分段标记，不制造白纸间隔。
+- `keepTogether` 和 orphan 下限先在当前区域预排；若会拆分且完整内容可放入一个新区域，
+  则整体移至新区域，否则继续排版并设置对应 relaxation diagnostic。
+- `keepWithNext` 从当前 Item 向前看连续链，最多检查 `max_backtrack_items`。0.1 对普通
+  Paragraph 与 block Object 做确定性预排；inline、float、overlay 或超预算链设置
+  `KEEP_WITH_NEXT_RELAXED` / `BACKTRACK_LIMIT`。
+- 普通 Paragraph 在尾页不足 `widows` 时，通过 Text Fragment Service 的
+  `max_lines` 有界重测上一片段；带 inline object 的段落保持 replacement object 原子性，
+  当前无法安全重放时设置 `WIDOW_ORPHAN_RELAXED`。
+
 inline 0.1 规则：Object 是不可拆 replacement segment；空间不足时 Text Service 必须把完整
 对象留给下一行/区域。continuous 不得隐式新增页，virtual-pages/columns 按“下一栏后下一页”
 推进。baseline 支持 alphabetic、middle、text-top、text-bottom；LTR/RTL 的视觉坐标由 Text
@@ -562,7 +593,12 @@ Sink 记录精确回调序列并可在第 N 次拒绝。
 - `flow_legacy_block_text_service_tail_is_compatible`
 - `flow_float_start_resolves_against_rtl`
 - `flow_text_moves_below_too_narrow_float`
-- `flow_overlay_does_not_advance_cursor`
+- `test_overlay_anchors_without_advancing_flow`
+- `test_explicit_breaks`
+- `test_keep_together_moves_whole_paragraph`
+- `test_orphans_move_paragraph_to_fresh_page`
+- `test_widows_rebalance_previous_fragment`
+- `test_keep_with_next_moves_chain`
 - `flow_paragraph_ranges_are_contiguous_across_pages`
 - `flow_keep_chain_backtracking_is_bounded`
 - `flow_oversized_object_does_not_create_empty_page_loop`
@@ -587,8 +623,8 @@ Sink 记录精确回调序列并可在第 N 次拒绝。
 5. 实现 continuous block layout；
 6. 实现 virtual pages 与 columns；
 7. 实现 inline object、Text Service 能力协商和跨区域续排；
-8. 迭代 float、overlay 与 keep/widow/orphan；
-9. Playground 展示源 Item、Virtual Page、Fragment 与降级；
+8. 已实现 float、overlay 与 keep/widow/orphan 参考切片；
+9. Playground 已展示源 Item、Virtual Page、Fragment、overlay、分页约束与降级；
 10. Windows/Linux 动态与 Apple/Android 静态注册验证。
 
 ### 本章检查

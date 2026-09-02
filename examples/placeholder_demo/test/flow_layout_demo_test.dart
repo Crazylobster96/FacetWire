@@ -81,6 +81,46 @@ void main() {
     );
   });
 
+  test('reports overlay z-order without advancing following flow', () async {
+    final report = FlowPlanReport.fromJson(
+      await const DemoRuntimeClient().composeFlowDemo(
+        width: 600,
+        height: 700,
+        contentCase: 12,
+        pageMode: 0,
+      ),
+    );
+
+    expect(report.placementMode, 'overlay');
+    expect(report.fragments[1].flags, 1);
+    expect(report.fragments[1].z, 10);
+    expect(
+      report.fragments[2].bounds.top,
+      lessThan(report.fragments[1].bounds.bottom),
+    );
+    expect(report.diagnosticFlags, 0);
+  });
+
+  test(
+    'reports explicit pagination constraint on the following fragment',
+    () async {
+      final report = FlowPlanReport.fromJson(
+        await const DemoRuntimeClient().composeFlowDemo(
+          width: 600,
+          height: 700,
+          contentCase: 15,
+          pageMode: 1,
+        ),
+      );
+
+      expect(report.placementMode, 'pagination-constraints');
+      expect(report.pageCount, 2);
+      expect(report.fragments[2].pageIndex, 1);
+      expect(report.fragments[2].flags, 4);
+      expect(report.supportedSlice, contains('orphans+widows'));
+    },
+  );
+
   testWidgets('verifies levels, fallback, virtual pages, and viewer mode', (
     tester,
   ) async {

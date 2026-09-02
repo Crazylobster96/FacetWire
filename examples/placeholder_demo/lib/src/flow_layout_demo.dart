@@ -235,6 +235,8 @@ final class FlowPlanFragment {
     required this.bounds,
     required this.textStart,
     required this.textEnd,
+    required this.z,
+    required this.flags,
   });
 
   final String kind;
@@ -245,6 +247,8 @@ final class FlowPlanFragment {
   final Rect bounds;
   final int textStart;
   final int textEnd;
+  final int z;
+  final int flags;
 
   factory FlowPlanFragment.fromJson(Map<String, Object?> value) {
     final bounds = value['bounds']! as Map<String, Object?>;
@@ -262,6 +266,8 @@ final class FlowPlanFragment {
       ),
       textStart: (value['textStart'] as num?)?.toInt() ?? 0,
       textEnd: (value['textEnd'] as num?)?.toInt() ?? 0,
+      z: (value['z'] as num?)?.toInt() ?? 0,
+      flags: (value['flags'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -285,6 +291,7 @@ final class FlowPlanReport {
     required this.contentBounds,
     required this.planKey,
     required this.pagesBalanced,
+    required this.diagnosticFlags,
     required this.nativeRuntime,
     required this.supportedSlice,
     required this.fragments,
@@ -307,6 +314,7 @@ final class FlowPlanReport {
   final Rect contentBounds;
   final String planKey;
   final bool pagesBalanced;
+  final int diagnosticFlags;
   final bool nativeRuntime;
   final String supportedSlice;
   final List<FlowPlanFragment> fragments;
@@ -354,6 +362,7 @@ final class FlowPlanReport {
       ),
       planKey: value['planKey']! as String,
       pagesBalanced: value['pagesBalanced']! as bool,
+      diagnosticFlags: (value['diagnosticFlags'] as num?)?.toInt() ?? 0,
       nativeRuntime: value['nativeRuntime'] as bool? ?? false,
       supportedSlice: value['supportedSlice']! as String,
       fragments: List.unmodifiable(
@@ -372,7 +381,14 @@ enum FlowSceneMode { recursive, single }
 
 enum FlowPageMode { continuous, virtualPages, columns }
 
-enum FlowParagraphMode { block, inline, floatStart, floatEnd }
+enum FlowParagraphMode {
+  block,
+  inline,
+  floatStart,
+  floatEnd,
+  overlay,
+  paginationConstraints,
+}
 
 class FlowLayoutDemoScreen extends StatefulWidget {
   const FlowLayoutDemoScreen({required this.client, this.loader, super.key});
@@ -846,6 +862,8 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
                     FlowParagraphMode.inline => '行内对象',
                     FlowParagraphMode.floatStart => '起始浮动',
                     FlowParagraphMode.floatEnd => '末端浮动',
+                    FlowParagraphMode.overlay => '覆盖层',
+                    FlowParagraphMode.paginationConstraints => '分页约束',
                   }),
                   selected: _paragraphMode == mode,
                   onSelected: (_) => _refresh(paragraphMode: mode),
@@ -893,6 +911,13 @@ class _FlowLayoutDemoScreenState extends State<FlowLayoutDemoScreen> {
                 ),
                 Chip(label: Text('Status ${report.composeStatus}')),
                 Chip(label: Text('${report.fragmentCount} fragments')),
+                Chip(
+                  label: Text(
+                    report.diagnosticFlags == 0
+                        ? 'Constraints exact'
+                        : 'Relaxed 0x${report.diagnosticFlags.toRadixString(16)}',
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -947,6 +972,11 @@ class _FlowPlanSurface extends StatelessWidget {
     final paged = pageMode != FlowPageMode.continuous;
     final width = paged ? report.pageSize.width : level.width;
     final height = paged ? report.continuousExtent.height : level.height;
+    final fragments = report.fragments.asMap().entries.toList()
+      ..sort((left, right) {
+        final byZ = left.value.z.compareTo(right.value.z);
+        return byZ != 0 ? byZ : left.key.compareTo(right.key);
+      });
     return SizedBox(
       key: ValueKey('flow-level-plan-$levelIndex'),
       width: width,
@@ -994,12 +1024,12 @@ class _FlowPlanSurface extends StatelessWidget {
                     pageIndex: pageIndex,
                     columnIndex: columnIndex,
                   ),
-            for (final fragment in report.fragments)
+            for (final entry in fragments)
               _FlowFragmentView(
-                fragment: fragment,
-                item: level.items[fragment.sourceItemId],
+                fragment: entry.value,
+                item: level.items[entry.value.sourceItemId],
                 topOffset: paged
-                    ? fragment.pageIndex *
+                    ? entry.value.pageIndex *
                           (report.pageSize.height + report.pageGap)
                     : 0,
               ),

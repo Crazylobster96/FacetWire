@@ -62,8 +62,9 @@ FWUI_API fwui_status fwui_compose_flow_demo(
     float height,
     uint32_t demo_case,
     fwui_buffer *out_layout_plan_utf8_json);
-/* Composes block content_case 0..2 or matching inline content_case 3..5 in
- * the requested fwui_flow_page_mode. */
+/* Composes content cases in groups of three levels: block (0..2), inline
+ * (3..5), float-start (6..8), float-end (9..11), overlay (12..14), and
+ * pagination constraints (15..17), in the requested page mode. */
 FWUI_API fwui_status fwui_compose_flow_demo_v2(
     fwui_context *context,
     float width,

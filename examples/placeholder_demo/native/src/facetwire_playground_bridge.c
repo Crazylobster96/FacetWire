@@ -38,6 +38,8 @@ typedef struct fwui_flow_fragment_record {
     fw_rect_f32 bounds;
     size_t text_start;
     size_t text_end;
+    int32_t z;
+    uint32_t flags;
 } fwui_flow_fragment_record;
 
 typedef struct fwui_flow_sink_state {
@@ -363,6 +365,8 @@ static fw_status FW_CALL flow_emit_fragment(
     record->bounds = fragment->bounds;
     record->text_start = fragment->text_start_utf8_byte;
     record->text_end = fragment->text_end_utf8_byte;
+    record->z = fragment->z;
+    record->flags = fragment->flags;
     return FW_STATUS_OK;
 }
 
@@ -411,7 +415,10 @@ static fwui_status serialize_flow_report(
     const uint32_t placement_group = content_case / 3u;
     const char *placement_mode = placement_group == 1u ? "inline" :
         (placement_group == 2u ? "float-start" :
-            (placement_group == 3u ? "float-end" : "block"));
+            (placement_group == 3u ? "float-end" :
+                (placement_group == 4u ? "overlay" :
+                    (placement_group == 5u ?
+                        "pagination-constraints" : "block"))));
     if (!append_json(json, sizeof(json), &offset,
         "{\"pluginId\":\"org.facetwire.reference.flow-layout\","
         "\"capability\":\"facetwire.layout.flow\","
@@ -427,9 +434,10 @@ static fwui_status serialize_flow_report(
         "\"contentBounds\":{\"x\":%.3f,\"y\":%.3f,"
         "\"width\":%.3f,\"height\":%.3f},"
         "\"planKey\":\"%016llx%016llx\",\"pagesBalanced\":%s,"
-        "\"supportedSlice\":\"continuous+virtual-pages+columns+block+inline+float-start+float-end\","
+        "\"diagnosticFlags\":%llu,"
+        "\"supportedSlice\":\"continuous+virtual-pages+columns+block+inline+float-start+float-end+overlay+breaks+keep+orphans+widows\","
         "\"nativeRuntime\":true,\"fragments\":[",
-        content_case + (page_mode * 12u), content_case, page_mode,
+        content_case + (page_mode * 18u), content_case, page_mode,
         placement_group == 1u ? "true" : "false", placement_mode,
         (unsigned int)compose_status,
         result->complete != 0u ? "true" : "false", result->page_count,
@@ -443,7 +451,8 @@ static fwui_status serialize_flow_report(
         sink->page.content_bounds.width, sink->page.content_bounds.height,
         (unsigned long long)result->plan_key_high,
         (unsigned long long)result->plan_key_low,
-        sink->begin_count == sink->end_count ? "true" : "false")) {
+        sink->begin_count == sink->end_count ? "true" : "false",
+        (unsigned long long)result->diagnostic_flags)) {
         return FWUI_STATUS_OUT_OF_MEMORY;
     }
     for (index = 0u; index < sink->fragment_count; ++index) {
@@ -454,14 +463,16 @@ static fwui_status serialize_flow_report(
             "\"columnIndex\":%u,"
             "\"bounds\":{\"x\":%.3f,"
             "\"y\":%.3f,\"width\":%.3f,\"height\":%.3f},"
-            "\"textStart\":%llu,\"textEnd\":%llu}",
+            "\"textStart\":%llu,\"textEnd\":%llu,"
+            "\"z\":%d,\"flags\":%u}",
             index == 0u ? "" : ",", fragment_kind_name(fragment->kind),
             fragment->source_item_id, fragment->content_kind,
             fragment->page_index, fragment->column_index,
             fragment->bounds.x, fragment->bounds.y, fragment->bounds.width,
             fragment->bounds.height,
             (unsigned long long)fragment->text_start,
-            (unsigned long long)fragment->text_end)) {
+            (unsigned long long)fragment->text_end,
+            fragment->z, fragment->flags)) {
             return FWUI_STATUS_OUT_OF_MEMORY;
         }
     }
@@ -644,7 +655,7 @@ fwui_status fwui_compose_flow_demo_v2(
     if (context == NULL || context->flow == NULL ||
         !buffer_available(out_layout_plan_utf8_json) ||
         !isfinite(width) || !isfinite(height) || width < 240.0f ||
-        height < 320.0f || content_case > 11u ||
+        height < 320.0f || content_case > 17u ||
         page_mode > FWUI_FLOW_PAGE_COLUMNS) {
         return FWUI_STATUS_INVALID_ARGUMENT;
     }
@@ -733,6 +744,26 @@ fwui_status fwui_compose_flow_demo_v2(
         items[1].placement.margins.left = 8.0f;
         items[1].placement.margins.right = 8.0f;
         items[1].direction = FW_TEXT_DIRECTION_LTR;
+    } else if (placement_group == 4u) {
+        items[1].placement.mode = FW_FLOW_PLACE_OVERLAY;
+        items[1].placement.requested_width = 132.0f;
+        items[1].placement.requested_height = 72.0f;
+        items[1].placement.offset_x = 18.0f;
+        items[1].placement.offset_y = 18.0f;
+        items[1].placement.z = 10;
+        items[1].placement.margins.top = 0.0f;
+        items[1].placement.margins.bottom = 0.0f;
+        items[1].overlay_anchor_item_id = items[0].id;
+        items[1].overlay_reading_order = 1;
+        items[1].overlay_has_reading_order = 1u;
+    } else if (placement_group == 5u) {
+        items[0].break_policy.keep_with_next = 1u;
+        items[1].placement.requested_width = 140.0f;
+        items[1].placement.requested_height = 80.0f;
+        items[1].break_policy.break_after = 1u;
+        items[2].break_policy.keep_together = 1u;
+        items[2].break_policy.orphans = 2u;
+        items[2].break_policy.widows = 2u;
     }
     memset(&request, 0, sizeof(request));
     request.struct_size = sizeof(request);
