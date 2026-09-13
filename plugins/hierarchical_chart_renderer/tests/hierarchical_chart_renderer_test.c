@@ -189,12 +189,17 @@ int main(void) {
         fake_sink state = {0};
         fw_chart_draw_sink_v1 draw = make_sink(&state);
         fw_chart_services_v1 services = {sizeof(services), &draw, 0u};
-        fw_chart_validation_result_v1 validation = {sizeof(validation)};
-        fw_chart_measure_result_v1 measure = {sizeof(measure)};
-        fw_chart_render_result_v1 render = {sizeof(render)};
-        fw_chart_semantics_v1 semantics = {sizeof(semantics)};
-        fw_hierarchical_chart_hit_result_v1 hit = {sizeof(hit)};
+        fw_chart_validation_result_v1 validation = {0};
+        fw_chart_measure_result_v1 measure = {0};
+        fw_chart_render_result_v1 render = {0};
+        fw_chart_semantics_v1 semantics = {0};
+        fw_hierarchical_chart_hit_result_v1 hit = {0};
         fw_point_f32 point;
+        validation.struct_size = sizeof(validation);
+        measure.struct_size = sizeof(measure);
+        render.struct_size = sizeof(render);
+        semantics.struct_size = sizeof(semantics);
+        hit.struct_size = sizeof(hit);
         rebind(&value);
         CHECK(api->validate(handle, &value.request, &validation) == FW_STATUS_OK);
         CHECK(validation.status == FW_STATUS_OK);
@@ -226,7 +231,8 @@ int main(void) {
     }
     {
         fixture value = make_fixture(FW_HIERARCHICAL_CHART_TREEMAP);
-        fw_chart_validation_result_v1 validation = {sizeof(validation)};
+        fw_chart_validation_result_v1 validation = {0};
+        validation.struct_size = sizeof(validation);
         rebind(&value);
         value.nodes[1].visible = 0u;
         CHECK(api->validate(handle, &value.request, &validation) == FW_STATUS_OK);
@@ -234,7 +240,8 @@ int main(void) {
     }
     {
         fixture value = make_fixture(FW_HIERARCHICAL_CHART_TREEMAP);
-        fw_chart_validation_result_v1 validation = {sizeof(validation)};
+        fw_chart_validation_result_v1 validation = {0};
+        validation.struct_size = sizeof(validation);
         rebind(&value);
         value.nodes[2].parent_index = 4u;
         CHECK(api->validate(handle, &value.request, &validation) == FW_STATUS_OK);
@@ -245,9 +252,10 @@ int main(void) {
         fake_sink state = {0};
         fw_chart_draw_sink_v1 draw;
         fw_chart_services_v1 services;
-        fw_chart_render_result_v1 render = {sizeof(render)};
+        fw_chart_render_result_v1 render = {0};
         rebind(&value); state.fail_at = 3u; draw = make_sink(&state);
         services = (fw_chart_services_v1){sizeof(services), &draw, 0u};
+        render.struct_size = sizeof(render);
         CHECK(api->render(handle, &value.request,
             (fw_rect_f32){0.0f, 0.0f, 640.0f, 420.0f},
             &services, &render) == FW_STATUS_SINK_REJECTED);
