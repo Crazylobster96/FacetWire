@@ -32,6 +32,9 @@ add_executable(facetwire_runtime_discovery_test runtime_discovery_test.c)
 target_compile_features(facetwire_runtime_discovery_test PRIVATE c_std_11)
 target_link_libraries(facetwire_runtime_discovery_test PRIVATE
     FacetWire::facetwire)
+if(MINGW)
+    target_link_options(facetwire_runtime_discovery_test PRIVATE -municode)
+endif()
 
 set(FACETWIRE_TEST_NATIVE_DYNAMIC OFF)
 if(FACETWIRE_ENABLE_NATIVE_DYNAMIC_LOADING)
@@ -55,6 +58,16 @@ if(FACETWIRE_TEST_NATIVE_DYNAMIC)
     add_test(NAME facetwire.runtime.discovery
         COMMAND facetwire_runtime_discovery_test
             $<TARGET_FILE:facetwire_dynamic_test_plugin>)
+    if(WIN32)
+        add_test(NAME facetwire.runtime.discovery_unicode
+            COMMAND ${CMAKE_COMMAND}
+                "-DDISCOVERY_EXE=$<TARGET_FILE:facetwire_runtime_discovery_test>"
+                "-DPLUGIN_FILE=$<TARGET_FILE:facetwire_dynamic_test_plugin>"
+                "-DSTAGING_DIR=${CMAKE_CURRENT_BINARY_DIR}/unicode-discovery/$<CONFIG>"
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/runtime_discovery_unicode.cmake)
+        set_tests_properties(facetwire.runtime.discovery_unicode PROPERTIES
+            LABELS "unit;contract;runtime;plugin;unicode" TIMEOUT 25)
+    endif()
 else()
     add_test(NAME facetwire.runtime.discovery
         COMMAND facetwire_runtime_discovery_test)
