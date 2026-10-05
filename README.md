@@ -54,6 +54,9 @@ To build each native renderer as a separately loadable library while keeping
 Core static, set `-DFACETWIRE_BUILD_RENDERERS_SHARED=ON`. Packaging and exact
 host limitations are documented in the
 [independent native renderer guide](docs/guides/independent-native-renderers.md).
+An opt-in desktop native-to-Flutter zone-profile bridge and separately packaged
+Status Tile example are described in the same guide; this bounded declarative
+adapter is not a generic native drawing or interaction bridge.
 
 ```sh
 cmake -S . -B build -DFACETWIRE_BUILD_TESTS=ON

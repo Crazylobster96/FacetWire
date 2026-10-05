@@ -93,3 +93,37 @@ The zone content provides `label`, `background` and `foreground`; colors use
 `#RRGGBBAA`. This is a constrained runtime extension point, **not** a bridge
 that maps arbitrary installed native DLL Renderer APIs to Flutter drawing.
 That broader native capability/semantics/interaction bridge remains open.
+
+## Opt-in native-to-Flutter zone profile bridge
+
+The desktop-only `FACETWIRE_BUILD_FLUTTER_ZONE_BRIDGE=ON` build adds an
+independently loadable bridge library and the separately packageable reference
+`status_tile_renderer`. A new native plugin may advertise
+`facetwire.renderer.flutter-zone` and return the immutable v1 interface table
+`facetwire.renderer.flutter-zone.v1` from `query_interface`. That table contains
+one bounded `facetwire.declarative-zone.v1` JSON profile. The bridge checks the
+plugin's exact identity, advertised capability, interface version, table size,
+nonempty bytes and 64 KiB ceiling, copies the profile before unloading the
+library, then lets the existing Dart `DeclarativeRendererPack` parser validate
+the view grammar. `NativeRendererPack.load` pins SHA-256 of both the bridge
+and native plugin, and yields the ordinary `FacetWireZoneRenderer` used by the
+recursive document loader and screen. A plugin that does not implement this
+interface is explicitly unsupported; existing Text/Image/Media/Chart DLLs
+are **not** silently interpreted as Flutter widgets.
+
+The reference plugin's manifest is at
+`plugins/status_tile_renderer/facetwire.plugin.json`; package its built DLL,
+manifest and repository license using `scripts/package-renderer.py` with the
+same platform target and absolute-path arguments as above. Each ZIP remains
+independently installable. The host must first authorize the exact package,
+probe the manifest/descriptor, pin installed library bytes and select the
+capability before supplying its absolute path to the Flutter adapter. On
+iOS/visionOS, new executable modules remain build-time signed registrations;
+the runtime load path is desktop-only. A plugin's executable runs in-process:
+SHA-256 is integrity evidence, **not** sandboxing or publisher identity.
+The installer must protect approved files against replacement between digest
+check and load. This v1 bridge intentionally supports only the bounded
+text/colored-box/column view grammar; arbitrary native draw commands,
+animation, interactive hit testing and full semantic trees still require a
+separate explicitly versioned host interface. It does not change any existing
+renderer contract or imply that Pillow already consumes the native profile.

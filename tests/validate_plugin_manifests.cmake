@@ -131,3 +131,18 @@ endif()
 validate_manifest("plugins/flow_layout/facetwire.plugin.json"
     "org.facetwire.reference.flow-layout"
     "facetwire_flow_layout_plugin_query" "facetwire.layout.flow")
+validate_manifest("plugins/status_tile_renderer/facetwire.plugin.json"
+    "org.facetwire.reference.status-tile-renderer"
+    "facetwire_status_tile_renderer_plugin_query"
+    "facetwire.renderer.flutter-zone")
+file(READ
+    "${FACETWIRE_SOURCE_DIR}/plugins/status_tile_renderer/facetwire.plugin.json"
+    status_tile_manifest)
+string(JSON status_tile_interface GET
+    "${status_tile_manifest}" capabilities 0 interfaces 0 id)
+string(JSON status_tile_version GET
+    "${status_tile_manifest}" capabilities 0 interfaces 0 version)
+if(NOT status_tile_interface STREQUAL "facetwire.renderer.flutter-zone.v1" OR
+   NOT status_tile_version EQUAL 1)
+    message(FATAL_ERROR "Status Tile must expose the v1 Flutter zone profile")
+endif()

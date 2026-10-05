@@ -31,6 +31,8 @@ option(FACETWIRE_BUILD_FLOW_LAYOUT
     "Build the experimental reference Flow Layout renderer" ON)
 option(FACETWIRE_BUILD_PLACEHOLDER_DEMO
     "Build the Windows/macOS placeholder demo native bridge" OFF)
+option(FACETWIRE_BUILD_FLUTTER_ZONE_BRIDGE
+    "Build the opt-in desktop native-to-Flutter declarative zone bridge" OFF)
 option(FACETWIRE_ENABLE_NATIVE_DYNAMIC_LOADING
     "Enable explicit native DLL/SO/dylib loading where supported" ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
@@ -52,7 +54,8 @@ add_library(facetwire ${FACETWIRE_LIBRARY_TYPE}
     src/visual_transform.c
 )
 add_library(FacetWire::facetwire ALIAS facetwire)
-if(FACETWIRE_RENDERER_LIBRARY_TYPE STREQUAL "SHARED")
+if(FACETWIRE_RENDERER_LIBRARY_TYPE STREQUAL "SHARED" OR
+   FACETWIRE_BUILD_FLUTTER_ZONE_BRIDGE)
     set_target_properties(facetwire PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
 
@@ -133,6 +136,18 @@ if(FACETWIRE_BUILD_PLACEHOLDER_DEMO)
             "FACETWIRE_BUILD_HIERARCHICAL_CHART_RENDERER")
     endif()
     add_subdirectory(examples/placeholder_demo/native)
+endif()
+
+if(FACETWIRE_BUILD_FLUTTER_ZONE_BRIDGE)
+    if(NOT FACETWIRE_ENABLE_NATIVE_DYNAMIC_LOADING)
+        message(FATAL_ERROR "Flutter zone bridge requires native dynamic loading")
+    endif()
+    if(NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+       NOT (APPLE AND CMAKE_SYSTEM_NAME STREQUAL "Darwin"))
+        message(FATAL_ERROR "Flutter zone native bridge is desktop-only")
+    endif()
+    add_subdirectory(plugins/status_tile_renderer)
+    add_subdirectory(bridges/flutter_zone)
 endif()
 
 if(BUILD_TESTING AND FACETWIRE_BUILD_TESTS)
