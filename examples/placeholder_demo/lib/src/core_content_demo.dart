@@ -31,6 +31,44 @@ final class DemoBounds {
 
 enum DemoCanvasScaleMode { fitViewport, actualSize }
 
+/// A trusted, separately supplied Flutter renderer module. Mobile applications
+/// register modules in their signed build; this is not a native hot-loader.
+final class FacetWireZoneRenderer {
+  const FacetWireZoneRenderer({
+    required this.type,
+    required this.validate,
+    required this.build,
+  });
+
+  final String type;
+  final void Function(
+    Map<String, Object?> content,
+    Map<String, String> resources,
+  )
+  validate;
+  final Widget Function(BuildContext context, DemoZone zone) build;
+}
+
+Map<String, FacetWireZoneRenderer> _rendererRegistry(
+  Iterable<FacetWireZoneRenderer> renderers,
+) {
+  final registry = <String, FacetWireZoneRenderer>{};
+  for (final renderer in renderers) {
+    if (!RegExp(r'^[a-z][a-z0-9-]{0,63}$').hasMatch(renderer.type) ||
+        renderer.type == 'document' ||
+        registry.containsKey(renderer.type) ||
+        registry.length >= 64) {
+      throw ArgumentError.value(
+        renderer.type,
+        'renderer type',
+        'invalid or duplicate renderer',
+      );
+    }
+    registry[renderer.type] = renderer;
+  }
+  return Map<String, FacetWireZoneRenderer>.unmodifiable(registry);
+}
+
 final class DemoZone {
   const DemoZone({
     required this.key,
@@ -41,6 +79,7 @@ final class DemoZone {
     required this.posterAsset,
     required this.child,
     required this.documentFit,
+    this.resources = const {},
   });
 
   final String key;
@@ -51,6 +90,7 @@ final class DemoZone {
   final String? posterAsset;
   final DemoDocument? child;
   final String documentFit;
+  final Map<String, String> resources;
 
   String get type => content['type']! as String;
   double get opacity => ((content['opacity'] as num?) ?? 1).toDouble();
@@ -105,16 +145,20 @@ final class DemoDocument {
 }
 
 final class CoreContentPackageLoader {
-  CoreContentPackageLoader({AssetBundle? bundle})
-    : _bundle = bundle ?? rootBundle;
+  CoreContentPackageLoader({
+    AssetBundle? bundle,
+    Iterable<FacetWireZoneRenderer> renderers = const [],
+  }) : _bundle = bundle ?? rootBundle,
+       _renderers = _rendererRegistry(renderers);
 
   final AssetBundle _bundle;
+  final Map<String, FacetWireZoneRenderer> _renderers;
 
   Future<DemoDocument> load(String descriptorAsset) =>
       _load(descriptorAsset, 1, <String>{});
 
   Future<DemoDocument> loadPath(String path) =>
-      _LocalCoreContentPackageLoader().load(path);
+      _LocalCoreContentPackageLoader(_renderers).load(path);
 
   Future<DemoDocument> _load(
     String descriptorAsset,
@@ -196,9 +240,13 @@ final class CoreContentPackageLoader {
             }
           } else if (type == 'chart') {
             _validateChart(content, zoneId);
-          } else if (type != 'text') {
+          } else if (type != 'text' && !_renderers.containsKey(type)) {
             throw FormatException('$zoneId uses unsupported demo type $type');
           }
+          _renderers[type]?.validate(
+            content,
+            Map<String, String>.unmodifiable(resources),
+          );
           zones.add(
             DemoZone(
               key: '$descriptorAsset#$zoneId',
@@ -214,6 +262,7 @@ final class CoreContentPackageLoader {
               posterAsset: posterAsset,
               child: child,
               documentFit: documentFit,
+              resources: Map<String, String>.unmodifiable(resources),
             ),
           );
         }
@@ -283,6 +332,10 @@ final class CoreContentPackageLoader {
 }
 
 final class _LocalCoreContentPackageLoader {
+  _LocalCoreContentPackageLoader(this._renderers);
+
+  final Map<String, FacetWireZoneRenderer> _renderers;
+
   Future<DemoDocument> load(String path) async {
     final requested = path.trim();
     if (requested.isEmpty) {
@@ -475,9 +528,13 @@ final class _LocalCoreContentPackageLoader {
             }
           } else if (type == 'chart') {
             CoreContentPackageLoader._validateChart(content, zoneId);
-          } else if (type != 'text') {
+          } else if (type != 'text' && !_renderers.containsKey(type)) {
             throw FormatException('$zoneId uses unsupported demo type $type');
           }
+          _renderers[type]?.validate(
+            content,
+            Map<String, String>.unmodifiable(resources),
+          );
           zones.add(
             DemoZone(
               key: '$identity#$zoneId',
@@ -505,6 +562,7 @@ final class _LocalCoreContentPackageLoader {
               posterAsset: posterAsset,
               child: child,
               documentFit: documentFit,
+              resources: Map<String, String>.unmodifiable(resources),
             ),
           );
         }
@@ -569,12 +627,14 @@ final class _LocalCoreContentPackageLoader {
 class CoreContentDemoScreen extends StatefulWidget {
   const CoreContentDemoScreen({
     this.loader,
+    this.renderers = const [],
     this.descriptorAsset = richMediaShowcaseDescriptor,
     this.initialPath,
     super.key,
   });
 
   final CoreContentPackageLoader? loader;
+  final List<FacetWireZoneRenderer> renderers;
   final String descriptorAsset;
   final String? initialPath;
 
@@ -607,7 +667,9 @@ class _CoreContentDemoScreenState extends State<CoreContentDemoScreen> {
   Future<void> _load(String? path) async {
     setState(() => _loading = true);
     try {
-      final loader = widget.loader ?? CoreContentPackageLoader();
+      final loader =
+          widget.loader ??
+          CoreContentPackageLoader(renderers: widget.renderers);
       final requestedPath = path?.trim();
       final document = requestedPath == null || requestedPath.isEmpty
           ? await loader.load(widget.descriptorAsset)
@@ -615,7 +677,10 @@ class _CoreContentDemoScreenState extends State<CoreContentDemoScreen> {
       if (!mounted) return;
       setState(() {
         _document = document;
-        _selected = document.zones.firstWhere((zone) => zone.type == 'text');
+        _selected = document.zones.firstWhere(
+          (zone) => zone.type == 'text',
+          orElse: () => document.zones.first,
+        );
         _error = null;
         _activePath = requestedPath == null || requestedPath.isEmpty
             ? null
@@ -703,12 +768,14 @@ class _CoreContentDemoScreenState extends State<CoreContentDemoScreen> {
   }
 
   Widget _buildLoaded(BuildContext context, BoxConstraints constraints) {
+    final renderers = _rendererRegistry(widget.renderers);
     final preview = _PreviewPane(
       document: _document!,
       selected: _selected,
       opacityFor: _effectiveOpacity,
       onSelect: (zone) => setState(() => _selected = zone),
       scaleMode: _scaleMode,
+      renderers: renderers,
     );
     final controls = _buildControls();
     if (constraints.maxWidth >= 900) {
@@ -942,6 +1009,7 @@ final class _PreviewPane extends StatelessWidget {
     required this.opacityFor,
     required this.onSelect,
     required this.scaleMode,
+    required this.renderers,
   });
 
   final DemoDocument document;
@@ -949,6 +1017,7 @@ final class _PreviewPane extends StatelessWidget {
   final double Function(DemoZone zone) opacityFor;
   final ValueChanged<DemoZone> onSelect;
   final DemoCanvasScaleMode scaleMode;
+  final Map<String, FacetWireZoneRenderer> renderers;
 
   @override
   Widget build(BuildContext context) {
@@ -990,6 +1059,7 @@ final class _PreviewPane extends StatelessWidget {
                       selected: selected,
                       opacityFor: opacityFor,
                       onSelect: onSelect,
+                      renderers: renderers,
                     ),
                   ),
                 ),
@@ -1008,12 +1078,14 @@ final class _DocumentCanvas extends StatelessWidget {
     required this.selected,
     required this.opacityFor,
     required this.onSelect,
+    required this.renderers,
   });
 
   final DemoDocument document;
   final DemoZone? selected;
   final double Function(DemoZone zone) opacityFor;
   final ValueChanged<DemoZone> onSelect;
+  final Map<String, FacetWireZoneRenderer> renderers;
 
   @override
   Widget build(BuildContext context) {
@@ -1041,6 +1113,7 @@ final class _DocumentCanvas extends StatelessWidget {
                   opacityFor: opacityFor,
                   onSelect: onSelect,
                   selectedZone: selected,
+                  renderers: renderers,
                 ),
               ),
           Positioned(
@@ -1082,6 +1155,7 @@ final class _ZoneSurface extends StatelessWidget {
     required this.opacityFor,
     required this.onSelect,
     required this.selectedZone,
+    required this.renderers,
   });
 
   final DemoZone zone;
@@ -1090,17 +1164,21 @@ final class _ZoneSurface extends StatelessWidget {
   final double Function(DemoZone zone) opacityFor;
   final ValueChanged<DemoZone> onSelect;
   final DemoZone? selectedZone;
+  final Map<String, FacetWireZoneRenderer> renderers;
 
   @override
   Widget build(BuildContext context) {
-    final content = switch (zone.type) {
-      'text' => _text(),
-      'image' || 'animated-image' => _image(),
-      'chart' => _chart(),
-      'video' => _video(),
-      'document' => _document(),
-      _ => ColoredBox(color: Colors.red.shade100),
-    };
+    final extension = renderers[zone.type];
+    final content = extension != null
+        ? extension.build(context, zone)
+        : switch (zone.type) {
+            'text' => _text(),
+            'image' || 'animated-image' => _image(),
+            'chart' => _chart(),
+            'video' => _video(),
+            'document' => _document(),
+            _ => ColoredBox(color: Colors.red.shade100),
+          };
     final color = _typeColor(zone.type);
     return Semantics(
       container: true,
@@ -1276,6 +1354,7 @@ final class _ZoneSurface extends StatelessWidget {
         selected: selectedZone,
         opacityFor: opacityFor,
         onSelect: onSelect,
+        renderers: renderers,
       ),
     );
     final Widget placed;

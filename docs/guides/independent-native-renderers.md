@@ -37,3 +37,22 @@ the installed capability interface to its drawing, semantics and interaction
 services. iOS/visionOS applications cannot load newly downloaded executable
 native plugins after distribution; they register approved modules statically
 in a new app build. Do not call either case silent hot installation.
+
+## Flutter modules in a signed host build
+
+The Playground's `CoreContentPackageLoader` and `CoreContentDemoScreen` also
+accept an explicit list of `FacetWireZoneRenderer` modules. A module has its
+own `type`, content/resource validator and Flutter widget builder. The loader
+rejects unregistered types and runs the registered validator before exposing
+the document; the same registry is passed into nested canvases. Modules can
+be delivered as separate Flutter packages and included/removed in a new host
+build without editing the Playground's built-in type switch. An application
+using a custom loader must pass the same modules to the screen. The module's
+validator must check every content field and resource ID it consumes, because
+the host intentionally does not guess a third-party content schema.
+
+This is **build-time** composition, including on iOS/visionOS. It does not
+interpret installed native DLLs as Flutter widgets or load downloaded Dart
+code. Desktop runtime installation still needs a capability-to-widget host
+bridge and explicit trust policy; until then the native ZIPs and Flutter
+modules are separate delivery surfaces, not one end-to-end hot-install path.
