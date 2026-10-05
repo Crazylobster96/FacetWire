@@ -1169,16 +1169,25 @@ final class _ZoneSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extension = renderers[zone.type];
-    final content = extension != null
-        ? extension.build(context, zone)
-        : switch (zone.type) {
-            'text' => _text(),
-            'image' || 'animated-image' => _image(),
-            'chart' => _chart(),
-            'video' => _video(),
-            'document' => _document(),
-            _ => ColoredBox(color: Colors.red.shade100),
-          };
+    Widget? custom;
+    if (extension != null) {
+      try {
+        custom = extension.build(context, zone);
+      } on Object {
+        // A plugin failure affects only this view, never the saved document.
+        custom = const Center(child: Text('Renderer unavailable'));
+      }
+    }
+    final content =
+        custom ??
+        switch (zone.type) {
+          'text' => _text(),
+          'image' || 'animated-image' => _image(),
+          'chart' => _chart(),
+          'video' => _video(),
+          'document' => _document(),
+          _ => ColoredBox(color: Colors.red.shade100),
+        };
     final color = _typeColor(zone.type);
     return Semantics(
       container: true,

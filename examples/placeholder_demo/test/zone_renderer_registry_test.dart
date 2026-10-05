@@ -114,6 +114,40 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'module builder failure stays inside a visible unavailable zone',
+    (tester) async {
+      final module = FacetWireZoneRenderer(
+        type: 'third-party-tile',
+        validate: (content, resources) {},
+        build: (context, zone) =>
+            throw StateError('synthetic renderer failure'),
+      );
+      final loader = CoreContentPackageLoader(
+        bundle: _MemoryBundle({
+          'fixture/custom.dis.json': utf8.encode(jsonEncode(_descriptor())),
+          'fixture/resources/sample.bin': [1, 2, 3],
+        }),
+        renderers: [module],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CoreContentDemoScreen(
+            loader: loader,
+            descriptorAsset: 'fixture/custom.dis.json',
+            renderers: [module],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Renderer unavailable'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('document-canvas:custom-document')),
+        findsOneWidget,
+      );
+    },
+  );
 }
 
 FacetWireZoneRenderer _module() => FacetWireZoneRenderer(

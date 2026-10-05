@@ -44,7 +44,10 @@ The Playground's `CoreContentPackageLoader` and `CoreContentDemoScreen` also
 accept an explicit list of `FacetWireZoneRenderer` modules. A module has its
 own `type`, content/resource validator and Flutter widget builder. The loader
 rejects unregistered types and runs the registered validator before exposing
-the document; the same registry is passed into nested canvases. Modules can
+the document; the same registry is passed into nested canvases. A synchronous
+builder failure shows `Renderer unavailable` only in that zone and does not
+change the saved source; this is not a sandbox for hostile or asynchronous
+plugin code. Modules can
 be delivered as separate Flutter packages and included/removed in a new host
 build without editing the Playground's built-in type switch. An application
 using a custom loader must pass the same modules to the screen. The module's
