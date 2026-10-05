@@ -30,7 +30,7 @@ int wmain(int argc, wchar_t **argv) {
     char *identity;
     char *capability;
     char *interface_id;
-    char *converted[4];
+    char *converted[6];
     int index;
 #else
 int main(int argc, char **argv) {
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
         sizeof(fw_capability_match_v1), 0u, NULL, NULL,
         FW_PLUGIN_SOURCE_UNKNOWN};
     fw_runtime *runtime = NULL;
-    assert(argc == 5);
+    assert(argc == 7);
 #if defined(_WIN32)
     for (index = 1; index < argc; ++index) {
         needed = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
@@ -61,22 +61,33 @@ int main(int argc, char **argv) {
     identity = converted[1];
     capability = converted[2];
     interface_id = converted[3];
+    const char *flags_text = converted[4];
+    const char *count_text = converted[5];
 #else
     const char *path = argv[1];
     const char *identity = argv[2];
     const char *capability = argv[3];
     const char *interface_id = argv[4];
+    const char *flags_text = argv[5];
+    const char *count_text = argv[6];
 #endif
+    char *end = NULL;
+    unsigned long long expected_flags = strtoull(flags_text, &end, 10);
+    assert(end != flags_text && *end == '\0');
+    unsigned long expected_count = strtoul(count_text, &end, 10);
+    assert(end != count_text && *end == '\0');
     assert(fw_runtime_create(&config, &runtime) == FW_STATUS_OK);
     assert(fw_runtime_load_dynamic(runtime, view(path), &descriptor) ==
            FW_STATUS_OK);
     assert(descriptor != NULL && equal(descriptor->id, identity));
+    assert(descriptor->capability_count == expected_count);
     assert(fw_runtime_plugin_source_at(runtime, 0u) ==
            FW_PLUGIN_SOURCE_NATIVE_DYNAMIC);
     assert(fw_runtime_find_capability(runtime, view(capability), 0u,
                                       &match) == FW_STATUS_OK);
     assert(match.plugin_index == 0u && match.plugin == descriptor &&
            match.source == FW_PLUGIN_SOURCE_NATIVE_DYNAMIC);
+    assert(match.capability != NULL && match.capability->flags == expected_flags);
     assert(fw_runtime_query_interface(runtime, view(identity),
                                       view(interface_id), 1u,
                                       &interface_value) == FW_STATUS_OK);
@@ -89,7 +100,7 @@ int main(int argc, char **argv) {
            FW_STATUS_NOT_FOUND);
     fw_runtime_destroy(runtime);
 #if defined(_WIN32)
-    for (index = 0; index < 4; ++index) free(converted[index]);
+    for (index = 0; index < 6; ++index) free(converted[index]);
 #endif
     return 0;
 }

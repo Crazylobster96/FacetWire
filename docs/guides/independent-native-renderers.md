@@ -29,8 +29,10 @@ platform/architecture verification as part of release signing. Neither a hash
 nor a successful load makes untrusted native code safe to execute.
 
 The Windows conformance matrix stages **one DLL at a time in a Unicode path**,
-then verifies ABI, descriptor identity, capability, v1 interface, unload and
-recovery. This proves independent native loading, not a complete UI renderer.
+then verifies ABI, descriptor identity, every declared capability's kind and
+flags, each v1 interface, unload and recovery. A manifest/descriptor mismatch
+fails the package gate. This proves independent native loading, not a complete
+UI renderer.
 The current Flutter rich-content example still dispatches its built-in
 Text/Image/Media/Chart widgets statically. A future host must explicitly map
 the installed capability interface to its drawing, semantics and interaction

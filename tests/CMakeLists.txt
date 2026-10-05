@@ -92,7 +92,7 @@ if(FACETWIRE_TEST_NATIVE_DYNAMIC AND
         target_link_options(facetwire_dynamic_renderer_artifact_test
             PRIVATE -municode)
     endif()
-    function(facetwire_test_dynamic_renderer target identity capability interface_id)
+    function(facetwire_test_dynamic_renderer target identity manifest_path)
         add_dependencies(facetwire_dynamic_renderer_artifact_test ${target})
         add_test(NAME facetwire.dynamic_renderer.${target}
             COMMAND ${CMAKE_COMMAND}
@@ -100,33 +100,32 @@ if(FACETWIRE_TEST_NATIVE_DYNAMIC AND
                 "-DRENDERER_PLUGIN_FILE=$<TARGET_FILE:${target}>"
                 "-DRENDERER_STAGING_DIR=${CMAKE_CURRENT_BINARY_DIR}/isolated-renderer/$<CONFIG>/中文/${target}"
                 "-DRENDERER_ID=${identity}"
-                "-DRENDERER_CAPABILITY=${capability}"
-                "-DRENDERER_INTERFACE=${interface_id}"
+                "-DRENDERER_MANIFEST_FILE=${PROJECT_SOURCE_DIR}/${manifest_path}"
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/renderer_isolated_load.cmake)
         set_tests_properties(facetwire.dynamic_renderer.${target} PROPERTIES
             LABELS "unit;contract;runtime;renderer;dynamic")
     endfunction()
     facetwire_test_dynamic_renderer(facetwire_placeholder_renderer
         org.facetwire.reference.placeholder-renderer
-        facetwire.renderer.placeholder facetwire.renderer.placeholder.v1)
+        plugins/placeholder_renderer/facetwire.plugin.json)
     facetwire_test_dynamic_renderer(facetwire_text_renderer
         org.facetwire.reference.text-renderer
-        facetwire.renderer.text facetwire.renderer.text.v1)
+        plugins/text_renderer/facetwire.plugin.json)
     facetwire_test_dynamic_renderer(facetwire_core_image_renderer
         org.facetwire.reference.core-image-renderer
-        facetwire.renderer.image facetwire.renderer.image.v1)
+        plugins/core_image_renderer/facetwire.plugin.json)
     facetwire_test_dynamic_renderer(facetwire_core_media_renderer
         org.facetwire.reference.core-media-renderer
-        facetwire.renderer.video facetwire.renderer.video.v1)
+        plugins/core_media_renderer/facetwire.plugin.json)
     facetwire_test_dynamic_renderer(facetwire_core_chart_renderer
         org.facetwire.reference.core-chart-renderer
-        facetwire.renderer.chart facetwire.renderer.chart.v1)
+        plugins/core_chart_renderer/facetwire.plugin.json)
     facetwire_test_dynamic_renderer(facetwire_hierarchical_chart_renderer
         org.facetwire.reference.hierarchical-chart-renderer
-        facetwire.renderer.hierarchical-chart facetwire.renderer.hierarchical-chart.v1)
+        plugins/hierarchical_chart_renderer/facetwire.plugin.json)
     facetwire_test_dynamic_renderer(facetwire_flow_layout
         org.facetwire.reference.flow-layout
-        facetwire.layout.flow facetwire.layout.flow.v1)
+        plugins/flow_layout/facetwire.plugin.json)
 endif()
 
 foreach(test_target IN ITEMS
