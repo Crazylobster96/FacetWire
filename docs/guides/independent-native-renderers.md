@@ -61,3 +61,35 @@ interpret installed native DLLs as Flutter widgets or load downloaded Dart
 code. Desktop runtime installation still needs a capability-to-widget host
 bridge and explicit trust policy; until then the native ZIPs and Flutter
 modules are separate delivery surfaces, not one end-to-end hot-install path.
+
+## Bounded desktop data-only renderer packs
+
+The Flutter example also exposes `DeclarativeRendererPack`, a separate,
+runtime-loaded **data-only** profile for new zone types. A trusted desktop
+installer pins the SHA-256 of an absolute regular JSON file before passing
+it to `load(path, expectedSha256: digest)`. The loader accepts at most 64 KiB,
+validates a small fixed view grammar (text, colored box, column), limits
+depth/nodes and referenced content fields, and returns the same
+`FacetWireZoneRenderer` module used by the recursive document loader. A
+builder failure remains isolated to the affected zone. It cannot execute
+native/Dart code, call tools or models, access the network, add interactions,
+or replace built-in text/image/video/chart/document types. Mobile applications
+do not use this runtime path; they must bundle modules in the signed app.
+
+Example profile (the installer/host supplies the actual digest):
+
+```json
+{
+  "schema": "facetwire.declarative-zone.v1",
+  "type": "status-tile",
+  "view": {
+    "kind": "box", "colorField": "background",
+    "child": {"kind": "text", "field": "label", "colorField": "foreground"}
+  }
+}
+```
+
+The zone content provides `label`, `background` and `foreground`; colors use
+`#RRGGBBAA`. This is a constrained runtime extension point, **not** a bridge
+that maps arbitrary installed native DLL Renderer APIs to Flutter drawing.
+That broader native capability/semantics/interaction bridge remains open.
