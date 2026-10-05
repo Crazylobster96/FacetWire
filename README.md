@@ -50,6 +50,11 @@ tests/                             ABI and conformance smoke tests
 
 FacetWire requires a C11 compiler and CMake 3.21 or newer.
 
+To build each native renderer as a separately loadable library while keeping
+Core static, set `-DFACETWIRE_BUILD_RENDERERS_SHARED=ON`. Packaging and exact
+host limitations are documented in the
+[independent native renderer guide](docs/guides/independent-native-renderers.md).
+
 ```sh
 cmake -S . -B build -DFACETWIRE_BUILD_TESTS=ON
 cmake --build build

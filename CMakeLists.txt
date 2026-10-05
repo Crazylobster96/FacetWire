@@ -11,6 +11,8 @@ include(GNUInstallDirs)
 include(CTest)
 
 option(FACETWIRE_BUILD_SHARED "Build FacetWire as a shared library" OFF)
+option(FACETWIRE_BUILD_RENDERERS_SHARED
+    "Build each renderer as an independently loadable native library" OFF)
 option(FACETWIRE_BUILD_EXAMPLES "Build example plugins and hosts" ON)
 option(FACETWIRE_BUILD_TESTS "Build the conformance tests" ON)
 option(FACETWIRE_BUILD_PLACEHOLDER_RENDERER
@@ -39,6 +41,10 @@ set(FACETWIRE_LIBRARY_TYPE STATIC)
 if(FACETWIRE_BUILD_SHARED)
     set(FACETWIRE_LIBRARY_TYPE SHARED)
 endif()
+set(FACETWIRE_RENDERER_LIBRARY_TYPE ${FACETWIRE_LIBRARY_TYPE})
+if(FACETWIRE_BUILD_RENDERERS_SHARED)
+    set(FACETWIRE_RENDERER_LIBRARY_TYPE SHARED)
+endif()
 
 add_library(facetwire ${FACETWIRE_LIBRARY_TYPE}
     src/dynamic_library.c
@@ -46,6 +52,9 @@ add_library(facetwire ${FACETWIRE_LIBRARY_TYPE}
     src/visual_transform.c
 )
 add_library(FacetWire::facetwire ALIAS facetwire)
+if(FACETWIRE_RENDERER_LIBRARY_TYPE STREQUAL "SHARED")
+    set_target_properties(facetwire PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 
 target_compile_features(facetwire PUBLIC c_std_11)
 target_compile_definitions(facetwire PRIVATE FACETWIRE_BUILDING_LIBRARY)

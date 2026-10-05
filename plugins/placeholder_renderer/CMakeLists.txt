@@ -1,4 +1,4 @@
-add_library(facetwire_placeholder_renderer ${FACETWIRE_LIBRARY_TYPE}
+add_library(facetwire_placeholder_renderer ${FACETWIRE_RENDERER_LIBRARY_TYPE}
     src/plugin.c
 )
 add_library(FacetWire::placeholder_renderer ALIAS
@@ -14,7 +14,7 @@ target_include_directories(facetwire_placeholder_renderer PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-if(FACETWIRE_LIBRARY_TYPE STREQUAL "SHARED")
+if(FACETWIRE_RENDERER_LIBRARY_TYPE STREQUAL "SHARED")
     target_compile_definitions(facetwire_placeholder_renderer PRIVATE
         FACETWIRE_PLACEHOLDER_RENDERER_DYNAMIC_ENTRY=1)
 endif()
