@@ -1255,7 +1255,9 @@ final class _ZoneSurface extends StatelessWidget {
     );
     final text = zone.content['text']! as String;
     final textWidget = selectable
-        ? SelectableText(text, style: textStyle)
+        // SelectableText owns its tap recognizer, so the outer GestureDetector
+        // cannot also select this Zone when the user clicks the text itself.
+        ? SelectableText(text, style: textStyle, onTap: () => onSelect(zone))
         : Text(text, style: textStyle, overflow: TextOverflow.clip);
     return Opacity(
       opacity: effectiveOpacity,

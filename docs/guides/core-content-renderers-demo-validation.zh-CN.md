@@ -93,6 +93,12 @@ Renderer 不填充隐式白底。最终 Alpha 由内容 Alpha、颜色 Alpha 和
 
 ## 4. 自动化验证
 
+2026-10-09 可选择文字的当前层选择修正：点击文字本身也会同步选择对应Zone，
+不能只点Zone空白处代替该检查。先点图片再点文字，当前层应从image回到text；
+两处共享子文档的文字实例应分别选中。重复点击同一Zone保持选中，不要求取消。
+文字仍可选择/复制，不改变保存文档，详见
+[回归与限制](../verification/2026-10-09-selectable-text-zone-selection.md)。
+
 ### 4.1 原生静态库
 
 ```powershell
