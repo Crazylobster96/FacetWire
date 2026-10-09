@@ -1048,8 +1048,11 @@ final class _PreviewPane extends StatelessWidget {
                 key: const ValueKey('preview-canvas-box'),
                 width: document.width * scale,
                 height: document.height * scale,
-                child: Transform.scale(
-                  scale: scale,
+                // Lay out every Zone in the document's original coordinates.
+                // Transform.scale propagates the fitted box's tight constraints
+                // to its child, shrinking the canvas before scaling its paint.
+                child: FittedBox(
+                  fit: BoxFit.contain,
                   alignment: Alignment.topLeft,
                   child: SizedBox(
                     width: document.width,

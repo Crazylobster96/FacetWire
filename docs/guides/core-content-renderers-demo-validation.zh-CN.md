@@ -163,6 +163,11 @@ flutter test
 
 两种策略只影响根预览视口，不改写描述文件，也不改变嵌套文档的 `fit=none` 语义。
 
+2026-10-09 修正适应窗口的重复缩放：逻辑Canvas始终按描述文件原尺寸布局，
+`FittedBox`仅作一次显示/命中变换；不能先把Canvas布局压缩再按原坐标裁切。
+手机竖屏、横屏与桌面自动化会检查底部Zone仍在拟合画布内且可点击，详见
+[修复验证](../verification/2026-10-09-core-content-viewport-fit.md)。这不是全部平台的人工验收结论。
+
 ### Windows
 
 ```powershell
