@@ -1307,6 +1307,8 @@ final class _ZoneSurface extends StatelessWidget {
     required FilterQuality filterQuality,
     required ImageErrorWidgetBuilder errorBuilder,
   }) {
+    final alt = zone.content['alt'];
+    final semanticLabel = alt is String ? alt : null;
     if (resource.startsWith('file:')) {
       return Image.file(
         File.fromUri(Uri.parse(resource)),
@@ -1315,6 +1317,7 @@ final class _ZoneSurface extends StatelessWidget {
         gaplessPlayback: gaplessPlayback,
         filterQuality: filterQuality,
         errorBuilder: errorBuilder,
+        semanticLabel: semanticLabel,
       );
     }
     return Image.asset(
@@ -1324,6 +1327,7 @@ final class _ZoneSurface extends StatelessWidget {
       gaplessPlayback: gaplessPlayback,
       filterQuality: filterQuality,
       errorBuilder: errorBuilder,
+      semanticLabel: semanticLabel,
     );
   }
 
