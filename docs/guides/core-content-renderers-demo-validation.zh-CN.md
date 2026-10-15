@@ -93,6 +93,11 @@ Renderer 不填充隐式白底。最终 Alpha 由内容 Alpha、颜色 Alpha 和
 
 ## 4. 自动化验证
 
+2026-10-16 非空描述的内置图片现在由同一语义节点提供alt、图片角色和Zone选择动作，
+不再让内部描述与外层类型/ID动作竞争；只排除重复图片语义及调试角标，坏资源提示、
+文字/递归与自定义Renderer控件保留。完整Flutter83/83仍不是iPhone旁白通过，见
+[修复证据与原生边界](../verification/2026-10-16-core-image-accessible-action.md)。
+
 2026-10-15 图片替代文字桥接：静态/动态图片的既有字符串alt现在进入资产与文件图片的
 语义标签，类型/ID标签和点击回选不变。32项语义回归不替代实际VoiceOver观察；新构建后
 须检查图片描述、图片角色、正文及焦点遍历，见[验证与边界](../verification/2026-10-15-core-image-alternative-text.md)。

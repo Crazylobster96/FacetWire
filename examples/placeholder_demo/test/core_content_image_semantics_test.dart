@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:facetwire_placeholder_demo/src/core_content_demo.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show SemanticsNode;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -54,15 +56,20 @@ Map<String, Object> _document(String type, Object? alt) => {
 };
 
 class _ImageBundle extends CachingAssetBundle {
-  _ImageBundle(this.document);
+  _ImageBundle(this.document, {this.broken = false});
   final Map<String, Object> document;
+  final bool broken;
 
   @override
   Future<ByteData> load(String key) async {
     if (key == 'AssetManifest.bin') {
       return const StandardMessageCodec().encodeMessage(<String, Object?>{})!;
     }
-    if (key == _pixel) return ByteData.sublistView(_png);
+    if (key == _pixel) {
+      return ByteData.sublistView(
+        broken ? Uint8List.fromList([0, 1, 2]) : _png,
+      );
+    }
     if (key != _descriptor) throw FlutterError('Unknown synthetic asset: $key');
     return ByteData.sublistView(
       Uint8List.fromList(utf8.encode(jsonEncode(document))),
@@ -71,6 +78,45 @@ class _ImageBundle extends CachingAssetBundle {
 }
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    for (final type in ['image', 'animated-image']) {
+      testWidgets('$platform $type keeps resource failure readable', (
+        tester,
+      ) async {
+        final semantics = tester.ensureSemantics();
+        final bundle = _ImageBundle(
+          _document(type, _alternative),
+          broken: true,
+        );
+        try {
+          await tester.pumpWidget(
+            DefaultAssetBundle(
+              bundle: bundle,
+              child: MaterialApp(
+                home: CoreContentDemoScreen(
+                  loader: CoreContentPackageLoader(bundle: bundle),
+                  descriptorAsset: _descriptor,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Resource unavailable\npicture'), findsOneWidget);
+          final node = tester.getSemantics(
+            find.text('Resource unavailable\npicture'),
+          );
+          expect(
+            node.getSemanticsData().label,
+            contains('Resource unavailable'),
+          );
+          expect(find.bySemanticsLabel(_alternative), findsOneWidget);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          semantics.dispose();
+        }
+      }, variant: TargetPlatformVariant({platform}));
+    }
+  }
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
     for (final type in ['image', 'animated-image']) {
       for (final alt in <Object?>[_alternative, null, '', 42]) {
@@ -126,13 +172,21 @@ void main() {
               expect(find.text('selectable root'), findsOneWidget);
               final image = tester.widget<Image>(find.byType(Image));
               final zoneNode = tester.getSemantics(
-                find.bySemanticsLabel(RegExp('$type: picture')),
+                alt == _alternative
+                    ? find.bySemanticsLabel(_alternative)
+                    : find.bySemanticsLabel(RegExp('$type: picture')),
               );
-              expect(
-                zoneNode.getSemanticsData().label,
-                contains('$type: picture'),
+              if (alt != _alternative) {
+                expect(
+                  zoneNode.getSemanticsData().label,
+                  contains('$type: picture'),
+                );
+              }
+              final imageNode = tester.getSemantics(
+                alt == _alternative
+                    ? find.bySemanticsLabel(_alternative)
+                    : find.byType(Image),
               );
-              final imageNode = tester.getSemantics(find.byType(Image));
               expect(
                 imageNode.getSemanticsData().flagsCollection.isImage,
                 isTrue,
@@ -143,6 +197,42 @@ void main() {
                   imageNode.getSemanticsData().label,
                   contains(_alternative),
                 );
+                expect(
+                  imageNode.getSemanticsData().label,
+                  isNot(contains('picture')),
+                );
+                expect(
+                  imageNode.getSemanticsData().label,
+                  isNot(contains('1.00')),
+                );
+                expect(
+                  imageNode.getSemanticsData().hasAction(SemanticsAction.tap),
+                  isTrue,
+                  reason: 'The image description and Zone activation must share a node',
+                );
+                var descriptions = 0;
+                void countDescriptions(SemanticsNode node) {
+                  if (node.getSemanticsData().label == _alternative) {
+                    descriptions++;
+                  }
+                  node.visitChildren((child) {
+                    countDescriptions(child);
+                    return true;
+                  });
+                }
+
+                countDescriptions(imageNode.owner!.rootSemanticsNode!);
+                expect(
+                  descriptions,
+                  1,
+                  reason: 'No competing duplicate description node',
+                );
+                imageNode.owner!.performAction(
+                  imageNode.id,
+                  SemanticsAction.tap,
+                );
+                await tester.pumpAndSettle();
+                expect(find.text('type: $type'), findsOneWidget);
               } else {
                 expect(image.semanticLabel, anyOf(isNull, isEmpty));
                 expect(
@@ -167,4 +257,58 @@ void main() {
       }
     }
   }
+  testWidgets(
+    'Custom image renderer keeps its independent controls and semantics',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      var pressed = false;
+      final bundle = _ImageBundle(_document('image', _alternative));
+      final renderer = FacetWireZoneRenderer(
+        type: 'image',
+        validate: (_, _) {},
+        build: (_, _) => Column(
+          children: [
+            const Text('Custom image description'),
+            TextButton(
+              onPressed: () => pressed = true,
+              child: const Text('Custom action'),
+            ),
+          ],
+        ),
+      );
+      try {
+        await tester.pumpWidget(
+          DefaultAssetBundle(
+            bundle: bundle,
+            child: MaterialApp(
+              home: CoreContentDemoScreen(
+                loader: CoreContentPackageLoader(
+                  bundle: bundle,
+                  renderers: [renderer],
+                ),
+                descriptorAsset: _descriptor,
+                renderers: [renderer],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.bySemanticsLabel(RegExp('Custom image description')),
+          findsOneWidget,
+        );
+        final action = tester.getSemantics(find.text('Custom action'));
+        expect(
+          action.getSemanticsData().hasAction(SemanticsAction.tap),
+          isTrue,
+        );
+        action.owner!.performAction(action.id, SemanticsAction.tap);
+        await tester.pumpAndSettle();
+        expect(pressed, isTrue);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        semantics.dispose();
+      }
+    },
+  );
 }

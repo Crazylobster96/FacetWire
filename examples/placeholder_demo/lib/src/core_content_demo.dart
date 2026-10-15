@@ -1192,9 +1192,20 @@ final class _ZoneSurface extends StatelessWidget {
           _ => ColoredBox(color: Colors.red.shade100),
         };
     final color = _typeColor(zone.type);
+    final alt = zone.content['alt'];
+    final describedImage =
+        custom == null &&
+        (zone.type == 'image' || zone.type == 'animated-image') &&
+        alt is String &&
+        alt.isNotEmpty;
     return Semantics(
       container: true,
-      label: '${zone.type}: ${zone.id}',
+      // A described built-in image is one accessible item: its content label,
+      // image role and Zone action must not live on competing nested nodes.
+      // Do not flatten custom renderers, text, media controls or documents.
+      image: describedImage ? true : null,
+      label: describedImage ? alt : '${zone.type}: ${zone.id}',
+      onTap: describedImage ? () => onSelect(zone) : null,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => onSelect(zone),
@@ -1206,21 +1217,24 @@ final class _ZoneSurface extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               content,
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: IgnorePointer(
-                  child: ColoredBox(
-                    color: color.withValues(alpha: 0.86),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      child: Text(
-                        '${zone.type} · ${effectiveOpacity.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
+              ExcludeSemantics(
+                excluding: describedImage,
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: IgnorePointer(
+                    child: ColoredBox(
+                      color: color.withValues(alpha: 0.86),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        child: Text(
+                          '${zone.type} · ${effectiveOpacity.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                          ),
                         ),
                       ),
                     ),
@@ -1318,6 +1332,7 @@ final class _ZoneSurface extends StatelessWidget {
         filterQuality: filterQuality,
         errorBuilder: errorBuilder,
         semanticLabel: semanticLabel,
+        excludeFromSemantics: semanticLabel != null && semanticLabel.isNotEmpty,
       );
     }
     return Image.asset(
@@ -1328,6 +1343,7 @@ final class _ZoneSurface extends StatelessWidget {
       filterQuality: filterQuality,
       errorBuilder: errorBuilder,
       semanticLabel: semanticLabel,
+      excludeFromSemantics: semanticLabel != null && semanticLabel.isNotEmpty,
     );
   }
 
