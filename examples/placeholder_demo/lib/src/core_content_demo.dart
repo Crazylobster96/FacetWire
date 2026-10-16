@@ -1007,7 +1007,7 @@ class _OpenSourceDialogState extends State<_OpenSourceDialog> {
   }
 }
 
-final class _PreviewPane extends StatelessWidget {
+final class _PreviewPane extends StatefulWidget {
   const _PreviewPane({
     required this.document,
     required this.selected,
@@ -1027,7 +1027,62 @@ final class _PreviewPane extends StatelessWidget {
   final Map<String, FacetWireZoneRenderer> renderers;
 
   @override
+  State<_PreviewPane> createState() => _PreviewPaneState();
+}
+
+final class _PreviewPaneState extends State<_PreviewPane> {
+  // Both pointer and accessibility operations share the same view transform.
+  // It survives selection/opacity/mode rebuilds and never changes document data.
+  final _transformer = TransformationController();
+  static const _panMargin = 80.0;
+  static const _edgeTolerance = 0.001;
+
+  @override
+  void dispose() {
+    _transformer.dispose();
+    super.dispose();
+  }
+
+  void _scrollBy(Offset delta, Size viewport, Size canvas) {
+    if (widget.scaleMode != DemoCanvasScaleMode.actualSize) return;
+    final matrix = _transformer.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    final x = matrix.storage[12];
+    final y = matrix.storage[13];
+    if (!scale.isFinite || scale <= 0 || !x.isFinite || !y.isFinite) return;
+    final horizontalExtent = canvas.width * scale - viewport.width;
+    final verticalExtent = canvas.height * scale - viewport.height;
+    final next = Matrix4.copy(matrix);
+    if (delta.dx != 0 && horizontalExtent > _edgeTolerance) {
+      next.setEntry(
+        0,
+        3,
+        (x + delta.dx)
+            .clamp(-horizontalExtent - _panMargin, _panMargin)
+            .toDouble(),
+      );
+    }
+    if (delta.dy != 0 && verticalExtent > _edgeTolerance) {
+      next.setEntry(
+        1,
+        3,
+        (y + delta.dy)
+            .clamp(-verticalExtent - _panMargin, _panMargin)
+            .toDouble(),
+      );
+    }
+    _transformer.value = next;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final document = widget.document;
+    final selected = widget.selected;
+    final opacityFor = widget.opacityFor;
+    final onSelect = widget.onSelect;
+    final scaleMode = widget.scaleMode;
+    final renderers = widget.renderers;
+    final showDiagnosticBadges = widget.showDiagnosticBadges;
     return ColoredBox(
       color: const Color(0xffdfe4ec),
       child: Padding(
@@ -1042,15 +1097,21 @@ final class _PreviewPane extends StatelessWidget {
                 ? fitScale
                 : 1.0;
             final isActualSize = scaleMode == DemoCanvasScaleMode.actualSize;
-            return InteractiveViewer(
+            final viewport = constraints.biggest;
+            final canvas = Size(
+              document.width * scale,
+              document.height * scale,
+            );
+            final viewer = InteractiveViewer(
               key: const ValueKey('canvas-interactive-viewer'),
+              transformationController: _transformer,
               constrained: false,
               alignment: Alignment.center,
               panEnabled: isActualSize,
               scaleEnabled: !isActualSize,
               minScale: isActualSize ? 1 : 0.5,
               maxScale: isActualSize ? 1 : 5,
-              boundaryMargin: const EdgeInsets.all(80),
+              boundaryMargin: const EdgeInsets.all(_panMargin),
               child: SizedBox(
                 key: const ValueKey('preview-canvas-box'),
                 width: document.width * scale,
@@ -1075,6 +1136,70 @@ final class _PreviewPane extends StatelessWidget {
                   ),
                 ),
               ),
+            );
+            return ValueListenableBuilder<Matrix4>(
+              valueListenable: _transformer,
+              child: viewer,
+              builder: (context, matrix, child) {
+                final transformScale = matrix.getMaxScaleOnAxis();
+                final x = matrix.storage[12];
+                final y = matrix.storage[13];
+                final valid =
+                    isActualSize &&
+                    transformScale.isFinite &&
+                    transformScale > 0 &&
+                    x.isFinite &&
+                    y.isFinite;
+                final horizontalExtent =
+                    canvas.width * transformScale - viewport.width;
+                final verticalExtent =
+                    canvas.height * transformScale - viewport.height;
+                final horizontal = valid && horizontalExtent > _edgeTolerance;
+                final vertical = valid && verticalExtent > _edgeTolerance;
+                // A non-focusable container adds standard native scroll actions,
+                // not another reading stop. Keep every content node independent.
+                return Semantics(
+                  key: const ValueKey('canvas-accessible-viewport'),
+                  identifier: 'facetwire.canvas.viewport',
+                  container: true,
+                  explicitChildNodes: true,
+                  // Semantics directions describe finger movement. UIKit maps
+                  // vertical accessibility directions to the opposite action.
+                  onScrollDown: vertical && y < _panMargin - _edgeTolerance
+                      ? () => _scrollBy(
+                          Offset(0, viewport.height * .8),
+                          viewport,
+                          canvas,
+                        )
+                      : null,
+                  onScrollUp:
+                      vertical &&
+                          y > -verticalExtent - _panMargin + _edgeTolerance
+                      ? () => _scrollBy(
+                          Offset(0, -viewport.height * .8),
+                          viewport,
+                          canvas,
+                        )
+                      : null,
+                  onScrollRight: horizontal && x < _panMargin - _edgeTolerance
+                      ? () => _scrollBy(
+                          Offset(viewport.width * .8, 0),
+                          viewport,
+                          canvas,
+                        )
+                      : null,
+                  onScrollLeft:
+                      horizontal &&
+                          x > -horizontalExtent - _panMargin + _edgeTolerance
+                      ? () => _scrollBy(
+                          Offset(-viewport.width * .8, 0),
+                          viewport,
+                          canvas,
+                        )
+                      : null,
+                  child: child,
+                );
+              },
             );
           },
         ),

@@ -173,6 +173,14 @@ local test bundle. It does not configure Developer ID distribution signing.
 
 ## Manual acceptance / 手工验收
 
+Core Content actual-size (固定 1:1) canvas panning also exposes bounded standard
+accessibility scroll actions. Direction names follow Flutter finger movement,
+not scrollbar movement; fit mode and non-overflow axes do not advertise false
+movement. The inspector ListView and content canvas scroll independently.
+This does not merge content semantics or modify the loaded package. See the
+[implementation and differential evidence](../../docs/verification/2026-10-17-accessible-canvas-pan.md).
+Real device VoiceOver gestures still need separate manual verification.
+
 1. Scene tree shows `document Zone → child Canvas` at depths 1, 2, and 3; the
    two embedding Zones are not hidden.
 2. The center preview composes all three Canvases at once. With no placement in
