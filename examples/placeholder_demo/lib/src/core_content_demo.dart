@@ -630,6 +630,7 @@ class CoreContentDemoScreen extends StatefulWidget {
     this.renderers = const [],
     this.descriptorAsset = richMediaShowcaseDescriptor,
     this.initialPath,
+    this.showDiagnosticBadges = true,
     super.key,
   });
 
@@ -637,6 +638,9 @@ class CoreContentDemoScreen extends StatefulWidget {
   final List<FacetWireZoneRenderer> renderers;
   final String descriptorAsset;
   final String? initialPath;
+
+  /// Host presentation only; never changes the loaded document or its content.
+  final bool showDiagnosticBadges;
 
   @override
   State<CoreContentDemoScreen> createState() => _CoreContentDemoScreenState();
@@ -776,6 +780,7 @@ class _CoreContentDemoScreenState extends State<CoreContentDemoScreen> {
       onSelect: (zone) => setState(() => _selected = zone),
       scaleMode: _scaleMode,
       renderers: renderers,
+      showDiagnosticBadges: widget.showDiagnosticBadges,
     );
     final controls = _buildControls();
     if (constraints.maxWidth >= 900) {
@@ -1010,6 +1015,7 @@ final class _PreviewPane extends StatelessWidget {
     required this.onSelect,
     required this.scaleMode,
     required this.renderers,
+    required this.showDiagnosticBadges,
   });
 
   final DemoDocument document;
@@ -1017,6 +1023,7 @@ final class _PreviewPane extends StatelessWidget {
   final double Function(DemoZone zone) opacityFor;
   final ValueChanged<DemoZone> onSelect;
   final DemoCanvasScaleMode scaleMode;
+  final bool showDiagnosticBadges;
   final Map<String, FacetWireZoneRenderer> renderers;
 
   @override
@@ -1063,6 +1070,7 @@ final class _PreviewPane extends StatelessWidget {
                       opacityFor: opacityFor,
                       onSelect: onSelect,
                       renderers: renderers,
+                      showDiagnosticBadges: showDiagnosticBadges,
                     ),
                   ),
                 ),
@@ -1082,9 +1090,11 @@ final class _DocumentCanvas extends StatelessWidget {
     required this.opacityFor,
     required this.onSelect,
     required this.renderers,
+    required this.showDiagnosticBadges,
   });
 
   final DemoDocument document;
+  final bool showDiagnosticBadges;
   final DemoZone? selected;
   final double Function(DemoZone zone) opacityFor;
   final ValueChanged<DemoZone> onSelect;
@@ -1117,27 +1127,29 @@ final class _DocumentCanvas extends StatelessWidget {
                   onSelect: onSelect,
                   selectedZone: selected,
                   renderers: renderers,
+                  showDiagnosticBadges: showDiagnosticBadges,
                 ),
               ),
-          Positioned(
-            left: 4,
-            top: 4,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(color: _depthColor(document.depth)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  child: Text(
-                    '${document.depth} · ${document.id}',
-                    style: const TextStyle(color: Colors.white, fontSize: 9),
+          if (showDiagnosticBadges)
+            Positioned(
+              left: 4,
+              top: 4,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: _depthColor(document.depth)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    child: Text(
+                      '${document.depth} · ${document.id}',
+                      style: const TextStyle(color: Colors.white, fontSize: 9),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -1159,9 +1171,11 @@ final class _ZoneSurface extends StatelessWidget {
     required this.onSelect,
     required this.selectedZone,
     required this.renderers,
+    required this.showDiagnosticBadges,
   });
 
   final DemoZone zone;
+  final bool showDiagnosticBadges;
   final bool selected;
   final double effectiveOpacity;
   final double Function(DemoZone zone) opacityFor;
@@ -1218,30 +1232,31 @@ final class _ZoneSurface extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               content,
-              ExcludeSemantics(
-                excluding: describedImage,
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  child: IgnorePointer(
-                    child: ColoredBox(
-                      color: color.withValues(alpha: 0.86),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1,
-                        ),
-                        child: Text(
-                          '${zone.type} · ${effectiveOpacity.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
+              if (showDiagnosticBadges)
+                ExcludeSemantics(
+                  excluding: describedImage,
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: color.withValues(alpha: 0.86),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          child: Text(
+                            '${zone.type} · ${effectiveOpacity.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -1390,6 +1405,7 @@ final class _ZoneSurface extends StatelessWidget {
         opacityFor: opacityFor,
         onSelect: onSelect,
         renderers: renderers,
+        showDiagnosticBadges: showDiagnosticBadges,
       ),
     );
     final Widget placed;
