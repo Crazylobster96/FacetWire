@@ -16,6 +16,16 @@ final _png = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGUlEQVR4nGNQWJDwnxLMMGrAqAGjBgwXAwAOIh8fzdnvlAAAAABJRU5ErkJggg==',
 );
 
+int _tapDescendants(SemanticsNode node) {
+  var count = 0;
+  node.visitChildren((child) {
+    if (child.getSemanticsData().hasAction(SemanticsAction.tap)) count++;
+    count += _tapDescendants(child);
+    return true;
+  });
+  return count;
+}
+
 Map<String, Object> _document(String type, Object? alt) => {
   'format': 'facetwire.agent-scene-package',
   'version': '0.1',
@@ -109,7 +119,29 @@ void main() {
             node.getSemanticsData().label,
             contains('Resource unavailable'),
           );
-          expect(find.bySemanticsLabel(_alternative), findsOneWidget);
+          // Without the redundant gesture boundary the error text may join
+          // the owning description; both must remain available.
+          final described = find.bySemanticsLabel(RegExp(_alternative));
+          expect(described, findsOneWidget);
+          final describedNode = tester.getSemantics(described);
+          expect(
+            describedNode.getSemanticsData().label,
+            contains(_alternative),
+          );
+          expect(
+            describedNode.getSemanticsData().flagsCollection.isImage,
+            isTrue,
+          );
+          expect(
+            describedNode.getSemanticsData().hasAction(SemanticsAction.tap),
+            isTrue,
+          );
+          expect(
+            _tapDescendants(describedNode),
+            0,
+            reason:
+                'Decode failure must not create a blank duplicate image action',
+          );
         } finally {
           await tester.pumpWidget(const SizedBox.shrink());
           semantics.dispose();
@@ -226,6 +258,11 @@ void main() {
                   descriptions,
                   1,
                   reason: 'No competing duplicate description node',
+                );
+                expect(
+                  _tapDescendants(imageNode),
+                  0,
+                  reason: 'The described image must not have a competing blank tap child',
                 );
                 imageNode.owner!.performAction(
                   imageNode.id,

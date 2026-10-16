@@ -1207,6 +1207,7 @@ final class _ZoneSurface extends StatelessWidget {
       label: describedImage ? alt : '${zone.type}: ${zone.id}',
       onTap: describedImage ? () => onSelect(zone) : null,
       child: GestureDetector(
+        excludeFromSemantics: describedImage,
         behavior: HitTestBehavior.opaque,
         onTap: () => onSelect(zone),
         child: DecoratedBox(
