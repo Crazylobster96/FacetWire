@@ -24,7 +24,7 @@
   "permissions": [],
   "dependencies": [],
   "extensions": {
-    "implementationStatus": "experimental",
-    "supportedSlice": ["continuous", "block"]
+    "facetwire.implementation-status": "experimental",
+    "facetwire.supported-slice": ["continuous", "block"]
   }
 }

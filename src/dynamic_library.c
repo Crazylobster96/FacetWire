@@ -58,6 +58,10 @@ fw_status fw_native_library_open(fw_string_view absolute_path,
     {
         int wide_length;
         wchar_t *wide_path;
+        wchar_t *load_path;
+        size_t prefix_length;
+        size_t source_offset;
+        size_t index;
         HMODULE module;
         FARPROC symbol;
         fw_plugin_query_fn query = NULL;
@@ -84,9 +88,45 @@ fw_status fw_native_library_open(fw_string_view absolute_path,
             free(wide_path);
             return FW_STATUS_INVALID_ARGUMENT;
         }
-        module = LoadLibraryExW(wide_path, NULL,
+        /* Keep one exact authorized path. Win32 may reject an installed
+         * absolute library around MAX_PATH even when the file exists. */
+        for (index = 0u; index < (size_t)wide_length; ++index) {
+            if (wide_path[index] == L'/') wide_path[index] = L'\\';
+        }
+        if ((size_t)wide_length >= 4u && wide_path[0] == L'\\' &&
+            wide_path[1] == L'\\' && wide_path[2] == L'?' &&
+            wide_path[3] == L'\\') {
+            prefix_length = 0u;
+            source_offset = 0u;
+        } else if ((size_t)wide_length >= 2u &&
+                   wide_path[0] == L'\\' && wide_path[1] == L'\\') {
+            prefix_length = 8u;
+            source_offset = 2u;
+        } else {
+            prefix_length = 4u;
+            source_offset = 0u;
+        }
+        if ((size_t)wide_length + prefix_length > 32760u) {
+            free(wide_path);
+            return FW_STATUS_RESOURCE_LIMIT;
+        }
+        load_path = (wchar_t *)calloc((size_t)wide_length +
+                                      prefix_length + 1u, sizeof(*load_path));
+        if (load_path == NULL) {
+            free(wide_path);
+            return FW_STATUS_OUT_OF_MEMORY;
+        }
+        if (prefix_length == 4u) {
+            memcpy(load_path, L"\\\\?\\", 4u * sizeof(*load_path));
+        } else if (prefix_length == 8u) {
+            memcpy(load_path, L"\\\\?\\UNC\\", 8u * sizeof(*load_path));
+        }
+        memcpy(load_path + prefix_length, wide_path + source_offset,
+               ((size_t)wide_length - source_offset + 1u) * sizeof(*load_path));
+        module = LoadLibraryExW(load_path, NULL,
             LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR |
             LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+        free(load_path);
         free(wide_path);
         if (module == NULL) {
             return FW_STATUS_NOT_FOUND;

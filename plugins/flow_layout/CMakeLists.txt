@@ -1,4 +1,4 @@
-add_library(facetwire_flow_layout ${FACETWIRE_LIBRARY_TYPE}
+add_library(facetwire_flow_layout ${FACETWIRE_RENDERER_LIBRARY_TYPE}
     src/plugin.c
     src/flow_virtual_pages.c)
 add_library(FacetWire::flow_layout ALIAS facetwire_flow_layout)
@@ -7,7 +7,7 @@ target_link_libraries(facetwire_flow_layout PUBLIC FacetWire::facetwire)
 target_include_directories(facetwire_flow_layout PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-if(FACETWIRE_LIBRARY_TYPE STREQUAL "SHARED")
+if(FACETWIRE_RENDERER_LIBRARY_TYPE STREQUAL "SHARED")
     target_compile_definitions(facetwire_flow_layout PRIVATE
         FACETWIRE_FLOW_LAYOUT_DYNAMIC_ENTRY=1)
 endif()

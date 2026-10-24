@@ -1,4 +1,4 @@
-add_library(facetwire_text_renderer ${FACETWIRE_LIBRARY_TYPE}
+add_library(facetwire_text_renderer ${FACETWIRE_RENDERER_LIBRARY_TYPE}
     src/plugin.c
 )
 add_library(FacetWire::text_renderer ALIAS facetwire_text_renderer)
@@ -9,7 +9,7 @@ target_include_directories(facetwire_text_renderer PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
-if(FACETWIRE_LIBRARY_TYPE STREQUAL "SHARED")
+if(FACETWIRE_RENDERER_LIBRARY_TYPE STREQUAL "SHARED")
     target_compile_definitions(facetwire_text_renderer PRIVATE
         FACETWIRE_TEXT_RENDERER_DYNAMIC_ENTRY=1)
 endif()

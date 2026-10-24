@@ -7,7 +7,13 @@
 #endif
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
+
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 static const int static_interface_token = 41;
 static int static_unload_count;
@@ -142,7 +148,11 @@ static const fw_plugin_api_v1 *FW_CALL query_duplicate(
     return requested_abi.major == FW_ABI_VERSION_MAJOR ? &duplicate_api : NULL;
 }
 
+#if defined(_WIN32)
+int wmain(int argc, wchar_t **argv) {
+#else
 int main(int argc, char **argv) {
+#endif
     const fw_host_api_v1 host = {
         sizeof(fw_host_api_v1), FW_ABI_VERSION_INIT, NULL, NULL};
     const fw_runtime_config_v1 config = {
@@ -221,7 +231,23 @@ int main(int argc, char **argv) {
     if (argc == 2) {
         const fw_string_view relative_path =
             FW_STRING_VIEW_LITERAL("facetwire_dynamic_test_plugin");
+#if defined(_WIN32)
+        /* Narrow CRT argv uses the process ANSI code page, not the ABI's
+           UTF-8 path contract. Preserve Unicode before converting explicitly. */
+        const int path_size = WideCharToMultiByte(
+            CP_UTF8, WC_ERR_INVALID_CHARS, argv[1], -1, NULL, 0, NULL, NULL);
+        char *path_utf8;
+        fw_string_view dynamic_path;
+        assert(path_size > 0);
+        path_utf8 = (char *)malloc((size_t)path_size);
+        assert(path_utf8 != NULL);
+        assert(WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+            argv[1], -1, path_utf8, path_size, NULL, NULL) == path_size);
+        dynamic_path.data = path_utf8;
+        dynamic_path.length = (size_t)path_size - 1u;
+#else
         const fw_string_view dynamic_path = {argv[1], strlen(argv[1])};
+#endif
 
         assert(fw_runtime_load_dynamic(runtime, relative_path, NULL) ==
                FW_STATUS_INVALID_ARGUMENT);
@@ -259,6 +285,9 @@ int main(int argc, char **argv) {
 
         assert(fw_runtime_load_dynamic(runtime, dynamic_path, NULL) ==
                FW_STATUS_OK);
+#if defined(_WIN32)
+        free(path_utf8);
+#endif
     } else {
         assert(argc == 1);
 #if defined(_WIN32)

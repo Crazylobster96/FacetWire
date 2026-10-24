@@ -31,6 +31,44 @@ final class DemoBounds {
 
 enum DemoCanvasScaleMode { fitViewport, actualSize }
 
+/// A trusted, separately supplied Flutter renderer module. Mobile applications
+/// register modules in their signed build; this is not a native hot-loader.
+final class FacetWireZoneRenderer {
+  const FacetWireZoneRenderer({
+    required this.type,
+    required this.validate,
+    required this.build,
+  });
+
+  final String type;
+  final void Function(
+    Map<String, Object?> content,
+    Map<String, String> resources,
+  )
+  validate;
+  final Widget Function(BuildContext context, DemoZone zone) build;
+}
+
+Map<String, FacetWireZoneRenderer> _rendererRegistry(
+  Iterable<FacetWireZoneRenderer> renderers,
+) {
+  final registry = <String, FacetWireZoneRenderer>{};
+  for (final renderer in renderers) {
+    if (!RegExp(r'^[a-z][a-z0-9-]{0,63}$').hasMatch(renderer.type) ||
+        renderer.type == 'document' ||
+        registry.containsKey(renderer.type) ||
+        registry.length >= 64) {
+      throw ArgumentError.value(
+        renderer.type,
+        'renderer type',
+        'invalid or duplicate renderer',
+      );
+    }
+    registry[renderer.type] = renderer;
+  }
+  return Map<String, FacetWireZoneRenderer>.unmodifiable(registry);
+}
+
 final class DemoZone {
   const DemoZone({
     required this.key,
@@ -41,6 +79,7 @@ final class DemoZone {
     required this.posterAsset,
     required this.child,
     required this.documentFit,
+    this.resources = const {},
   });
 
   final String key;
@@ -51,6 +90,7 @@ final class DemoZone {
   final String? posterAsset;
   final DemoDocument? child;
   final String documentFit;
+  final Map<String, String> resources;
 
   String get type => content['type']! as String;
   double get opacity => ((content['opacity'] as num?) ?? 1).toDouble();
@@ -105,16 +145,20 @@ final class DemoDocument {
 }
 
 final class CoreContentPackageLoader {
-  CoreContentPackageLoader({AssetBundle? bundle})
-    : _bundle = bundle ?? rootBundle;
+  CoreContentPackageLoader({
+    AssetBundle? bundle,
+    Iterable<FacetWireZoneRenderer> renderers = const [],
+  }) : _bundle = bundle ?? rootBundle,
+       _renderers = _rendererRegistry(renderers);
 
   final AssetBundle _bundle;
+  final Map<String, FacetWireZoneRenderer> _renderers;
 
   Future<DemoDocument> load(String descriptorAsset) =>
       _load(descriptorAsset, 1, <String>{});
 
   Future<DemoDocument> loadPath(String path) =>
-      _LocalCoreContentPackageLoader().load(path);
+      _LocalCoreContentPackageLoader(_renderers).load(path);
 
   Future<DemoDocument> _load(
     String descriptorAsset,
@@ -196,9 +240,13 @@ final class CoreContentPackageLoader {
             }
           } else if (type == 'chart') {
             _validateChart(content, zoneId);
-          } else if (type != 'text') {
+          } else if (type != 'text' && !_renderers.containsKey(type)) {
             throw FormatException('$zoneId uses unsupported demo type $type');
           }
+          _renderers[type]?.validate(
+            content,
+            Map<String, String>.unmodifiable(resources),
+          );
           zones.add(
             DemoZone(
               key: '$descriptorAsset#$zoneId',
@@ -214,6 +262,7 @@ final class CoreContentPackageLoader {
               posterAsset: posterAsset,
               child: child,
               documentFit: documentFit,
+              resources: Map<String, String>.unmodifiable(resources),
             ),
           );
         }
@@ -283,6 +332,10 @@ final class CoreContentPackageLoader {
 }
 
 final class _LocalCoreContentPackageLoader {
+  _LocalCoreContentPackageLoader(this._renderers);
+
+  final Map<String, FacetWireZoneRenderer> _renderers;
+
   Future<DemoDocument> load(String path) async {
     final requested = path.trim();
     if (requested.isEmpty) {
@@ -475,9 +528,13 @@ final class _LocalCoreContentPackageLoader {
             }
           } else if (type == 'chart') {
             CoreContentPackageLoader._validateChart(content, zoneId);
-          } else if (type != 'text') {
+          } else if (type != 'text' && !_renderers.containsKey(type)) {
             throw FormatException('$zoneId uses unsupported demo type $type');
           }
+          _renderers[type]?.validate(
+            content,
+            Map<String, String>.unmodifiable(resources),
+          );
           zones.add(
             DemoZone(
               key: '$identity#$zoneId',
@@ -505,6 +562,7 @@ final class _LocalCoreContentPackageLoader {
               posterAsset: posterAsset,
               child: child,
               documentFit: documentFit,
+              resources: Map<String, String>.unmodifiable(resources),
             ),
           );
         }
@@ -569,14 +627,20 @@ final class _LocalCoreContentPackageLoader {
 class CoreContentDemoScreen extends StatefulWidget {
   const CoreContentDemoScreen({
     this.loader,
+    this.renderers = const [],
     this.descriptorAsset = richMediaShowcaseDescriptor,
     this.initialPath,
+    this.showDiagnosticBadges = true,
     super.key,
   });
 
   final CoreContentPackageLoader? loader;
+  final List<FacetWireZoneRenderer> renderers;
   final String descriptorAsset;
   final String? initialPath;
+
+  /// Host presentation only; never changes the loaded document or its content.
+  final bool showDiagnosticBadges;
 
   @override
   State<CoreContentDemoScreen> createState() => _CoreContentDemoScreenState();
@@ -607,7 +671,9 @@ class _CoreContentDemoScreenState extends State<CoreContentDemoScreen> {
   Future<void> _load(String? path) async {
     setState(() => _loading = true);
     try {
-      final loader = widget.loader ?? CoreContentPackageLoader();
+      final loader =
+          widget.loader ??
+          CoreContentPackageLoader(renderers: widget.renderers);
       final requestedPath = path?.trim();
       final document = requestedPath == null || requestedPath.isEmpty
           ? await loader.load(widget.descriptorAsset)
@@ -615,7 +681,10 @@ class _CoreContentDemoScreenState extends State<CoreContentDemoScreen> {
       if (!mounted) return;
       setState(() {
         _document = document;
-        _selected = document.zones.firstWhere((zone) => zone.type == 'text');
+        _selected = document.zones.firstWhere(
+          (zone) => zone.type == 'text',
+          orElse: () => document.zones.first,
+        );
         _error = null;
         _activePath = requestedPath == null || requestedPath.isEmpty
             ? null
@@ -703,12 +772,15 @@ class _CoreContentDemoScreenState extends State<CoreContentDemoScreen> {
   }
 
   Widget _buildLoaded(BuildContext context, BoxConstraints constraints) {
+    final renderers = _rendererRegistry(widget.renderers);
     final preview = _PreviewPane(
       document: _document!,
       selected: _selected,
       opacityFor: _effectiveOpacity,
       onSelect: (zone) => setState(() => _selected = zone),
       scaleMode: _scaleMode,
+      renderers: renderers,
+      showDiagnosticBadges: widget.showDiagnosticBadges,
     );
     final controls = _buildControls();
     if (constraints.maxWidth >= 900) {
@@ -935,13 +1007,15 @@ class _OpenSourceDialogState extends State<_OpenSourceDialog> {
   }
 }
 
-final class _PreviewPane extends StatelessWidget {
+final class _PreviewPane extends StatefulWidget {
   const _PreviewPane({
     required this.document,
     required this.selected,
     required this.opacityFor,
     required this.onSelect,
     required this.scaleMode,
+    required this.renderers,
+    required this.showDiagnosticBadges,
   });
 
   final DemoDocument document;
@@ -949,9 +1023,66 @@ final class _PreviewPane extends StatelessWidget {
   final double Function(DemoZone zone) opacityFor;
   final ValueChanged<DemoZone> onSelect;
   final DemoCanvasScaleMode scaleMode;
+  final bool showDiagnosticBadges;
+  final Map<String, FacetWireZoneRenderer> renderers;
+
+  @override
+  State<_PreviewPane> createState() => _PreviewPaneState();
+}
+
+final class _PreviewPaneState extends State<_PreviewPane> {
+  // Both pointer and accessibility operations share the same view transform.
+  // It survives selection/opacity/mode rebuilds and never changes document data.
+  final _transformer = TransformationController();
+  static const _panMargin = 80.0;
+  static const _edgeTolerance = 0.001;
+
+  @override
+  void dispose() {
+    _transformer.dispose();
+    super.dispose();
+  }
+
+  void _scrollBy(Offset delta, Size viewport, Size canvas) {
+    if (widget.scaleMode != DemoCanvasScaleMode.actualSize) return;
+    final matrix = _transformer.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    final x = matrix.storage[12];
+    final y = matrix.storage[13];
+    if (!scale.isFinite || scale <= 0 || !x.isFinite || !y.isFinite) return;
+    final horizontalExtent = canvas.width * scale - viewport.width;
+    final verticalExtent = canvas.height * scale - viewport.height;
+    final next = Matrix4.copy(matrix);
+    if (delta.dx != 0 && horizontalExtent > _edgeTolerance) {
+      next.setEntry(
+        0,
+        3,
+        (x + delta.dx)
+            .clamp(-horizontalExtent - _panMargin, _panMargin)
+            .toDouble(),
+      );
+    }
+    if (delta.dy != 0 && verticalExtent > _edgeTolerance) {
+      next.setEntry(
+        1,
+        3,
+        (y + delta.dy)
+            .clamp(-verticalExtent - _panMargin, _panMargin)
+            .toDouble(),
+      );
+    }
+    _transformer.value = next;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final document = widget.document;
+    final selected = widget.selected;
+    final opacityFor = widget.opacityFor;
+    final onSelect = widget.onSelect;
+    final scaleMode = widget.scaleMode;
+    final renderers = widget.renderers;
+    final showDiagnosticBadges = widget.showDiagnosticBadges;
     return ColoredBox(
       color: const Color(0xffdfe4ec),
       child: Padding(
@@ -966,21 +1097,30 @@ final class _PreviewPane extends StatelessWidget {
                 ? fitScale
                 : 1.0;
             final isActualSize = scaleMode == DemoCanvasScaleMode.actualSize;
-            return InteractiveViewer(
+            final viewport = constraints.biggest;
+            final canvas = Size(
+              document.width * scale,
+              document.height * scale,
+            );
+            final viewer = InteractiveViewer(
               key: const ValueKey('canvas-interactive-viewer'),
+              transformationController: _transformer,
               constrained: false,
               alignment: Alignment.center,
               panEnabled: isActualSize,
               scaleEnabled: !isActualSize,
               minScale: isActualSize ? 1 : 0.5,
               maxScale: isActualSize ? 1 : 5,
-              boundaryMargin: const EdgeInsets.all(80),
+              boundaryMargin: const EdgeInsets.all(_panMargin),
               child: SizedBox(
                 key: const ValueKey('preview-canvas-box'),
                 width: document.width * scale,
                 height: document.height * scale,
-                child: Transform.scale(
-                  scale: scale,
+                // Lay out every Zone in the document's original coordinates.
+                // Transform.scale propagates the fitted box's tight constraints
+                // to its child, shrinking the canvas before scaling its paint.
+                child: FittedBox(
+                  fit: BoxFit.contain,
                   alignment: Alignment.topLeft,
                   child: SizedBox(
                     width: document.width,
@@ -990,10 +1130,76 @@ final class _PreviewPane extends StatelessWidget {
                       selected: selected,
                       opacityFor: opacityFor,
                       onSelect: onSelect,
+                      renderers: renderers,
+                      showDiagnosticBadges: showDiagnosticBadges,
                     ),
                   ),
                 ),
               ),
+            );
+            return ValueListenableBuilder<Matrix4>(
+              valueListenable: _transformer,
+              child: viewer,
+              builder: (context, matrix, child) {
+                final transformScale = matrix.getMaxScaleOnAxis();
+                final x = matrix.storage[12];
+                final y = matrix.storage[13];
+                final valid =
+                    isActualSize &&
+                    transformScale.isFinite &&
+                    transformScale > 0 &&
+                    x.isFinite &&
+                    y.isFinite;
+                final horizontalExtent =
+                    canvas.width * transformScale - viewport.width;
+                final verticalExtent =
+                    canvas.height * transformScale - viewport.height;
+                final horizontal = valid && horizontalExtent > _edgeTolerance;
+                final vertical = valid && verticalExtent > _edgeTolerance;
+                // A non-focusable container adds standard native scroll actions,
+                // not another reading stop. Keep every content node independent.
+                return Semantics(
+                  key: const ValueKey('canvas-accessible-viewport'),
+                  identifier: 'facetwire.canvas.viewport',
+                  container: true,
+                  explicitChildNodes: true,
+                  // Semantics directions describe finger movement. UIKit maps
+                  // vertical accessibility directions to the opposite action.
+                  onScrollDown: vertical && y < _panMargin - _edgeTolerance
+                      ? () => _scrollBy(
+                          Offset(0, viewport.height * .8),
+                          viewport,
+                          canvas,
+                        )
+                      : null,
+                  onScrollUp:
+                      vertical &&
+                          y > -verticalExtent - _panMargin + _edgeTolerance
+                      ? () => _scrollBy(
+                          Offset(0, -viewport.height * .8),
+                          viewport,
+                          canvas,
+                        )
+                      : null,
+                  onScrollRight: horizontal && x < _panMargin - _edgeTolerance
+                      ? () => _scrollBy(
+                          Offset(viewport.width * .8, 0),
+                          viewport,
+                          canvas,
+                        )
+                      : null,
+                  onScrollLeft:
+                      horizontal &&
+                          x > -horizontalExtent - _panMargin + _edgeTolerance
+                      ? () => _scrollBy(
+                          Offset(-viewport.width * .8, 0),
+                          viewport,
+                          canvas,
+                        )
+                      : null,
+                  child: child,
+                );
+              },
             );
           },
         ),
@@ -1008,12 +1214,16 @@ final class _DocumentCanvas extends StatelessWidget {
     required this.selected,
     required this.opacityFor,
     required this.onSelect,
+    required this.renderers,
+    required this.showDiagnosticBadges,
   });
 
   final DemoDocument document;
+  final bool showDiagnosticBadges;
   final DemoZone? selected;
   final double Function(DemoZone zone) opacityFor;
   final ValueChanged<DemoZone> onSelect;
+  final Map<String, FacetWireZoneRenderer> renderers;
 
   @override
   Widget build(BuildContext context) {
@@ -1041,27 +1251,30 @@ final class _DocumentCanvas extends StatelessWidget {
                   opacityFor: opacityFor,
                   onSelect: onSelect,
                   selectedZone: selected,
+                  renderers: renderers,
+                  showDiagnosticBadges: showDiagnosticBadges,
                 ),
               ),
-          Positioned(
-            left: 4,
-            top: 4,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(color: _depthColor(document.depth)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  child: Text(
-                    '${document.depth} · ${document.id}',
-                    style: const TextStyle(color: Colors.white, fontSize: 9),
+          if (showDiagnosticBadges)
+            Positioned(
+              left: 4,
+              top: 4,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: _depthColor(document.depth)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    child: Text(
+                      '${document.depth} · ${document.id}',
+                      style: const TextStyle(color: Colors.white, fontSize: 9),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -1082,30 +1295,58 @@ final class _ZoneSurface extends StatelessWidget {
     required this.opacityFor,
     required this.onSelect,
     required this.selectedZone,
+    required this.renderers,
+    required this.showDiagnosticBadges,
   });
 
   final DemoZone zone;
+  final bool showDiagnosticBadges;
   final bool selected;
   final double effectiveOpacity;
   final double Function(DemoZone zone) opacityFor;
   final ValueChanged<DemoZone> onSelect;
   final DemoZone? selectedZone;
+  final Map<String, FacetWireZoneRenderer> renderers;
 
   @override
   Widget build(BuildContext context) {
-    final content = switch (zone.type) {
-      'text' => _text(),
-      'image' || 'animated-image' => _image(),
-      'chart' => _chart(),
-      'video' => _video(),
-      'document' => _document(),
-      _ => ColoredBox(color: Colors.red.shade100),
-    };
+    final extension = renderers[zone.type];
+    Widget? custom;
+    if (extension != null) {
+      try {
+        custom = extension.build(context, zone);
+      } on Object {
+        // A plugin failure affects only this view, never the saved document.
+        custom = const Center(child: Text('Renderer unavailable'));
+      }
+    }
+    final content =
+        custom ??
+        switch (zone.type) {
+          'text' => _text(),
+          'image' || 'animated-image' => _image(),
+          'chart' => _chart(),
+          'video' => _video(),
+          'document' => _document(),
+          _ => ColoredBox(color: Colors.red.shade100),
+        };
     final color = _typeColor(zone.type);
+    final alt = zone.content['alt'];
+    final describedImage =
+        custom == null &&
+        (zone.type == 'image' || zone.type == 'animated-image') &&
+        alt is String &&
+        alt.isNotEmpty;
     return Semantics(
       container: true,
-      label: '${zone.type}: ${zone.id}',
+      // A described built-in image is one accessible item: its content label,
+      // image role and Zone action must not live on competing nested nodes.
+      // Do not flatten custom renderers, text, media controls or documents.
+      image: describedImage ? true : null,
+      label: describedImage ? alt : '${zone.type}: ${zone.id}',
+      onTap: describedImage ? () => onSelect(zone) : null,
       child: GestureDetector(
+        excludeFromSemantics: describedImage,
         behavior: HitTestBehavior.opaque,
         onTap: () => onSelect(zone),
         child: DecoratedBox(
@@ -1116,27 +1357,31 @@ final class _ZoneSurface extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               content,
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: IgnorePointer(
-                  child: ColoredBox(
-                    color: color.withValues(alpha: 0.86),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      child: Text(
-                        '${zone.type} · ${effectiveOpacity.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
+              if (showDiagnosticBadges)
+                ExcludeSemantics(
+                  excluding: describedImage,
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: color.withValues(alpha: 0.86),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          child: Text(
+                            '${zone.type} · ${effectiveOpacity.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -1165,7 +1410,9 @@ final class _ZoneSurface extends StatelessWidget {
     );
     final text = zone.content['text']! as String;
     final textWidget = selectable
-        ? SelectableText(text, style: textStyle)
+        // SelectableText owns its tap recognizer, so the outer GestureDetector
+        // cannot also select this Zone when the user clicks the text itself.
+        ? SelectableText(text, style: textStyle, onTap: () => onSelect(zone))
         : Text(text, style: textStyle, overflow: TextOverflow.clip);
     return Opacity(
       opacity: effectiveOpacity,
@@ -1215,6 +1462,8 @@ final class _ZoneSurface extends StatelessWidget {
     required FilterQuality filterQuality,
     required ImageErrorWidgetBuilder errorBuilder,
   }) {
+    final alt = zone.content['alt'];
+    final semanticLabel = alt is String ? alt : null;
     if (resource.startsWith('file:')) {
       return Image.file(
         File.fromUri(Uri.parse(resource)),
@@ -1223,6 +1472,8 @@ final class _ZoneSurface extends StatelessWidget {
         gaplessPlayback: gaplessPlayback,
         filterQuality: filterQuality,
         errorBuilder: errorBuilder,
+        semanticLabel: semanticLabel,
+        excludeFromSemantics: semanticLabel != null && semanticLabel.isNotEmpty,
       );
     }
     return Image.asset(
@@ -1232,6 +1483,8 @@ final class _ZoneSurface extends StatelessWidget {
       gaplessPlayback: gaplessPlayback,
       filterQuality: filterQuality,
       errorBuilder: errorBuilder,
+      semanticLabel: semanticLabel,
+      excludeFromSemantics: semanticLabel != null && semanticLabel.isNotEmpty,
     );
   }
 
@@ -1276,6 +1529,8 @@ final class _ZoneSurface extends StatelessWidget {
         selected: selectedZone,
         opacityFor: opacityFor,
         onSelect: onSelect,
+        renderers: renderers,
+        showDiagnosticBadges: showDiagnosticBadges,
       ),
     );
     final Widget placed;

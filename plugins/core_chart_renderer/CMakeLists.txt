@@ -1,4 +1,4 @@
-add_library(facetwire_core_chart_renderer ${FACETWIRE_LIBRARY_TYPE}
+add_library(facetwire_core_chart_renderer ${FACETWIRE_RENDERER_LIBRARY_TYPE}
     src/plugin.c)
 add_library(FacetWire::core_chart_renderer ALIAS facetwire_core_chart_renderer)
 target_compile_features(facetwire_core_chart_renderer PRIVATE c_std_11)
@@ -6,7 +6,7 @@ target_link_libraries(facetwire_core_chart_renderer PUBLIC FacetWire::facetwire)
 target_include_directories(facetwire_core_chart_renderer PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-if(FACETWIRE_LIBRARY_TYPE STREQUAL "SHARED")
+if(FACETWIRE_RENDERER_LIBRARY_TYPE STREQUAL "SHARED")
     target_compile_definitions(facetwire_core_chart_renderer PRIVATE
         FACETWIRE_CORE_CHART_DYNAMIC_ENTRY=1)
 endif()

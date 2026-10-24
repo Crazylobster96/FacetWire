@@ -32,6 +32,9 @@ add_executable(facetwire_runtime_discovery_test runtime_discovery_test.c)
 target_compile_features(facetwire_runtime_discovery_test PRIVATE c_std_11)
 target_link_libraries(facetwire_runtime_discovery_test PRIVATE
     FacetWire::facetwire)
+if(MINGW)
+    target_link_options(facetwire_runtime_discovery_test PRIVATE -municode)
+endif()
 
 set(FACETWIRE_TEST_NATIVE_DYNAMIC OFF)
 if(FACETWIRE_ENABLE_NATIVE_DYNAMIC_LOADING)
@@ -55,9 +58,74 @@ if(FACETWIRE_TEST_NATIVE_DYNAMIC)
     add_test(NAME facetwire.runtime.discovery
         COMMAND facetwire_runtime_discovery_test
             $<TARGET_FILE:facetwire_dynamic_test_plugin>)
+    if(WIN32)
+        add_test(NAME facetwire.runtime.discovery_unicode
+            COMMAND ${CMAKE_COMMAND}
+                "-DDISCOVERY_EXE=$<TARGET_FILE:facetwire_runtime_discovery_test>"
+                "-DPLUGIN_FILE=$<TARGET_FILE:facetwire_dynamic_test_plugin>"
+                "-DSTAGING_DIR=${CMAKE_CURRENT_BINARY_DIR}/unicode-discovery/$<CONFIG>"
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/runtime_discovery_unicode.cmake)
+        set_tests_properties(facetwire.runtime.discovery_unicode PROPERTIES
+            LABELS "unit;contract;runtime;plugin;unicode" TIMEOUT 25)
+    endif()
 else()
     add_test(NAME facetwire.runtime.discovery
         COMMAND facetwire_runtime_discovery_test)
+endif()
+
+if(FACETWIRE_TEST_NATIVE_DYNAMIC AND
+   FACETWIRE_RENDERER_LIBRARY_TYPE STREQUAL "SHARED")
+    add_executable(facetwire_dynamic_renderer_artifact_test
+        dynamic_renderer_artifact_test.c)
+    target_compile_features(facetwire_dynamic_renderer_artifact_test
+        PRIVATE c_std_11)
+    target_link_libraries(facetwire_dynamic_renderer_artifact_test
+        PRIVATE FacetWire::facetwire)
+    if(MSVC)
+        target_compile_options(facetwire_dynamic_renderer_artifact_test
+            PRIVATE /W4 /WX /permissive- /utf-8)
+    else()
+        target_compile_options(facetwire_dynamic_renderer_artifact_test
+            PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    if(MINGW)
+        target_link_options(facetwire_dynamic_renderer_artifact_test
+            PRIVATE -municode)
+    endif()
+    function(facetwire_test_dynamic_renderer target identity manifest_path)
+        add_dependencies(facetwire_dynamic_renderer_artifact_test ${target})
+        add_test(NAME facetwire.dynamic_renderer.${target}
+            COMMAND ${CMAKE_COMMAND}
+                "-DRENDERER_TEST_EXE=$<TARGET_FILE:facetwire_dynamic_renderer_artifact_test>"
+                "-DRENDERER_PLUGIN_FILE=$<TARGET_FILE:${target}>"
+                "-DRENDERER_STAGING_DIR=${CMAKE_CURRENT_BINARY_DIR}/isolated-renderer/$<CONFIG>/中文/${target}"
+                "-DRENDERER_ID=${identity}"
+                "-DRENDERER_MANIFEST_FILE=${PROJECT_SOURCE_DIR}/${manifest_path}"
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/renderer_isolated_load.cmake)
+        set_tests_properties(facetwire.dynamic_renderer.${target} PROPERTIES
+            LABELS "unit;contract;runtime;renderer;dynamic")
+    endfunction()
+    facetwire_test_dynamic_renderer(facetwire_placeholder_renderer
+        org.facetwire.reference.placeholder-renderer
+        plugins/placeholder_renderer/facetwire.plugin.json)
+    facetwire_test_dynamic_renderer(facetwire_text_renderer
+        org.facetwire.reference.text-renderer
+        plugins/text_renderer/facetwire.plugin.json)
+    facetwire_test_dynamic_renderer(facetwire_core_image_renderer
+        org.facetwire.reference.core-image-renderer
+        plugins/core_image_renderer/facetwire.plugin.json)
+    facetwire_test_dynamic_renderer(facetwire_core_media_renderer
+        org.facetwire.reference.core-media-renderer
+        plugins/core_media_renderer/facetwire.plugin.json)
+    facetwire_test_dynamic_renderer(facetwire_core_chart_renderer
+        org.facetwire.reference.core-chart-renderer
+        plugins/core_chart_renderer/facetwire.plugin.json)
+    facetwire_test_dynamic_renderer(facetwire_hierarchical_chart_renderer
+        org.facetwire.reference.hierarchical-chart-renderer
+        plugins/hierarchical_chart_renderer/facetwire.plugin.json)
+    facetwire_test_dynamic_renderer(facetwire_flow_layout
+        org.facetwire.reference.flow-layout
+        plugins/flow_layout/facetwire.plugin.json)
 endif()
 
 foreach(test_target IN ITEMS

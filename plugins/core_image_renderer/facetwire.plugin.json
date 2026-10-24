@@ -20,7 +20,7 @@
     {
       "id": "facetwire.renderer.animated-image",
       "kind": "facetwire.capability.renderer",
-      "flags": 7,
+      "flags": 6,
       "interfaces": [{"id": "facetwire.renderer.animated-image.v1", "version": 1}]
     }
   ],

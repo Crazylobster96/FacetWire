@@ -21,6 +21,7 @@ function(validate_manifest relative_path expected_plugin_id
     string(JSON registration GET "${manifest}" artifacts 0 registration)
     string(JSON actual_capability_count LENGTH "${manifest}" capabilities)
     string(JSON permission_count LENGTH "${manifest}" permissions)
+    string(JSON extension_count LENGTH "${manifest}" extensions)
 
     if(NOT format STREQUAL "facetwire.plugin-manifest")
         message(FATAL_ERROR "${relative_path}: unexpected format ${format}")
@@ -45,6 +46,17 @@ function(validate_manifest relative_path expected_plugin_id
     if(NOT permission_count EQUAL 0)
         message(FATAL_ERROR
             "${relative_path}: reference renderer must request no permissions")
+    endif()
+    if(extension_count GREATER 0)
+        math(EXPR last_extension "${extension_count} - 1")
+        foreach(index RANGE 0 ${last_extension})
+            string(JSON extension_key MEMBER "${manifest}" extensions ${index})
+            if(NOT extension_key MATCHES
+                    "^[a-z0-9]+([.-][a-z0-9][a-z0-9_-]*)+$")
+                message(FATAL_ERROR
+                    "${relative_path}: extension ${extension_key} violates manifest schema")
+            endif()
+        endforeach()
     endif()
 
     list(LENGTH expected_capabilities expected_capability_count)
@@ -119,3 +131,18 @@ endif()
 validate_manifest("plugins/flow_layout/facetwire.plugin.json"
     "org.facetwire.reference.flow-layout"
     "facetwire_flow_layout_plugin_query" "facetwire.layout.flow")
+validate_manifest("plugins/status_tile_renderer/facetwire.plugin.json"
+    "org.facetwire.reference.status-tile-renderer"
+    "facetwire_status_tile_renderer_plugin_query"
+    "facetwire.renderer.flutter-zone")
+file(READ
+    "${FACETWIRE_SOURCE_DIR}/plugins/status_tile_renderer/facetwire.plugin.json"
+    status_tile_manifest)
+string(JSON status_tile_interface GET
+    "${status_tile_manifest}" capabilities 0 interfaces 0 id)
+string(JSON status_tile_version GET
+    "${status_tile_manifest}" capabilities 0 interfaces 0 version)
+if(NOT status_tile_interface STREQUAL "facetwire.renderer.flutter-zone.v1" OR
+   NOT status_tile_version EQUAL 1)
+    message(FATAL_ERROR "Status Tile must expose the v1 Flutter zone profile")
+endif()
