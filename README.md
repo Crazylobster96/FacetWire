@@ -41,6 +41,8 @@ plugins/core_media_renderer/        Reference Audio and Video renderer
 plugins/core_chart_renderer/        Reference Core Chart Renderer 0.3
 plugins/hierarchical_chart_renderer/ Reference Hierarchical Chart Renderer 0.1
 plugins/flow_layout/                Experimental Flow Layout 0.1 reference
+plugins/document_format/            Pure Dart DOCX importer and document IR (not C ABI)
+bindings/flutter/document_view/     DOCX Flow view and PDFium fixed-page adapter
 spikes/playground_ui/               Shared Windows/macOS/iOS/Android demo host
 plugins/placeholder_renderer/      Reference fallback renderer
 tests/                             ABI and conformance smoke tests

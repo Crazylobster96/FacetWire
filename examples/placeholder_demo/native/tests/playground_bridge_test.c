@@ -267,6 +267,26 @@ int main(void) {
         fwui_buffer_release(&semantics);
     }
 
+    {
+        fwui_document_block blocks[4] = {
+            {400.0f, 200.0f, 0u, 0u}, {400.0f, 200.0f, 0u, 0u},
+            {400.0f, 200.0f, 1u, 0u}, {400.0f, 200.0f, 0u, 0u}
+        };
+        assert(fwui_compose_document_blocks(context, 600.0f, 700.0f, 24.0f,
+            blocks, 4u, &flow) == FWUI_STATUS_OK);
+        assert(strstr((const char *)flow.data, "\"status\":0") != NULL);
+        assert(strstr((const char *)flow.data, "\"pageCount\":2") != NULL);
+        assert(strstr((const char *)flow.data, "\"index\":2,\"page\":1") != NULL);
+        assert(strstr((const char *)flow.data, "\"balanced\":true") != NULL);
+        assert(fwui_compose_document_blocks(context, 600.0f, 700.0f, 24.0f,
+            blocks, 4u, &flow) == FWUI_STATUS_INVALID_ARGUMENT);
+        fwui_buffer_release(&flow);
+        blocks[0].height = 1000.0f;
+        assert(fwui_compose_document_blocks(context, 600.0f, 700.0f, 24.0f,
+            blocks, 4u, &flow) == FWUI_STATUS_INVALID_ARGUMENT);
+        assert(fwui_compose_document_blocks(context, 600.0f, 700.0f, 24.0f,
+            NULL, 0u, &flow) == FWUI_STATUS_INVALID_ARGUMENT);
+    }
     fwui_context_destroy(context);
     puts("FacetWire UI spike bridge tests passed.");
     return 0;

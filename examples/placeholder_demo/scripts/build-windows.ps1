@@ -109,6 +109,22 @@ Invoke-Checked {
 
 $env:NO_PROXY = "${env:NO_PROXY},localhost,127.0.0.1,::1"
 $env:no_proxy = "${env:no_proxy},localhost,127.0.0.1,::1"
+$dart = Join-Path $flutterRoot "bin\dart.bat"
+Push-Location (Join-Path $repoRoot "plugins\document_format")
+try {
+    Invoke-Checked { & $dart pub get } "Document format dependencies failed."
+    Invoke-Checked { & $dart analyze } "Document format analysis failed."
+    Invoke-Checked { & $dart test } "Document format tests failed."
+} finally {
+    Pop-Location
+}
+Push-Location (Join-Path $repoRoot "bindings\flutter\document_view")
+try {
+    Invoke-Checked { & $flutter pub get } "Document view dependencies failed."
+    Invoke-Checked { & $flutter analyze } "Document view analysis failed."
+} finally {
+    Pop-Location
+}
 Push-Location $demoRoot
 try {
     Invoke-Checked { & $flutter pub get } "flutter pub get failed."

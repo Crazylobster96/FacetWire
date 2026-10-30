@@ -74,6 +74,17 @@ FWUI_API fwui_status fwui_compose_flow_demo_v2(
     fwui_buffer *out_layout_plan_utf8_json);
 FWUI_API void fwui_buffer_release(fwui_buffer *buffer);
 
+/* Host-measured, indivisible content blocks; no DOCX/PDF parsing in Flow. */
+typedef struct fwui_document_block {
+    float width;
+    float height;
+    uint32_t break_before;
+    uint32_t keep_with_next;
+} fwui_document_block;
+FWUI_API fwui_status fwui_compose_document_blocks(
+    fwui_context *context, float page_width, float page_height, float margin,
+    const fwui_document_block *blocks, uint32_t count, fwui_buffer *out_json);
+
 #ifdef __cplusplus
 }
 #endif

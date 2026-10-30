@@ -829,6 +829,152 @@ fwui_status fwui_compose_flow_demo_v2(
         out_layout_plan_utf8_json);
 }
 
+typedef struct fwui_document_sink {
+    char *json;
+    size_t capacity;
+    size_t offset;
+    uint32_t count;
+    uint32_t pages;
+    uint32_t ends;
+    uint32_t block_count;
+    const fwui_document_block *blocks;
+} fwui_document_sink;
+
+static fw_status FW_CALL document_begin(void *user, const fw_flow_page_v1 *page) {
+    fwui_document_sink *state = (fwui_document_sink *)user;
+    (void)page;
+    ++state->pages;
+    return FW_STATUS_OK;
+}
+static fw_status FW_CALL document_end(void *user, uint32_t index) {
+    fwui_document_sink *state = (fwui_document_sink *)user;
+    (void)index;
+    ++state->ends;
+    return FW_STATUS_OK;
+}
+static fw_status FW_CALL document_fragment(void *user, const fw_flow_fragment_v1 *f) {
+    fwui_document_sink *s = (fwui_document_sink *)user;
+    /* IDs are generated decimal strings, not untrusted source content. */
+    unsigned long index = strtoul(f->source_item_id.data, NULL, 10);
+    if (index >= s->block_count) return FW_STATUS_INVALID_ARGUMENT;
+    if (!append_json(s->json, s->capacity, &s->offset,
+        "%s{\"index\":%lu,\"page\":%u,\"x\":%.6f,\"y\":%.6f,\"width\":%.6f,\"height\":%.6f}",
+        s->count == 0u ? "" : ",", index, f->page_index,
+        (double)f->bounds.x, (double)f->bounds.y,
+        (double)f->bounds.width, (double)f->bounds.height)) return FW_STATUS_RESOURCE_LIMIT;
+    ++s->count;
+    return FW_STATUS_OK;
+}
+static fw_status FW_CALL document_measure(void *user,
+    const fw_child_measure_request_v1 *request, fw_child_measure_result_v1 *result) {
+    const fwui_document_sink *s = (const fwui_document_sink *)user;
+    unsigned long index = strtoul(request->item_id.data, NULL, 10);
+    if (index >= s->block_count) return FW_STATUS_INVALID_ARGUMENT;
+    result->has_intrinsic_size = 1u;
+    result->intrinsic_size.width = s->blocks[index].width;
+    result->intrinsic_size.height = s->blocks[index].height;
+    result->fingerprint_low = index + 1u;
+    return FW_STATUS_OK;
+}
+fwui_status fwui_compose_document_blocks(fwui_context *context,
+    float page_width, float page_height, float margin,
+    const fwui_document_block *blocks, uint32_t count, fwui_buffer *out_json) {
+    fw_flow_item_v1 *items;
+    char (*ids)[16];
+    fw_flow_layout_request_v1 request;
+    fw_flow_layout_services_v1 services;
+    fw_child_measure_service_v1 child;
+    fw_flow_plan_sink_v1 sink;
+    fw_flow_layout_result_v1 result;
+    fwui_document_sink state;
+    fw_status status;
+    uint32_t i;
+    if (context == NULL || !buffer_available(out_json) || count == 0u ||
+        count > 10000u || blocks == NULL || !isfinite(page_width) ||
+        !isfinite(page_height) || !isfinite(margin) || margin < 0.0f ||
+        page_width < 200.0f || page_height < 200.0f ||
+        page_width > 4000.0f || page_height > 4000.0f ||
+        page_width - 2.0f * margin < 120.0f || page_height - 2.0f * margin < 40.0f)
+        return FWUI_STATUS_INVALID_ARGUMENT;
+    for (i = 0u; i < count; ++i) {
+        if (!isfinite(blocks[i].width) || !isfinite(blocks[i].height) ||
+            blocks[i].width <= 0.0f || blocks[i].height <= 0.0f ||
+            blocks[i].width > page_width - 2.0f * margin + 0.01f ||
+            blocks[i].height > page_height - 2.0f * margin + 0.01f ||
+            blocks[i].break_before > 1u || blocks[i].keep_with_next > 1u)
+            return FWUI_STATUS_INVALID_ARGUMENT;
+    }
+    items = (fw_flow_item_v1 *)calloc(count, sizeof(*items));
+    ids = (char (*)[16])calloc(count, sizeof(*ids));
+    memset(&state, 0, sizeof(state));
+    state.capacity = (size_t)count * 256u + 512u;
+    state.json = (char *)malloc(state.capacity);
+    if (items == NULL || ids == NULL || state.json == NULL) {
+        free(items); free(ids); free(state.json); return FWUI_STATUS_OUT_OF_MEMORY;
+    }
+    state.blocks = blocks;
+    state.block_count = count;
+    for (i = 0u; i < count; ++i) {
+        (void)snprintf(ids[i], sizeof(ids[i]), "%u", i);
+        items[i].struct_size = sizeof(items[i]);
+        items[i].id = string_view(ids[i]);
+        items[i].content_id = items[i].id;
+        items[i].content_kind = string_view("document-block");
+        items[i].kind = FW_FLOW_ITEM_OBJECT;
+        items[i].placement.struct_size = sizeof(items[i].placement);
+        items[i].placement.mode = FW_FLOW_PLACE_BLOCK;
+        items[i].placement.requested_width = blocks[i].width;
+        items[i].placement.requested_height = blocks[i].height;
+        items[i].placement.margins.bottom = 8.0f;
+        items[i].break_policy.struct_size = sizeof(items[i].break_policy);
+        items[i].break_policy.keep_together = 1u;
+        items[i].break_policy.break_before = blocks[i].break_before;
+        items[i].break_policy.keep_with_next = blocks[i].keep_with_next;
+    }
+    memset(&request, 0, sizeof(request));
+    request.struct_size = sizeof(request);
+    request.flow_id = string_view("imported-document");
+    request.items = items; request.item_count = count;
+    request.page_template.struct_size = sizeof(request.page_template);
+    request.page_template.mode = FW_FLOW_VIRTUAL_PAGES;
+    request.page_template.page_size.width = page_width;
+    request.page_template.page_size.height = page_height;
+    request.page_template.margins.left = margin;
+    request.page_template.margins.right = margin;
+    request.page_template.margins.top = margin;
+    request.page_template.margins.bottom = margin;
+    request.page_template.column_count = 1u;
+    request.page_template.minimum_text_width = 120.0f;
+    request.budget.struct_size = sizeof(request.budget);
+    request.budget.max_pages = 500u;
+    request.target.struct_size = sizeof(request.target);
+    request.target.device_pixel_ratio = 1.0f;
+    request.target.font_scale = 1.0f;
+    request.target.medium = FW_RENDER_MEDIUM_SCREEN;
+    request.target.supports_alpha = 1u;
+    request.profile_key = string_view("document-format-v0.1");
+    memset(&child, 0, sizeof(child));
+    child.struct_size = sizeof(child); child.user_data = &state;
+    child.measure_child = document_measure;
+    memset(&services, 0, sizeof(services));
+    services.struct_size = sizeof(services); services.children = &child;
+    memset(&sink, 0, sizeof(sink));
+    sink.struct_size = sizeof(sink); sink.user_data = &state;
+    sink.begin_page = document_begin; sink.emit_fragment = document_fragment; sink.end_page = document_end;
+    memset(&result, 0, sizeof(result)); result.struct_size = sizeof(result);
+    (void)append_json(state.json, state.capacity, &state.offset, "{\"fragments\":[");
+    status = context->flow->compose(context->flow_handle, &request, &services, &sink, &result);
+    if (!append_json(state.json, state.capacity, &state.offset,
+        "],\"status\":%u,\"pageCount\":%u,\"complete\":%s,\"diagnostics\":%llu,\"balanced\":%s}",
+        (unsigned)status, result.page_count, result.complete ? "true" : "false",
+        (unsigned long long)result.diagnostic_flags, state.pages == state.ends ? "true" : "false")) {
+        free(items); free(ids); free(state.json); return FWUI_STATUS_OUT_OF_MEMORY;
+    }
+    out_json->data = (uint8_t *)state.json; out_json->length = state.offset;
+    free(items); free(ids);
+    return FWUI_STATUS_OK;
+}
+
 fwui_status fwui_compose_flow_demo(
     fwui_context *context,
     float width,

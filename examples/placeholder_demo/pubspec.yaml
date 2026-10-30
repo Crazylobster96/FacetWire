@@ -17,8 +17,14 @@ dependencies:
   media_kit_video: 2.0.1
   media_kit_libs_video: 1.0.7
   path_provider: 2.1.6
+  file_selector: ^1.1.0
+  facetwire_document_format:
+    path: ../../plugins/document_format
+  facetwire_document_view:
+    path: ../../bindings/flutter/document_view
 
 dev_dependencies:
+  pdfrx: 2.5.0 # Real backend integration tests; product adapter lives in document_view.
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
@@ -26,6 +32,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/document-import/
     - assets/documents/recursive-placeholder-demo.agscene/
     - assets/documents/recursive-placeholder-demo.agscene/resources/
     - assets/documents/recursive-placeholder-demo.agscene/documents/level-2.agscene/

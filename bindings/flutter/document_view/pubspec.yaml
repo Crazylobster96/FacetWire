@@ -1,0 +1,15 @@
+name: facetwire_document_view
+description: Flutter rendering and PDF backend adapter for FacetWire document formats.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  facetwire_document_format:
+    path: ../../../plugins/document_format
+  pdfrx: 2.5.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

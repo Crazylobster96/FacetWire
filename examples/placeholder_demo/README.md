@@ -15,6 +15,7 @@ Placeholder、Chart 和 Flow 由同一个 Native Assets 库提供；Windows 兼�
 
 | Page / 页面 | Contract / 内容 | Entry / 入口 |
 | --- | --- | --- |
+| Documents / 文档导入 | DOCX Dart 参考格式插件 + 实际 Native Flow 分页；PDFium 固定页；只读、缩放和透明背景 | 首页文档导入图标 |
 | Core Chart | 真实 Core Chart 0.3 / Hierarchical Chart 0.1、30 个图表入口、主题、自动布局、标签、VisualTransform、透明与语义 | 首页图表图标 |
 | Placeholder | 真实 `fwdemo_*` C ABI、三层递归、测量/语义/命中测试 | 默认首页 |
 | Rich Media Showcase / 富媒体综合演示 | Text、PNG、GIF、内联图表数据、本地 MP4、三层原始坐标、重叠与独立 opacity | 首页文章图标 |
@@ -22,6 +23,10 @@ Placeholder、Chart 和 Flow 由同一个 Native Assets 库提供；Windows 兼�
 | Flow Layout | 真实 `facetwire.layout.flow`、三层递归合成、独立 opacity、分页与 fallback | 首页流式布局图标 |
 
 Desktop launch arguments may select an uncompressed Core Content package:
+
+DOCX/PDF local import uses the Documents page file picker/path field, not these
+Core Content launch arguments. See [文档导入用户手册](../../docs/guides/document-import-user-guide.zh-CN.md)
+for capability limits, architecture, and platform validation. XLSX/PPTX are not yet implemented.
 
 ```powershell
 facetwire_placeholder_demo.exe --demo "D:\demos\sample.agscene"

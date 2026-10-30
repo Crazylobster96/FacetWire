@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'chart_renderer_demo.dart';
 import 'chart_runtime_client.dart';
 import 'core_content_demo.dart';
+import 'document_demo.dart';
 import 'flow_layout_demo.dart';
 import 'flow_runtime_client.dart';
 import 'media_renderer_demo.dart';
@@ -79,6 +80,7 @@ class _PlaceholderDemoAppState extends State<PlaceholderDemoApp> {
       '/media' => (_) => const MediaRendererDemoScreen(),
       '/flow' => (_) => FlowLayoutDemoScreen(client: widget.runtimeClient),
       '/chart' => (_) => ChartRendererDemoScreen(client: widget.chartClient),
+      '/documents' => (_) => const DocumentDemoScreen(),
       _ => null,
     };
     if (builder == null) return null;
@@ -324,6 +326,12 @@ class _PlaceholderDemoScreenState extends State<PlaceholderDemoScreen> {
               compact ? 'FacetWire' : 'FacetWire Placeholder Renderer Demo',
             ),
             actions: [
+              IconButton(
+                key: const ValueKey('open-document-demo'),
+                tooltip: 'DOCX / PDF 文档导入',
+                onPressed: () => Navigator.of(context).pushNamed('/documents'),
+                icon: const Icon(Icons.description_outlined),
+              ),
               IconButton(
                 key: const ValueKey('open-core-content-demo'),
                 tooltip: '富媒体综合演示：Text / Image / GIF / Chart / Video',

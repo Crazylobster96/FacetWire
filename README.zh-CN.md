@@ -33,6 +33,8 @@ plugins/core_media_renderer/       音频与视频 Renderer 参考实现
 plugins/core_chart_renderer/       Core Chart Renderer 0.3 参考实现
 plugins/hierarchical_chart_renderer/ Hierarchical Chart Renderer 0.1 参考实现
 plugins/flow_layout/               Flow Layout 0.1 实验性参考实现
+plugins/document_format/           纯 Dart DOCX 导入与文档 IR（非 C ABI）
+bindings/flutter/document_view/    DOCX Flow 视图与 PDFium 固定页适配
 spikes/playground_ui/              Windows/macOS/iOS/Android 共用演示宿主
 plugins/placeholder_renderer/      Placeholder 后备 Renderer 参考实现
 tests/                             ABI 与一致性冒烟测试

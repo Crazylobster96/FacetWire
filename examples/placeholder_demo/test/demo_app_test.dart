@@ -3,6 +3,7 @@ import 'package:facetwire_placeholder_demo/src/chart_renderer_demo.dart';
 import 'package:facetwire_placeholder_demo/src/core_content_demo.dart';
 import 'package:facetwire_placeholder_demo/src/demo_app.dart';
 import 'package:facetwire_placeholder_demo/src/demo_models.dart';
+import 'package:facetwire_placeholder_demo/src/document_demo.dart';
 import 'package:facetwire_placeholder_demo/src/flow_layout_demo.dart';
 import 'package:facetwire_placeholder_demo/src/media_renderer_demo.dart';
 import 'package:facetwire_placeholder_demo/src/package_loader.dart';
@@ -42,6 +43,7 @@ void main() {
       '/media': MediaRendererDemoScreen,
       '/flow': FlowLayoutDemoScreen,
       '/chart': ChartRendererDemoScreen,
+      '/documents': DocumentDemoScreen,
     };
     for (final entry in expectedPages.entries) {
       final settings = RouteSettings(
