@@ -681,8 +681,7 @@ FW_PLUGIN_EXPORT
 #endif
 const fw_plugin_api_v1 *FW_CALL
 facetwire_hierarchical_chart_plugin_query(fw_abi_version requested_abi) {
-    if (requested_abi.major != FW_ABI_VERSION_MAJOR ||
-        requested_abi.minor < FW_ABI_VERSION_MINOR) return NULL;
+    if (!fw_abi_request_supported(requested_abi)) return NULL;
     return &hc_plugin_api;
 }
 

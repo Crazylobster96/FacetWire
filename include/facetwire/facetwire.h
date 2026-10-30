@@ -50,6 +50,15 @@ static inline fw_abi_version fw_abi_version_current(void) {
 
 #define FW_ABI_VERSION_CURRENT fw_abi_version_current()
 
+/* True when a plugin built against this header can serve a host requesting
+ * `requested`: same major, and a minor no older than ours. The minor is read
+ * through a variable so the check stays warning-free while it is 0. */
+static inline int fw_abi_request_supported(fw_abi_version requested) {
+    const unsigned int supported_minor = FW_ABI_VERSION_MINOR;
+    return requested.major == FW_ABI_VERSION_MAJOR &&
+           requested.minor >= supported_minor;
+}
+
 typedef struct fw_string_view {
     const char *data;
     size_t length;

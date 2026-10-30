@@ -26,11 +26,13 @@ static fw_status FW_CALL begin(void *data,
     const fw_visual_transform_result_v1 *transform, float opacity) {
     fake_sink *state = (fake_sink *)data; fw_status status = next(state);
     (void)transform; (void)opacity;
-    if (status == FW_STATUS_OK) ++state->begins; return status;
+    if (status == FW_STATUS_OK) ++state->begins;
+    return status;
 }
 static fw_status FW_CALL end(void *data) {
     fake_sink *state = (fake_sink *)data; fw_status status = next(state);
-    if (status == FW_STATUS_OK) ++state->ends; return status;
+    if (status == FW_STATUS_OK) ++state->ends;
+    return status;
 }
 static fw_status FW_CALL rect(void *data, fw_rect_f32 value,
     fw_color_rgba_f32 color, fw_string_view a, fw_string_view b) {

@@ -55,8 +55,7 @@ static const fw_plugin_api_v1 api = {
     get_descriptor, load, unload, query};
 FW_PLUGIN_EXPORT const fw_plugin_api_v1 *FW_CALL
 facetwire_plugin_query(fw_abi_version requested) {
-    if (requested.major != FW_ABI_VERSION_MAJOR ||
-        requested.minor < FW_ABI_VERSION_MINOR) return NULL;
+    if (!fw_abi_request_supported(requested)) return NULL;
     return &api;
 }
 
