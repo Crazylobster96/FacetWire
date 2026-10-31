@@ -1,9 +1,9 @@
 name: CI
 
+# Manual only: all verification runs locally before pushing (user decision
+# 2026-10-24); this account's Actions cannot start jobs.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
